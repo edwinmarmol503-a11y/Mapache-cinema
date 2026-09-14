@@ -1,0 +1,159 @@
+/* ============================================================
+   MAPACHE CINEMA: LA ULTIMA NOCHE  -  base / layout
+   ============================================================ */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --c-bg:        #05070f;
+  --c-bg2:       #0b1224;
+  --c-ink:       #e8f4ff;
+  --c-dim:       #9fb2cc;
+  --c-blue:      #4a90d9;
+  --c-blue-d:    #26406b;
+  --c-teal:      #3fb6a8;
+  --c-gold:      #f4c542;
+  --c-orange:    #e08a3c;
+  --c-red:       #d64b3a;
+  --c-green:     #6fbf73;
+}
+
+html, body {
+  width: 100%; height: 100%;
+  background: #000;
+  overflow: hidden;
+  font-family: "Courier New", "Consolas", monospace;
+  color: var(--c-ink);
+  -webkit-font-smoothing: none;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background:
+    radial-gradient(ellipse at 50% 0%, #10192f 0%, #05070f 60%, #02030a 100%);
+}
+
+/* ---- old-TV cabinet: everything plays inside a battered wooden television.
+   Built from `border` + `background` only (never `box-shadow` blur/spread --
+   that math is easy to get wrong and can silently blot out the whole page).
+   Purely decorative (pointer-events:none): never touches canvas sizing or
+   click targets. ---- */
+#app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 61;
+  box-sizing: border-box;
+  border: 11px solid #5a4128;
+  border-image: linear-gradient(155deg, #7a5c37 0%, #4a3520 35%, #2c1f10 60%, #6b4e2e 100%) 1;
+  /* NOTE: every stop list below MUST end in `transparent` -- a radial-gradient
+     with no final transparent stop floods the REST of the box with its last
+     color instead of leaving it empty. (That silently blacked out the whole
+     page here once already -- don't repeat it.) */
+  background:
+    radial-gradient(circle 6px at 18px 18px, #cdb98a 35%, #241a0e 85%, transparent 100%),
+    radial-gradient(circle 6px at calc(100% - 18px) 18px, #cdb98a 35%, #241a0e 85%, transparent 100%),
+    radial-gradient(circle 6px at 18px calc(100% - 18px), #cdb98a 35%, #241a0e 85%, transparent 100%),
+    radial-gradient(circle 6px at calc(100% - 18px) calc(100% - 18px), #cdb98a 35%, #241a0e 85%, transparent 100%);
+  background-clip: padding-box;
+}
+#app::after {
+  content: "";
+  position: fixed;
+  inset: 11px;
+  pointer-events: none;
+  z-index: 60;
+  /* soft screen vignette -- a plain radial gradient, so its extent is exact
+     and can never accidentally cover the whole viewport */
+  background: radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.4) 100%);
+}
+
+/* the game canvas -------------------------------------------------- */
+#gs {
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+  background: #050810;
+  border-radius: 3px;
+  box-shadow:
+    0 0 0 2px #1b2540,
+    0 0 0 4px rgba(244,197,66,0.14),
+    0 0 34px rgba(74,144,217,0.3),
+    0 18px 50px rgba(0,0,0,0.65);
+}
+
+/* overlay screens ----------------------------------------------- */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+}
+.screen.hidden { display: none; }
+
+/* full-screen fade used for transitions ------------------------ */
+#fade {
+  position: absolute;
+  inset: 0;
+  background: #02030a;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.45s ease;
+  z-index: 40;
+}
+#fade.on { opacity: 1; pointer-events: all; }
+
+/* toast messages --------------------------------------------------- */
+#toast-layer {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: center;
+  z-index: 30;
+  pointer-events: none;
+}
+.toast {
+  background: rgba(6,10,22,0.72);
+  backdrop-filter: blur(10px) saturate(140%);
+  -webkit-backdrop-filter: blur(10px) saturate(140%);
+  border: 1px solid rgba(74,144,217,0.4);
+  border-top-color: rgba(120,170,255,0.5);
+  color: var(--c-ink);
+  padding: 5px 12px;
+  border-radius: 3px;
+  font-size: 12px;
+  letter-spacing: 1px;
+  animation: toast-in 0.25s cubic-bezier(0.2,0.8,0.3,1), toast-out 0.4s ease 2.1s forwards;
+}
+@keyframes toast-in  { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(-8px); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: toast-in 0.01ms, toast-out 0.01ms 2.1s forwards; }
+}
+
+#boot-hint {
+  position: absolute;
+  bottom: 8px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: #55627a;
+  z-index: 5;
+  text-align: center;
+}
+#boot-hint.hide { display: none; }
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}

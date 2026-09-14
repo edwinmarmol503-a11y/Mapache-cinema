@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
+<title>Mapache Cinema: La Última Noche</title>
+<meta name="description" content="Mapache Cinema: La Última Noche -- aventura de plataformas en pixel art. Juega en el navegador, sin instalar nada." />
+<meta name="theme-color" content="#05070f" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="icons/icon-192.png" />
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Mapache Cinema" />
+<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/menu.css" />
+<link rel="stylesheet" href="css/game.css" />
+<link rel="stylesheet" href="css/ui.css" />
+<link rel="stylesheet" href="css/touch.css" />
+</head>
+<body>
+<div id="app">
+  <canvas id="gs" width="480" height="270"></canvas>
+
+  <!-- ===== MENU PRINCIPAL ===== -->
+  <div id="screen-menu" class="screen">
+    <div class="menu-bg"><div class="rain" id="rain"></div></div>
+    <div class="menu-content">
+      <h1 class="title">MAPACHE<br />CINEMA</h1>
+      <p class="subtitle">La Última Noche</p>
+      <nav class="menu-nav" id="menu-nav">
+        <button data-act="play">JUGAR</button>
+        <button data-act="continue" id="btn-continue">CONTINUAR</button>
+        <button data-act="levels">NIVELES</button>
+        <button data-act="scores">RÉCORDS</button>
+        <button data-act="options">OPCIONES</button>
+        <button data-act="credits">CRÉDITOS</button>
+        <button data-act="quit">SALIR</button>
+      </nav>
+      <p class="hint">
+        Mover: <b>A / D</b> o <b>Flechas</b> &nbsp;·&nbsp; Saltar: <b>Espacio</b> (2x en el aire) &nbsp;·&nbsp;
+        Atacar: <b>J</b> &nbsp;·&nbsp; Esquivar: <b>Shift</b> &nbsp;·&nbsp; Parada: <b>L</b> (con <b>↑</b>/<b>↓</b> arriba/abajo) &nbsp;·&nbsp;
+        Interactuar: <b>E</b> &nbsp;·&nbsp; Lanzar: <b>K</b> &nbsp;·&nbsp; Pausa: <b>Esc</b>
+      </p>
+      <p class="version">v1.0 — pixel art web game</p>
+    </div>
+  </div>
+
+  <!-- ===== OPCIONES ===== -->
+  <div id="screen-options" class="screen hidden">
+    <div class="panel">
+      <h2>OPCIONES</h2>
+      <div class="opt-row">
+        <label>Volumen música</label>
+        <input type="range" id="opt-music" min="0" max="100" value="60" />
+        <span id="opt-music-val">60</span>
+      </div>
+      <div class="opt-row">
+        <label>Volumen efectos</label>
+        <input type="range" id="opt-sfx" min="0" max="100" value="70" />
+        <span id="opt-sfx-val">70</span>
+      </div>
+      <div class="opt-row">
+        <label>Escala de pantalla</label>
+        <select id="opt-scale">
+          <option value="auto">Automática</option>
+          <option value="1">1x</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+        </select>
+      </div>
+      <div class="opt-row">
+        <label>Pantalla completa</label>
+        <button id="opt-fullscreen" class="mini">Activar / Desactivar</button>
+      </div>
+      <div class="opt-row">
+        <label>Modo claro</label>
+        <button id="opt-bright" class="mini">Desactivado</button>
+        <span></span>
+      </div>
+      <div class="opt-controls">
+        <h3>Controles (clic para reasignar)</h3>
+        <div id="control-list"></div>
+        <button id="opt-reset-controls" class="mini">Restaurar controles</button>
+      </div>
+      <button class="back" data-act="back">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===== SELECCIÓN DE NIVELES / DIFICULTAD ===== -->
+  <div id="screen-levels" class="screen hidden">
+    <div class="panel">
+      <h2>NIVELES</h2>
+      <div class="diff-tabs" id="diff-tabs"></div>
+      <p class="diff-blurb" id="diff-blurb"></p>
+      <div class="level-grid" id="level-grid"></div>
+      <p class="hint" id="levels-hint"></p>
+      <button class="back" data-act="back">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===== APODO (al empezar) ===== -->
+  <div id="screen-nick" class="screen hidden">
+    <div class="panel small">
+      <h2>TU APODO</h2>
+      <p class="diff-blurb">Para la tabla de récords por tiempo.</p>
+      <input id="nick-input" type="text" maxlength="12" placeholder="RIKO" autocomplete="off" />
+      <div class="nick-row">
+        <button id="nick-go" class="back" style="margin:0;width:auto;padding:10px 22px;">EMPEZAR</button>
+        <button id="nick-cancel" class="mini">Cancelar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== RÉCORDS ===== -->
+  <div id="screen-scores" class="screen hidden">
+    <div class="panel">
+      <h2>RÉCORDS · MEJORES TIEMPOS</h2>
+      <div class="score-table" id="score-table"></div>
+      <button id="scores-clear" class="mini">Borrar tabla</button>
+      <button class="back" data-act="back">VOLVER</button>
+    </div>
+  </div>
+
+  <!-- ===== PAUSA ===== -->
+  <div id="screen-pause" class="screen hidden">
+    <div class="panel small">
+      <h2>PAUSA</h2>
+      <nav class="menu-nav">
+        <button data-act="resume">CONTINUAR</button>
+        <button data-act="options">OPCIONES</button>
+        <button data-act="restart">REINICIAR NIVEL</button>
+        <button data-act="menu">MENÚ PRINCIPAL</button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- ===== CREDITOS ===== -->
+  <div id="screen-credits" class="screen hidden">
+    <div class="panel">
+      <h2>MAPACHE CINEMA</h2>
+      <p class="credits-sub">La Última Noche</p>
+      <div class="credits-body" id="credits-body"></div>
+      <button id="btn-install" class="mini hidden" style="display:flex;align-items:center;justify-content:center;gap:8px;width:200px;margin:14px auto 0;">
+        <img src="icons/icon-192.png" alt="" width="18" height="18" style="image-rendering:pixelated;" /> INSTALAR JUEGO
+      </button>
+      <button class="back" data-act="back">VOLVER</button>
+    </div>
+  </div>
+
+  <div id="fade"></div>
+  <div id="toast-layer"></div>
+  <div id="boot-hint">Cargando… si no ves nada, abre el proyecto con <b>Live Server</b> (los módulos ES necesitan http://)</div>
+</div>
+<script type="module" src="js/main.js"></script>
+</body>
+</html>

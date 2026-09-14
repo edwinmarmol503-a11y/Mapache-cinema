@@ -1,0 +1,24 @@
+/* ============================================================
+   GAME VIEW  (canvas sizing / pixel scaling)
+   ============================================================ */
+#app.playing #screen-menu,
+#app.playing #screen-credits { display: none; }
+
+/* When a scale is forced from Options we set it inline on #gs via JS.
+   Default: JS computes an integer scale on resize. */
+#gs {
+  --scale: 2;
+}
+
+/* subtle vignette on top of the canvas while playing */
+#app.playing::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(0,0,0,0.45) 100%);
+  z-index: 15;
+}
+
+/* pause dims the canvas */
+#app.paused #gs { filter: brightness(0.5) saturate(0.7); }

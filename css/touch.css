@@ -1,0 +1,122 @@
+/* ============================================================
+   TOUCH CONTROLS  -  only ever mounted on touch-capable devices
+   (see js/touch.js); only visible while a level is being played.
+   ============================================================ */
+#touch-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: none;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+.touch-mode.playing:not(.paused) #touch-layer { display: block; }
+
+.tc-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(11, 18, 36, 0.55);
+  border: 2px solid rgba(74, 144, 217, 0.45);
+  color: var(--c-ink, #e8f4ff);
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  letter-spacing: 1px;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.06s, border-color 0.1s, background 0.1s;
+}
+.tc-btn.active {
+  border-color: var(--c-gold, #f4c542);
+  background: rgba(244, 197, 66, 0.22);
+  transform: scale(0.92);
+}
+
+/* ---- d-pad, bottom-left ---- */
+.tc-dpad {
+  position: absolute;
+  left: 4vw;
+  bottom: 6vh;
+  width: 132px;
+  height: 132px;
+  pointer-events: none;
+}
+.tc-dpad .tc-btn { width: 46px; height: 46px; font-size: 18px; }
+.tc-d-up    { left: 43px; top: 0; }
+.tc-d-down  { left: 43px; top: 86px; }
+.tc-d-left  { left: 0; top: 43px; }
+.tc-d-right { left: 86px; top: 43px; }
+
+/* ---- action diamond, bottom-right ---- */
+.tc-actions {
+  position: absolute;
+  right: 4vw;
+  bottom: 6vh;
+  width: 168px;
+  height: 168px;
+  pointer-events: none;
+}
+.tc-actions .tc-btn { width: 58px; height: 58px; font-size: 11px; }
+.tc-a-jump  { left: 55px; top: 0; border-color: rgba(111, 191, 115, 0.55); }
+.tc-a-atk   { left: 0; top: 55px; border-color: rgba(214, 75, 58, 0.55); }
+.tc-a-parry { left: 110px; top: 55px; border-color: rgba(244, 197, 66, 0.6); }
+.tc-a-dodge { left: 55px; top: 110px; }
+
+/* ---- utility row, top ---- */
+.tc-utility {
+  position: absolute;
+  top: max(8px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+.tc-u-btn {
+  position: static;
+  width: 34px; height: 34px;
+  font-size: 11px;
+  pointer-events: auto;
+}
+.tc-u-wide { width: 58px; border-radius: 17px; }
+.tc-u-pause { border-color: rgba(159, 178, 204, 0.6); }
+
+/* ---- landscape-only nudge ---- */
+#rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #05070f;
+  color: var(--c-ink, #e8f4ff);
+  text-align: center;
+  font-family: "Courier New", monospace;
+}
+#rotate-overlay .ro-icon {
+  font-size: 44px;
+  color: var(--c-gold, #f4c542);
+  animation: ro-spin 1.8s ease-in-out infinite;
+}
+#rotate-overlay span { color: var(--c-dim, #9fb2cc); font-size: 12px; }
+@keyframes ro-spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+@media (orientation: portrait) {
+  .touch-mode.playing #rotate-overlay { display: flex; }
+  .touch-mode.playing #touch-layer { display: none; }
+}
+
+/* touch devices: give the canvas room, drop the keyboard hint text */
+.touch-mode #boot-hint { display: none; }
+@media (pointer: coarse), (hover: none) {
+  .touch-mode .hint { display: none; }
+}

@@ -1,0 +1,21 @@
+/* ============================================================
+   IN-GAME UI  (mostly drawn on canvas; a few DOM helpers)
+   ============================================================ */
+
+/* key-rebind "press a key" hint */
+#rebind-hint {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(6,10,22,0.95);
+  border: 2px solid var(--c-gold);
+  padding: 18px 26px;
+  font-size: 14px;
+  letter-spacing: 2px;
+  z-index: 60;
+  color: var(--c-gold);
+}
+#rebind-hint.hidden { display: none; }
+
+/* generic on-canvas UI is handled in js/ui.js — nothing else needed here,
+   this file exists to keep the requested structure. */
