@@ -86,6 +86,11 @@ export class Farolero {
       world.camera.shake(6, 0.5);
       this.telegraph = 0;
       this.swoopCd = 1.5;
+      // Pesadilla: the phase you just reached becomes a checkpoint -- dying
+      // now resumes the fight here instead of a full reset back to phase 1.
+      if (world.diff && world.diff.key === 'nightmare' && world.markProgress) {
+        world.markProgress('bossHpCheckpoint', this.hp);
+      }
     }
   }
 

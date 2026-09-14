@@ -178,6 +178,7 @@ export class Player {
       this.invuln = Math.max(this.invuln, 0.28);
       world.audio.sfx('attack');
       world.particles.burst(this.cx, this.y + this.h, 8, { color: '#9fd3ff', speed: 60, life: 0.3, gravity: 30 });
+      if (world.announceDodge) world.announceDodge();
     }
 
     /* ---- horizontal accel / friction ---- */

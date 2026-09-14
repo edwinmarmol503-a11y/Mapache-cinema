@@ -31,20 +31,34 @@ const TILE_PAL = {
   tower:    { body: '#241f3c', body2: '#1a162e', line: 'rgba(120,90,200,0.22)', top: '#372f57', topHi: '#4f4577', plat: '#443a63', platHi: '#6a5f93', spike: '#b06adc', spikeHi: '#e8c0ff' },
 };
 
-/* playful floating call-outs ("en el cielo") -- purely cosmetic, no gameplay effect */
+/* playful floating call-outs ("en el cielo") -- purely cosmetic, no gameplay
+   effect, nods to arcade/fighting-game announcer lines and well-known game
+   catchphrases. Drawn from a shuffled bag per category (see _bagPick) so the
+   same line never repeats until every other one in its pool has shown up. */
 const KILL_PHRASES = [
   '¡BUEN TRABAJO!', '¡BIEN HECHO!', 'SUGAR CRUSH!!', '¡ASÍ SE HACE!', '¡COMBO!',
-  'GG', '¡TASTY!', '¡PERFECTO!', '¡ESO ES, RIKO!', '¡BOOM!',
+  'GG', '¡TASTY!', '¡PERFECTO!', '¡ESO ES, RIKO!', '¡BOOM!', '¡FATALITY!',
+  '¡FLAWLESS!', 'ACHIEVEMENT DESBLOQUEADO', '¡K.O.!', '¡EXCELLENT!', '¡TOASTY!',
+  'S RANK', '¡WOMBO COMBO!', '¡RING OUT!', '¡CRITICAL HIT!', '¡GREAT!',
 ];
 const LANTERN_PHRASES = [
-  '¡MÁS LUZ!', '¡ASÍ SE ILUMINA!', '¡BRILLANTE!', '¡BUEN OJO!', 'let there be light!',
+  '¡MÁS LUZ!', '¡ASÍ SE ILUMINA!', '¡BRILLANTE!', '¡BUEN OJO!', '¡LET THERE BE LIGHT!',
+  '¡ITEM GET!', '¡TACHÁN!', '¡DING!', 'PUZZLE SOLVED', '¡NUEVO RÉCORD DE BRILLO!',
 ];
 const DEATH_PHRASES = [
   'jijiji ¿NO PUDISTE?', '¡JAJAJA GAME OVER!', 'F', 'uy... eso dolió (a ti, no a mí)',
-  '¿en serio? JAJAJA', 'Riko: 0 — Farolero: 1', 'otra vez será, quizás...',
+  '¿en serio? JAJAJA', 'otra vez será, quizás...', 'YOU DIED', 'PRESS F TO PAY RESPECTS',
+  'CONTINUE? 9... 8... 7...', '¿ESO ES TODO?', 'REKT', '0 VIDAS RESTANTES',
+  'INSERTA UNA MONEDA', 'skill issue (es broma... o no)',
 ];
 const CLEAR_PHRASES = [
   '¡LO LOGRASTE!', '¡ZONA DESPEJADA!', '¡ERES UNA LEYENDA!', '¡IMPECABLE!', 'FLAWLESS!',
+  '¡STAGE CLEAR!', '¡MISIÓN CUMPLIDA!', '¡GG WP!', '¡LEGENDARIO!', 'YOU WIN',
+  '¡A OTRA COSA, MARIPOSA!',
+];
+const DODGE_PHRASES = [
+  '¡GOTTA GO FAST!', '¡SONIC BOOM!', '¡MÁS RÁPIDO QUE EL SONIDO!', 'WOOOAH',
+  '¡SPIN DASH!', '¡A TODA VELOCIDAD!', 'ZOOM!', '¡COOL!', '¡SANIC!', '¡WHOOSH!',
 ];
 
 export class Game {
@@ -114,10 +128,40 @@ export class Game {
     this.skyMsgs.push({ text, color: color || '#ffe07a', t: 1.5, life: 1.5 });
     if (this.skyMsgs.length > 3) this.skyMsgs.shift();
   }
-  announceKill()    { this.skyMessage(choice(KILL_PHRASES), '#f4c542'); }
-  announceLantern() { this.skyMessage(choice(LANTERN_PHRASES), '#8fe0ff'); }
-  announceDeath()   { this.skyMessage(choice(DEATH_PHRASES), '#ff6a6a'); }
-  announceClear()   { this.skyMessage(choice(CLEAR_PHRASES), '#6fbf73'); }
+
+  /** draw one line from a shuffled bag -- guarantees no repeat until every
+      other line in that pool has shown up first, instead of plain random. */
+  _bagPick(cat, pool) {
+    if (!this._msgBags) this._msgBags = {};
+    let bag = this._msgBags[cat];
+    if (!bag || bag.length === 0) {
+      bag = pool.slice();
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+      this._msgBags[cat] = bag;
+    }
+    return bag.pop();
+  }
+
+  /** simple per-category rate limit so a spammable action (dodge) can't flood the queue */
+  _msgAllowed(cat, minGapMs) {
+    if (!this._msgCd) this._msgCd = {};
+    const now = performance.now();
+    if (now - (this._msgCd[cat] || 0) < minGapMs) return false;
+    this._msgCd[cat] = now;
+    return true;
+  }
+
+  announceKill()    { this.skyMessage(this._bagPick('kill', KILL_PHRASES), '#f4c542'); }
+  announceLantern() { this.skyMessage(this._bagPick('lantern', LANTERN_PHRASES), '#8fe0ff'); }
+  announceDeath()   { this.skyMessage(this._bagPick('death', DEATH_PHRASES), '#ff6a6a'); }
+  announceClear()   { this.skyMessage(this._bagPick('clear', CLEAR_PHRASES), '#6fbf73'); }
+  announceDodge() {
+    if (!this._msgAllowed('dodge', 1400)) return;
+    this.skyMessage(this._bagPick('dodge', DODGE_PHRASES), '#9fe8ff');
+  }
 
   /* level is "cleared" -> the exit gate opens */
   get cleared() {
@@ -300,9 +344,12 @@ export class Game {
     this.lanternsTotal = this.puzzleEls.filter((e) => e instanceof LightNode).length;
     // triggers
     for (const t of L.triggers || []) {
+      // Pesadilla: already met the Farolero this attempt (a phase checkpoint
+      // exists) -- skip his speech again on every retry, go straight to the fight
+      const skipDialogue = t.event === 'bossIntro' && D.key === 'nightmare' && this.progress('bossHpCheckpoint') != null;
       this.triggers.push({
         rect: { x: t.tx * TS, y: t.ty * TS, w: t.w * TS, h: t.h * TS },
-        dialogue: t.dialogue, event: t.event, fired: false,
+        dialogue: skipDialogue ? null : t.dialogue, event: t.event, fired: false,
       });
     }
     // checkpoints
@@ -415,7 +462,16 @@ export class Game {
   /** called exactly once per real (non-revived) death -- mocking call-out +
       counts toward the Pesadilla mercy nerf (see NIGHTMARE_MERCY_DEATHS) */
   _onRealDeath() {
-    this.announceDeath();
+    if (this.bossActive) {
+      // a running score, only for the Farolero fight, that keeps climbing
+      // across every retry (survives the death -> respawn cycle like any
+      // other level progress)
+      const n = (this.progress('bossDeaths') || 0) + 1;
+      this.markProgress('bossDeaths', n);
+      this.skyMessage('EL FAROLERO ' + n + '  —  RIKO 0', '#ff6a6a');
+    } else {
+      this.announceDeath();
+    }
     if (this.diff && this.diff.key === 'nightmare' && this.save.addNightmareDeath) {
       this.save.addNightmareDeath();
     }
@@ -473,7 +529,21 @@ export class Game {
     this.bossActive = true;
     this._farolWas = {};
     this.audio.playMusic('boss');
-    this.toast('EL FAROLERO');
+    // Pesadilla: resume at the last phase reached instead of a full reset
+    if (this.diff && this.diff.key === 'nightmare') {
+      const savedHp = this.progress('bossHpCheckpoint');
+      if (typeof savedHp === 'number' && savedHp > 0 && savedHp < this.boss.maxHp) {
+        this.boss.hp = savedHp;
+        this.boss.state = 'hover';
+        this.boss.stateT = 0;
+        this.boss.swoopCd = 2.2;
+        this.toast('EL FAROLERO  ·  Fase ' + this.boss.phase);
+      } else {
+        this.toast('EL FAROLERO');
+      }
+    } else {
+      this.toast('EL FAROLERO');
+    }
   }
 
   resetBossLanterns(phase) {
