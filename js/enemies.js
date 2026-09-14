@@ -115,8 +115,10 @@ class Enemy {
       return;
     }
 
-    // otherwise it's a hit on Riko
-    if (p.hurt(this.dmg, this.x + this.w / 2)) world.camera.shake(3, 0.2);
+    // otherwise it's a hit on Riko -- in Pesadilla, any enemy touch is lethal
+    // (only the boss's light orbs chip away at HP one at a time there)
+    const dmg = (world.diff && world.diff.instaKillTouch) ? p.maxHp : this.dmg;
+    if (p.hurt(dmg, this.x + this.w / 2)) world.camera.shake(3, 0.2);
   }
 
   render(ctx, cam) {

@@ -344,6 +344,7 @@ export class LightNode extends PuzzleEl {
     this.lit = true;
     if (this.id) world.markProgress('lit:' + this.id, true);
     world.audio.sfx('light');
+    if (world.announceLantern) world.announceLantern();
     // a SOFT, see-through pool of light -- shapes stay visible through it
     world.addLight(this.x + this.ts / 2, this.y + this.ts / 2 - 4, 58, 'rgba(255,223,154,0.9)', true);
     world.particles.burst(this.x + 8, this.y + 6, 18, { color: '#ffdf9a', speed: 70, life: 0.7, glow: true, gravity: -18 });

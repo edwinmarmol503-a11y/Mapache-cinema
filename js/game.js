@@ -13,7 +13,7 @@ import { makeEnemy } from './enemies.js';
 import { makePuzzle, Crate, LightNode, Door, Rope, Sequence, Magnet, Lever } from './puzzles.js';
 import { Farolero } from './boss.js';
 import { LEVELS, TS, buildTileMap } from './levels.js';
-import { getDiff } from './difficulty.js';
+import { getDiff, NIGHTMARE_MERCY_DEATHS, nightmareMercyDiff } from './difficulty.js';
 import { resolveSolids } from './physics.js';
 import { rectsOverlap } from './collision.js';
 import { drawHUD, drawBackground, currentLightning, outText } from './ui.js';
@@ -30,6 +30,22 @@ const TILE_PAL = {
   district: { body: '#2b2733', body2: '#211d29', line: 'rgba(90,80,100,0.35)', top: '#3a3446', topHi: '#524a63', plat: '#4a4252', platHi: '#6c6076', spike: '#c95a5a', spikeHi: '#ff9c9c' },
   tower:    { body: '#241f3c', body2: '#1a162e', line: 'rgba(120,90,200,0.22)', top: '#372f57', topHi: '#4f4577', plat: '#443a63', platHi: '#6a5f93', spike: '#b06adc', spikeHi: '#e8c0ff' },
 };
+
+/* playful floating call-outs ("en el cielo") -- purely cosmetic, no gameplay effect */
+const KILL_PHRASES = [
+  '¡BUEN TRABAJO!', '¡BIEN HECHO!', 'SUGAR CRUSH!!', '¡ASÍ SE HACE!', '¡COMBO!',
+  'GG', '¡TASTY!', '¡PERFECTO!', '¡ESO ES, RIKO!', '¡BOOM!',
+];
+const LANTERN_PHRASES = [
+  '¡MÁS LUZ!', '¡ASÍ SE ILUMINA!', '¡BRILLANTE!', '¡BUEN OJO!', 'let there be light!',
+];
+const DEATH_PHRASES = [
+  'jijiji ¿NO PUDISTE?', '¡JAJAJA GAME OVER!', 'F', 'uy... eso dolió (a ti, no a mí)',
+  '¿en serio? JAJAJA', 'Riko: 0 — Farolero: 1', 'otra vez será, quizás...',
+];
+const CLEAR_PHRASES = [
+  '¡LO LOGRASTE!', '¡ZONA DESPEJADA!', '¡ERES UNA LEYENDA!', '¡IMPECABLE!', 'FLAWLESS!',
+];
 
 export class Game {
   constructor(ctx, canvas, hooks) {
@@ -89,7 +105,19 @@ export class Game {
     this.lanternsTotal = 0;
     this._exitToastT = 0;
     this._cpText = null;
+    this.skyMsgs = [];
   }
+
+  /** a short, playful line that floats up near the top of the screen */
+  skyMessage(text, color) {
+    if (!this.skyMsgs) this.skyMsgs = [];
+    this.skyMsgs.push({ text, color: color || '#ffe07a', t: 1.5, life: 1.5 });
+    if (this.skyMsgs.length > 3) this.skyMsgs.shift();
+  }
+  announceKill()    { this.skyMessage(choice(KILL_PHRASES), '#f4c542'); }
+  announceLantern() { this.skyMessage(choice(LANTERN_PHRASES), '#8fe0ff'); }
+  announceDeath()   { this.skyMessage(choice(DEATH_PHRASES), '#ff6a6a'); }
+  announceClear()   { this.skyMessage(choice(CLEAR_PHRASES), '#6fbf73'); }
 
   /* level is "cleared" -> the exit gate opens */
   get cleared() {
@@ -170,8 +198,13 @@ export class Game {
     this.map = buildTileMap(L);
     this.camera.setBounds(this.map.pixelW, this.map.pixelH);
 
-    // difficulty for this run
-    const D = getDiff((this.save.data && this.save.data.difficulty) || 'normal');
+    // difficulty for this run -- Pesadilla gets a small mercy nerf after
+    // NIGHTMARE_MERCY_DEATHS real deaths on this save (still instant-kill on
+    // touch, still melee-off, just a bit less relentless)
+    let D = getDiff((this.save.data && this.save.data.difficulty) || 'normal');
+    if (D.key === 'nightmare' && this.save.nightmareDeaths && this.save.nightmareDeaths() >= NIGHTMARE_MERCY_DEATHS) {
+      D = nightmareMercyDiff(D);
+    }
     this.diff = D;
     this.meleeDisabled = !!D.meleeOff;
     this.brightMode = !!(this.save.loadOpts && this.save.loadOpts().bright);
@@ -352,8 +385,13 @@ export class Game {
     if (e._placed && !e._counted) {
       e._counted = true;
       this.enemiesKilled++;
+      this.announceKill();
       if (e._progId) this.markProgress(e._progId, true);
-      if (this.exitRect && this.cleared) { this.audio.sfx('checkpoint'); this.toast('Zona despejada — la salida se abre'); }
+      if (this.exitRect && this.cleared) {
+        this.audio.sfx('checkpoint');
+        this.toast('Zona despejada — la salida se abre');
+        this.announceClear();
+      }
     }
   }
 
@@ -371,6 +409,16 @@ export class Game {
     this.particles.burst(this.player.cx, this.player.cy, 22, { color: '#8b93a3', speed: 80, life: 0.6 });
     this.state = 'dying';
     this.dyingT = 1.5;
+    this._onRealDeath();
+  }
+
+  /** called exactly once per real (non-revived) death -- mocking call-out +
+      counts toward the Pesadilla mercy nerf (see NIGHTMARE_MERCY_DEATHS) */
+  _onRealDeath() {
+    this.announceDeath();
+    if (this.diff && this.diff.key === 'nightmare' && this.save.addNightmareDeath) {
+      this.save.addNightmareDeath();
+    }
   }
 
   _activateCheckpoint(cp) {
@@ -597,6 +645,7 @@ export class Game {
         this.state = 'dying';
         this.dyingT = 1.5;
         this.audio.sfx('death');
+        this._onRealDeath();
         return;
       }
     }
@@ -726,6 +775,10 @@ export class Game {
     // exit  (only when the zone is cleared)
     if (this._exitToastT > 0) this._exitToastT -= dt;
     if (this._cpText) { this._cpText.t -= dt; if (this._cpText.t <= 0) this._cpText = null; }
+    if (this.skyMsgs && this.skyMsgs.length) {
+      for (const m of this.skyMsgs) m.t -= dt;
+      this.skyMsgs = this.skyMsgs.filter((m) => m.t > 0);
+    }
     if (this.exitRect && rectsOverlap(this.player.x, this.player.y, this.player.w, this.player.h, this.exitRect.x, this.exitRect.y, this.exitRect.w, this.exitRect.h)) {
       if (cleared) this.nextLevel();
       else if (this._exitToastT <= 0) {
@@ -840,6 +893,20 @@ export class Game {
 
     // HUD
     if (['playing', 'dying', 'postboss'].includes(this.state)) drawHUD(ctx, this);
+
+    // playful call-outs, floating in the "sky" (fixed screen space, top of the canvas)
+    if (this.skyMsgs && this.skyMsgs.length) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      this.skyMsgs.forEach((m, i) => {
+        const k = clamp(m.t / m.life, 0, 1);
+        const rise = (1 - k) * 10;
+        ctx.globalAlpha = Math.min(1, k * 3);
+        ctx.font = 'bold 11px "Courier New", monospace';
+        outText(ctx, m.text, this.W / 2, 24 + i * 13 - rise, m.color);
+      });
+      ctx.restore();
+    }
 
     // "¡GUARDADO!" -- floats up off the trash can right after a checkpoint
     if (this._cpText) {
@@ -957,12 +1024,12 @@ export class Game {
       sewers: 'rgba(20,45,45,', district: 'rgba(45,25,35,', tower: 'rgba(35,25,60,',
     }[theme] || 'rgba(20,30,60,';
     ctx.save();
-    ctx.fillStyle = tint + (b ? 0.05 : 0.11) + ')';
+    ctx.fillStyle = tint + (b ? 0.03 : 0.11) + ')';
     ctx.fillRect(0, 0, this.W, this.H);
     // vignette (softer in bright mode)
     const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.35, this.W / 2, this.H / 2, this.H * 0.8);
     g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,' + (b ? 0.2 : 0.42) + ')');
+    g.addColorStop(1, 'rgba(0,0,0,' + (b ? 0.14 : 0.42) + ')');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, this.W, this.H);
     ctx.fillStyle = 'rgba(255,255,255,0.014)';
@@ -1097,7 +1164,7 @@ export class Game {
     const base = clamp(this.levelDef.darkness || 0.5, 0.44, 0.6);
     // "Modo claro": far less darkness (bright, not day). Lightning briefly lifts it.
     const lf = currentLightning ? currentLightning() : 0;
-    let dark = this.brightMode ? Math.min(base, 0.16) : base;
+    let dark = this.brightMode ? Math.min(base, 0.09) : base;
     dark *= 1 - lf * 0.9;
     if (dark <= 0.02) {
       // still add the warm glows even with no shadow layer

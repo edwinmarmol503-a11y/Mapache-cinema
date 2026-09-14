@@ -82,6 +82,7 @@ export const Save = {
     try { m = JSON.parse(localStorage.getItem(META_KEY)) || {}; } catch (e) { m = {}; }
     if (!m.progress) m.progress = emptyProgress();
     for (const k of DIFF_KEYS) if (!m.progress[k]) m.progress[k] = [0, 0, 0, 0, 0];
+    if (!m.nightmareDeaths) m.nightmareDeaths = 0;
     return m;
   },
   saveMeta(m) { try { localStorage.setItem(META_KEY, JSON.stringify(m)); } catch (e) {} },
@@ -91,6 +92,16 @@ export const Save = {
     m.progress[diff][idx] = 1;
     this.saveMeta(m);
   },
+
+  /* ---- Pesadilla mercy-nerf counter: permanent (survives newGame()) so
+     picking levels from the level-select screen doesn't reset the tally ---- */
+  addNightmareDeath() {
+    const m = this.loadMeta();
+    m.nightmareDeaths = (m.nightmareDeaths || 0) + 1;
+    this.saveMeta(m);
+    return m.nightmareDeaths;
+  },
+  nightmareDeaths() { return this.loadMeta().nightmareDeaths || 0; },
   levelBeaten(diff, idx) {
     return !!this.loadMeta().progress[diff][idx];
   },

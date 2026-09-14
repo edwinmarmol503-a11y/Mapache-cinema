@@ -125,7 +125,7 @@ export class Farolero {
         p.coyote = 0;
         p.invuln = Math.max(p.invuln, 0.2);
         world.audio.sfx('land');
-      } else if (p.hurt(2, this.x + this.w / 2)) {
+      } else if (p.hurt((world.diff && world.diff.instaKillTouch) ? p.maxHp : 2, this.x + this.w / 2)) {
         world.camera.shake(3, 0.2);
       }
     }
@@ -251,7 +251,20 @@ export class Farolero {
 
   _spawnAdd(world) {
     const k = choice(['sombra', 'cuervo', 'devorador', 'guardian']);
-    const fx = this.arena.x + 20 + Math.random() * (this.arena.w - 40);
+    // keep reinforcements away from Riko -- never drop one on top of / right
+    // in front of the player. Retry a few random spots, then fall back to
+    // whichever arena edge is currently farthest from him.
+    const minX = this.arena.x + 20;
+    const maxX = this.arena.x + this.arena.w - 20;
+    const p = world.player;
+    const minDist = 60;
+    let fx = minX + Math.random() * (maxX - minX);
+    for (let tries = 0; tries < 8 && Math.abs(fx - p.cx) < minDist; tries++) {
+      fx = minX + Math.random() * (maxX - minX);
+    }
+    if (Math.abs(fx - p.cx) < minDist) {
+      fx = (p.cx - minX < maxX - p.cx) ? maxX : minX;
+    }
     const floorY = this.arena.y + this.arena.h;
     let e;
     if (k === 'sombra') e = new Sombra({ type: 'sombra', x: fx, y: floorY - 30, hp: 2 });
