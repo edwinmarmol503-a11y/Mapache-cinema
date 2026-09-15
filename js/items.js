@@ -10,9 +10,10 @@ import { choice } from './utils.js';
 /* a friendly little nudge floating above every ground item -- purely cosmetic */
 const ITEM_HINTS = ['¡TÓMAME!', 'TE AYUDARÉ', '¡AQUÍ!', 'ÚSAME BIEN', 'SOY ÚTIL', '¡PARA TI!', 'LLÉVAME'];
 function _outMini(ctx, s, x, y, fill) {
-  ctx.fillStyle = 'rgba(2,4,10,0.9)';
-  ctx.fillText(s, x - 1, y); ctx.fillText(s, x + 1, y);
-  ctx.fillText(s, x, y - 1); ctx.fillText(s, x, y + 1);
+  ctx.fillStyle = 'rgba(2,4,10,0.95)';
+  ctx.fillText(s, x - 1, y - 1); ctx.fillText(s, x, y - 1); ctx.fillText(s, x + 1, y - 1);
+  ctx.fillText(s, x - 1, y);                                 ctx.fillText(s, x + 1, y);
+  ctx.fillText(s, x - 1, y + 1); ctx.fillText(s, x, y + 1); ctx.fillText(s, x + 1, y + 1);
   ctx.fillStyle = fill;
   ctx.fillText(s, x, y);
 }
@@ -57,7 +58,7 @@ export class Pickup {
     const cx = sx + 5, cy = sy + 5;
     ctx.save();
     // purely visual up-scale, centered on the icon -- pickup radius/collision untouched
-    const scale = 1.65;
+    const scale = 1.45;
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
     ctx.translate(-cx, -cy);

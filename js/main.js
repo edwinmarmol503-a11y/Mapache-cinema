@@ -10,7 +10,7 @@ import { Game } from './game.js';
 import { Menu } from './menu.js';
 import { Pause } from './pause.js';
 import { drawMenuScene } from './ui.js';
-import { initTouch, isTouchDevice } from './touch.js';
+import { initTouch } from './touch.js';
 
 /* ---------------- PWA: offline cache + installability ---------------- */
 if ('serviceWorker' in navigator) {
@@ -117,10 +117,11 @@ function applyScale(mode) {
   const fit = Math.min(window.innerWidth / IW, (window.innerHeight - 6) / IH);
   let scale;
   if (mode === 'auto') {
-    // touch devices: fill as much of the screen as possible (fractional scale
-    // is fine with pixelated image-rendering) -- flooring to an integer was
-    // leaving huge unused margins and making everything look tiny/far away.
-    scale = isTouchDevice ? Math.max(1, fit) : Math.max(1, Math.floor(fit));
+    // ALWAYS an integer scale: pixelated image-rendering only stays crisp when
+    // every source pixel maps to a whole number of screen pixels. A fractional
+    // scale (tried briefly to fill more of a phone screen) made every bit of
+    // text and every sprite look blurry/uneven -- not worth it.
+    scale = Math.max(1, Math.floor(fit));
   } else {
     scale = Math.min(parseInt(mode, 10) || 2, Math.max(1, Math.floor(fit)));
   }

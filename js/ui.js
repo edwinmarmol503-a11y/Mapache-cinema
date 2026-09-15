@@ -107,12 +107,14 @@ function h1(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.flo
 let _lightningFlash = 0;
 export function currentLightning() { return _lightningFlash; }
 
-/* crisp text with a dark outline so it stays readable over any background */
+/* crisp text with a full dark outline (8 directions) so it stays legible
+   over any background, even at the small sizes this HUD is drawn at */
 export function outText(ctx, str, x, y, fill, o) {
-  o = o || 'rgba(3,6,14,0.9)';
+  o = o || 'rgba(2,4,10,0.95)';
   ctx.fillStyle = o;
-  ctx.fillText(str, x - 1, y); ctx.fillText(str, x + 1, y);
-  ctx.fillText(str, x, y - 1); ctx.fillText(str, x, y + 1);
+  ctx.fillText(str, x - 1, y - 1); ctx.fillText(str, x, y - 1); ctx.fillText(str, x + 1, y - 1);
+  ctx.fillText(str, x - 1, y);                                   ctx.fillText(str, x + 1, y);
+  ctx.fillText(str, x - 1, y + 1); ctx.fillText(str, x, y + 1); ctx.fillText(str, x + 1, y + 1);
   ctx.fillStyle = fill;
   ctx.fillText(str, x, y);
 }

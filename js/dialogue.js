@@ -4,11 +4,12 @@
    ============================================================ */
 import { wrapText } from './utils.js';
 
-/* outlined text so dialogue stays readable over any background */
+/* full 8-direction outline so dialogue stays crisp and legible over anything */
 function _o(ctx, s, x, y, fill) {
   ctx.fillStyle = 'rgba(2,4,10,0.95)';
-  ctx.fillText(s, x - 1, y); ctx.fillText(s, x + 1, y);
-  ctx.fillText(s, x, y - 1); ctx.fillText(s, x, y + 1);
+  ctx.fillText(s, x - 1, y - 1); ctx.fillText(s, x, y - 1); ctx.fillText(s, x + 1, y - 1);
+  ctx.fillText(s, x - 1, y);                                 ctx.fillText(s, x + 1, y);
+  ctx.fillText(s, x - 1, y + 1); ctx.fillText(s, x, y + 1); ctx.fillText(s, x + 1, y + 1);
   ctx.fillStyle = fill;
   ctx.fillText(s, x, y);
 }
@@ -113,25 +114,25 @@ export class Dialogue {
     ctx.imageSmoothingEnabled = false;
 
     if (this.choice) {
-      const bw = Math.min(360, W - 24);
+      const bw = Math.min(400, W - 16);
       const promptMaxW = bw - 20;
-      ctx.font = 'bold 8px "Courier New", monospace';
+      ctx.font = 'bold 9px "Courier New", monospace';
       const promptLines = _wrapLines(ctx, this.choice.prompt, promptMaxW);
-      const lineH = 11;
+      const lineH = 13;
       const promptH = promptLines.length * lineH;
-      const bh = 12 + promptH + 8 + this.choice.options.length * 16;
+      const bh = 14 + promptH + 8 + this.choice.options.length * 18;
       const bx = (W - bw) / 2;
       const by = Math.max(4, (H - bh) / 2);
       ctx.fillStyle = 'rgba(4,7,16,0.97)';
       ctx.fillRect(bx, by, bw, bh);
       ctx.strokeStyle = '#5aa0e8';
       ctx.strokeRect(bx + 0.5, by + 0.5, bw - 1, bh - 1);
-      _drawLines(ctx, promptLines, bx + 10, by + 8, lineH, '#ffd357');
-      ctx.font = '9px "Courier New", monospace';
+      _drawLines(ctx, promptLines, bx + 10, by + 9, lineH, '#ffd357');
+      ctx.font = '10px "Courier New", monospace';
       this.choice.options.forEach((o, idx) => {
-        const y = by + 8 + promptH + 8 + idx * 16;
+        const y = by + 9 + promptH + 9 + idx * 18;
         const on = idx === this.choiceIndex;
-        if (on) { ctx.fillStyle = '#12203c'; ctx.fillRect(bx + 6, y - 2, bw - 12, 14); }
+        if (on) { ctx.fillStyle = '#12203c'; ctx.fillRect(bx + 6, y - 2, bw - 12, 16); }
         _o(ctx, (on ? '> ' : '  ') + o.label, bx + 10, y, on ? '#ffd357' : '#f2f7ff');
       });
       ctx.restore();
@@ -139,15 +140,15 @@ export class Dialogue {
     }
 
     const cur = this.lines[this.i];
-    const bx = 10, bw = W - 20;
-    const headerH = cur.speaker ? 13 : 3;
-    const lineH = 11;
+    const bx = 8, bw = W - 16;
+    const headerH = cur.speaker ? 15 : 4;
+    const lineH = 13;
     // size the box off the FULL line so it doesn't resize mid-typewriter,
     // and clamp so it can never overflow the top of the screen
-    ctx.font = '9px "Courier New", monospace';
+    ctx.font = '10px "Courier New", monospace';
     const fullLines = _wrapLines(ctx, cur.text, bw - 16);
-    const bh = Math.min(H - 20, Math.max(50, headerH + fullLines.length * lineH + 14));
-    const by = H - bh - 10;
+    const bh = Math.min(H - 16, Math.max(54, headerH + fullLines.length * lineH + 15));
+    const by = H - bh - 8;
 
     ctx.fillStyle = 'rgba(4,7,16,0.96)';
     ctx.fillRect(bx, by, bw, bh);
@@ -157,13 +158,13 @@ export class Dialogue {
     ctx.strokeStyle = 'rgba(90,160,232,0.35)';
     ctx.strokeRect(bx + 2.5, by + 2.5, bw - 5, bh - 5);
 
-    ctx.font = 'bold 8px "Courier New", monospace';
+    ctx.font = 'bold 9px "Courier New", monospace';
     if (cur.speaker) {
-      _o(ctx, cur.speaker.toUpperCase(), bx + 8, by + 6, '#ffd357');
+      _o(ctx, cur.speaker.toUpperCase(), bx + 8, by + 7, '#ffd357');
     }
-    ctx.font = '9px "Courier New", monospace';
+    ctx.font = '10px "Courier New", monospace';
     const shownLines = _wrapLines(ctx, cur.text.slice(0, this.char), bw - 16);
-    _drawLines(ctx, shownLines, bx + 8, by + (cur.speaker ? 19 : 9), lineH, '#f2f7ff');
+    _drawLines(ctx, shownLines, bx + 8, by + (cur.speaker ? 21 : 10), lineH, '#f2f7ff');
 
     if (this.char >= cur.text.length && Math.floor(performance.now() / 400) % 2 === 0) {
       ctx.fillStyle = '#4a90d9';

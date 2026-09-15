@@ -995,11 +995,11 @@ export class Game {
       const sy = Math.round(anchorY - this.camera.renderY - 12);
       ctx.save();
       ctx.textAlign = 'center';
-      ctx.font = 'bold 8px "Courier New", monospace';
+      ctx.font = 'bold 9px "Courier New", monospace';
       ctx.fillStyle = 'rgba(4,7,16,0.92)';
-      ctx.fillRect(sx - 26, sy - 8, 52, 13);
+      ctx.fillRect(sx - 32, sy - 9, 64, 15);
       ctx.strokeStyle = '#f4c542';
-      ctx.strokeRect(sx - 26.5, sy - 8.5, 52, 13);
+      ctx.strokeRect(sx - 32.5, sy - 9.5, 64, 15);
       outText(ctx, 'E  interactuar', sx, sy + 1, '#ffe07a');
       ctx.restore();
     }
@@ -1020,7 +1020,7 @@ export class Game {
       ctx.textAlign = 'center';
       ctx.font = 'bold 18px "Courier New", monospace';
       outText(ctx, (this.levelDef.intro && this.levelDef.intro[0] && this.levelDef.intro[0].text) || this.levelDef.name.toUpperCase(), this.W / 2, this.H / 2 + 4, '#ffd357');
-      ctx.font = 'bold 8px "Courier New", monospace';
+      ctx.font = 'bold 9px "Courier New", monospace';
       const dl = this.diff && this.diff.key !== 'normal' ? '   ·   ' + this.diff.label.toUpperCase() : '';
       outText(ctx, 'Nivel ' + (this.levelIndex + 1) + ' de ' + LEVELS.length + dl, this.W / 2, this.H / 2 + 18, '#c3d0e4');
       ctx.restore();
@@ -1320,11 +1320,11 @@ export class Game {
     ctx.fillStyle = this.boss.vulnerable ? '#f4c542' : '#8fb8ff';
     ctx.fillRect(x, y, w * clamp(frac, 0, 1), 8);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 7px "Courier New", monospace';
+    ctx.font = 'bold 8px "Courier New", monospace';
     outText(ctx,
       'EL FAROLERO   ·   Fase ' + this.boss.phase +
       (this.boss.vulnerable ? '  ·  ¡AHORA! golpealo o cae sobre el' : '  ·  espera a que baje'),
-      this.W / 2, y + 22, this.boss.vulnerable ? '#ffe07a' : '#c3d0e4');
+      this.W / 2, y + 23, this.boss.vulnerable ? '#ffe07a' : '#c3d0e4');
     ctx.restore();
   }
 }
