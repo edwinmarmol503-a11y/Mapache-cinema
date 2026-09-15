@@ -127,6 +127,13 @@ class Enemy {
     ctx.save();
     if (this.dead) ctx.globalAlpha = Math.max(0, 1 - this.deadT / 0.55);
     const flash = this.hitFlash > 0;
+    // purely visual up-scale, anchored on the feet (bottom-center) so the
+    // hitbox / collision footprint never changes -- just easier to see
+    const scale = 1.35;
+    const anchorX = sx + this.w / 2, anchorY = sy + this.h;
+    ctx.translate(anchorX, anchorY);
+    ctx.scale(scale, scale);
+    ctx.translate(-anchorX, -anchorY);
     this.draw(ctx, sx, sy, flash);
     ctx.restore();
     if (this.aggro && !this.dead && this.maxHp > 1) {

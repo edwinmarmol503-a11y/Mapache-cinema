@@ -5,6 +5,17 @@ import { ITEM_DEFS } from './inventory.js';
 import { rectsOverlap } from './collision.js';
 import { moveActor } from './physics.js';
 import { px } from './sprites.js';
+import { choice } from './utils.js';
+
+/* a friendly little nudge floating above every ground item -- purely cosmetic */
+const ITEM_HINTS = ['¡TÓMAME!', 'TE AYUDARÉ', '¡AQUÍ!', 'ÚSAME BIEN', 'SOY ÚTIL', '¡PARA TI!', 'LLÉVAME'];
+function _outMini(ctx, s, x, y, fill) {
+  ctx.fillStyle = 'rgba(2,4,10,0.9)';
+  ctx.fillText(s, x - 1, y); ctx.fillText(s, x + 1, y);
+  ctx.fillText(s, x, y - 1); ctx.fillText(s, x, y + 1);
+  ctx.fillStyle = fill;
+  ctx.fillText(s, x, y);
+}
 
 /* ---------------- Pickup (collectible item on the ground) --------------- */
 export class Pickup {
@@ -15,6 +26,7 @@ export class Pickup {
     this.t = Math.random() * 6;
     this.taken = false;
     this.id = id || (type + '@' + Math.round(x) + ',' + Math.round(y));
+    this.hint = choice(ITEM_HINTS);
   }
 
   update(dt, world) {
@@ -42,15 +54,30 @@ export class Pickup {
     if (this.taken) return;
     const sx = Math.round(this.x - cam.renderX);
     const sy = Math.round(this.y - cam.renderY + Math.sin(this.t * 3) * 2);
+    const cx = sx + 5, cy = sy + 5;
+    ctx.save();
+    // purely visual up-scale, centered on the icon -- pickup radius/collision untouched
+    const scale = 1.5;
+    ctx.translate(cx, cy);
+    ctx.scale(scale, scale);
+    ctx.translate(-cx, -cy);
     // glow
     ctx.globalCompositeOperation = 'lighter';
     const col = this.type === 'memory' ? '#f4c542' : (ITEM_DEFS[this.type]?.color || '#fff');
     ctx.fillStyle = col;
     ctx.globalAlpha = 0.18;
-    ctx.beginPath(); ctx.arc(sx + 5, sy + 5, 10, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, 10, 0, Math.PI * 2); ctx.fill();
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     drawItemIcon(ctx, this.type, sx, sy);
+    ctx.restore();
+
+    // a friendly little floating hint above the item
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.font = 'bold 6px "Courier New", monospace';
+    _outMini(ctx, this.hint, cx, sy - 5, '#ffe07a');
+    ctx.restore();
   }
 }
 

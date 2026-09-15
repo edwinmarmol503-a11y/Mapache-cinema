@@ -365,6 +365,12 @@ export class Player {
 
     ctx.save();
     if (this.invuln > 0 && !this.dead && Math.floor(this.invuln * 20) % 2 === 0) ctx.globalAlpha = 0.35;
+    // purely visual up-scale, anchored on the feet -- the hitbox stays exactly this.w/this.h
+    const rScale = 1.4;
+    const rAnchorX = sx + this.w / 2, rAnchorY = sy + this.h;
+    ctx.translate(rAnchorX, rAnchorY);
+    ctx.scale(rScale, rScale);
+    ctx.translate(-rAnchorX, -rAnchorY);
     drawRiko(ctx, sx, sy, this.w, this.h, this.facing, this.state, this.frame, this.hurtFlash > 0.05, this.holdingBulb);
     ctx.restore();
 

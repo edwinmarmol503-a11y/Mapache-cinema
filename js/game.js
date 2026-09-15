@@ -344,12 +344,9 @@ export class Game {
     this.lanternsTotal = this.puzzleEls.filter((e) => e instanceof LightNode).length;
     // triggers
     for (const t of L.triggers || []) {
-      // Pesadilla: already met the Farolero this attempt (a phase checkpoint
-      // exists) -- skip his speech again on every retry, go straight to the fight
-      const skipDialogue = t.event === 'bossIntro' && D.key === 'nightmare' && this.progress('bossHpCheckpoint') != null;
       this.triggers.push({
         rect: { x: t.tx * TS, y: t.ty * TS, w: t.w * TS, h: t.h * TS },
-        dialogue: skipDialogue ? null : t.dialogue, event: t.event, fired: false,
+        dialogue: t.dialogue, event: t.event, fired: false,
       });
     }
     // checkpoints
@@ -529,21 +526,7 @@ export class Game {
     this.bossActive = true;
     this._farolWas = {};
     this.audio.playMusic('boss');
-    // Pesadilla: resume at the last phase reached instead of a full reset
-    if (this.diff && this.diff.key === 'nightmare') {
-      const savedHp = this.progress('bossHpCheckpoint');
-      if (typeof savedHp === 'number' && savedHp > 0 && savedHp < this.boss.maxHp) {
-        this.boss.hp = savedHp;
-        this.boss.state = 'hover';
-        this.boss.stateT = 0;
-        this.boss.swoopCd = 2.2;
-        this.toast('EL FAROLERO  ·  Fase ' + this.boss.phase);
-      } else {
-        this.toast('EL FAROLERO');
-      }
-    } else {
-      this.toast('EL FAROLERO');
-    }
+    this.toast('EL FAROLERO');
   }
 
   resetBossLanterns(phase) {
@@ -608,7 +591,7 @@ export class Game {
     });
     this.state = 'ending';
     this.audio.playMusic('ending');
-    this.dialogue.start(E[val], () => this.hooks.onShowCredits && this.hooks.onShowCredits(val));
+    this.dialogue.start(E[val], () => this.hooks.onVictory && this.hooks.onVictory(val));
   }
 
   /* ---------------- transitions ---------------- */
@@ -755,6 +738,18 @@ export class Game {
 
     // enemies
     for (const e of this.enemies) e.update(dt, this);
+
+    // an enemy that lunged into a pit/void (rare, but the level requires ALL
+    // of them dead) drops back in from the sky instead of being lost forever
+    for (const e of this.enemies) {
+      if (!e.dead && e.y > this.map.pixelH + 40) {
+        e.x = clamp(e.homeX, 6, this.map.pixelW - e.w - 6);
+        e.y = -24;
+        e.vx = 0;
+        e.vy = 20;
+        this.particles.burst(e.x + e.w / 2, 4, 8, { color: '#8fb8ff', speed: 40, life: 0.4, glow: true });
+      }
+    }
 
     // parry "reach": any enemy closing in during the window gets deflected
     // (parrySuccess then sweeps the rest -- two bats at once = both go down)

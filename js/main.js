@@ -10,7 +10,7 @@ import { Game } from './game.js';
 import { Menu } from './menu.js';
 import { Pause } from './pause.js';
 import { drawMenuScene } from './ui.js';
-import { initTouch } from './touch.js';
+import { initTouch, isTouchDevice } from './touch.js';
 
 /* ---------------- PWA: offline cache + installability ---------------- */
 if ('serviceWorker' in navigator) {
@@ -66,7 +66,7 @@ const game = new Game(ctx, canvas, {
   audio: Audio,
   save: Save,
   dialogue,
-  onShowCredits: (ending) => { appState = 'credits'; menu.showCredits(ending); },
+  onVictory: (ending) => { appState = 'victory'; document.getElementById('app').classList.remove('playing', 'paused'); menu.showVictory(ending); },
 });
 
 const menu = new Menu({
@@ -80,6 +80,7 @@ const menu = new Menu({
     game.startAt(diff, idx);
   },
   onCreditsClosed: () => returnToMenu(),
+  onVictoryClosed: () => returnToMenu(),
   applyScale: (mode) => applyScale(mode),
   applyBright: (v) => game.setBright(v),
 });
@@ -115,8 +116,14 @@ function applyScale(mode) {
   mode = mode || o.scale || 'auto';
   const fit = Math.min(window.innerWidth / IW, (window.innerHeight - 6) / IH);
   let scale;
-  if (mode === 'auto') scale = Math.max(1, Math.floor(fit));
-  else scale = Math.min(parseInt(mode, 10) || 2, Math.max(1, Math.floor(fit)));
+  if (mode === 'auto') {
+    // touch devices: fill as much of the screen as possible (fractional scale
+    // is fine with pixelated image-rendering) -- flooring to an integer was
+    // leaving huge unused margins and making everything look tiny/far away.
+    scale = isTouchDevice ? Math.max(1, fit) : Math.max(1, Math.floor(fit));
+  } else {
+    scale = Math.min(parseInt(mode, 10) || 2, Math.max(1, Math.floor(fit)));
+  }
   canvas.style.width = IW * scale + 'px';
   canvas.style.height = IH * scale + 'px';
 }

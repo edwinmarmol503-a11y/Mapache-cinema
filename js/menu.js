@@ -31,6 +31,7 @@ export class Menu {
     this.elMenu = document.getElementById('screen-menu');
     this.elOptions = document.getElementById('screen-options');
     this.elCredits = document.getElementById('screen-credits');
+    this.elVictory = document.getElementById('screen-victory');
     this.elLevels = document.getElementById('screen-levels');
     this.elScores = document.getElementById('screen-scores');
     this.elNick = document.getElementById('screen-nick');
@@ -42,6 +43,7 @@ export class Menu {
     this._wireMenu();
     this._wireOptions();
     this._wireCredits();
+    this._wireVictory();
     this._wireLevels();
     this._wireScores();
     this._wireNick();
@@ -97,7 +99,7 @@ export class Menu {
   }
 
   hideAll() {
-    [this.elMenu, this.elOptions, this.elCredits, this.elLevels, this.elScores, this.elNick, this.elPause].forEach((el) => el.classList.add('hidden'));
+    [this.elMenu, this.elOptions, this.elCredits, this.elVictory, this.elLevels, this.elScores, this.elNick, this.elPause].forEach((el) => el.classList.add('hidden'));
     this.elMenu.style.display = 'none';
   }
 
@@ -411,6 +413,28 @@ export class Menu {
       d.textContent = 'FINAL OBTENIDO:  ' + ending + (ending === 'C' ? '  (verdadero)' : '');
       body.insertBefore(d, body.firstChild.nextSibling);
     }
+  }
+
+  /* ---------------- VICTORY (right after picking an ending) ---------------- */
+  _wireVictory() {
+    document.getElementById('victory-menu').addEventListener('click', () => {
+      Audio.sfx('confirm');
+      this.elVictory.classList.add('hidden');
+      this.hooks.onVictoryClosed ? this.hooks.onVictoryClosed() : this.showMenu();
+    });
+  }
+
+  showVictory(ending) {
+    this.hideAll();
+    this.elVictory.classList.remove('hidden');
+    const ENDING_SUB = {
+      A: 'Devolviste la luz a Lumera. La ciudad recordó lo justo para seguir.',
+      B: 'Conservaste la luz. Lumera quedó perfecta, inmóvil, para siempre.',
+      C: 'Compartiste la luz con todos. El final verdadero.',
+    };
+    document.getElementById('victory-sub').textContent =
+      (ENDING_SUB[ending] || 'Terminaste Mapache Cinema: La Última Noche.')
+      + '   ·   Final ' + (ending || '?');
   }
 
   /* ---------------- keyboard nav ---------------- */
