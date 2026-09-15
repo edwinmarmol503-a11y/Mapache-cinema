@@ -75,6 +75,7 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   /* striped tail curling behind */
   px(ctx, -6, by - 1, 6, 9, OUT);
   px(ctx, -5, by, 4, 7, furD);
+  px(ctx, -5, by, 4, 1, fur);                    // tail-tip highlight
   px(ctx, -5, by + 1, 4, 2, dark);
   px(ctx, -5, by + 4, 4, 2, dark);
   px(ctx, -4, by + 6, 3, 2, dark);
@@ -83,13 +84,16 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   px(ctx, -2, by - 1, 4, 9, packD);
   px(ctx, -1, by, 3, 6, pack);
   px(ctx, -1, by, 3, 2, packD);
+  px(ctx, 0, by + 1, 1, 1, '#d97a5c');           // little top-left highlight
   px(ctx, 2, by - 1, 2, 7, packD);
 
   /* body */
   px(ctx, 0, by - 1, w + 1, h - 4, OUT);
   px(ctx, 1, by, w - 1, h - 6, fur);
+  px(ctx, 1, by, w - 1, 1, '#b6bccb');            // top-of-back highlight
   px(ctx, 1, h - 3, w - 1, 2, furD);
   px(ctx, 3, by + 2, w - 4, 4, belly);
+  px(ctx, 3, by + 2, w - 4, 1, '#ffffff');        // belly sheen
 
   /* scarf */
   px(ctx, 0, by - 2, w + 1, 2, '#7c261c');
@@ -101,15 +105,22 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   px(ctx, 1, -1 + bob, w - 1, 7, fur);
   px(ctx, 1, -1 + bob, w - 1, 1, belly);          // brow stripe
   px(ctx, 1, 1 + bob, w - 1, 3, dark);            // bandit mask
+  px(ctx, 1, 1 + bob, w - 1, 1, '#454d63');       // soft top edge on the mask (depth)
+  px(ctx, 1, 3 + bob, w - 1, 1, '#10131a');       // mask underside shadow
+  /* fluffy cheek tufts */
+  px(ctx, 0, 3 + bob, 1, 2, furD);
+  px(ctx, w, 3 + bob, 1, 2, furD);
   /* ears */
-  px(ctx, -1, -4 + bob, 4, 4, OUT); px(ctx, 0, -3 + bob, 3, 3, fur); px(ctx, 1, -2 + bob, 1, 1, '#7a5a5a');
-  px(ctx, w - 3, -4 + bob, 4, 4, OUT); px(ctx, w - 3, -3 + bob, 3, 3, fur); px(ctx, w - 2, -2 + bob, 1, 1, '#7a5a5a');
-  /* eyes */
-  px(ctx, 2, 1 + bob, 2, 2, '#f0f5ff'); px(ctx, 3, 1 + bob, 1, 1, '#141820');
-  px(ctx, w - 4, 1 + bob, 2, 2, '#f0f5ff'); px(ctx, w - 3, 1 + bob, 1, 1, '#141820');
+  px(ctx, -1, -4 + bob, 4, 4, OUT); px(ctx, 0, -3 + bob, 3, 3, fur); px(ctx, 1, -2 + bob, 1, 1, '#c98a8a');
+  px(ctx, w - 3, -4 + bob, 4, 4, OUT); px(ctx, w - 3, -3 + bob, 3, 3, fur); px(ctx, w - 2, -2 + bob, 1, 1, '#c98a8a');
+  /* eyes -- a hair bigger, with a bright catchlight */
+  px(ctx, 2, 1 + bob, 2, 2, '#f0f5ff'); px(ctx, 3, 1 + bob, 1, 1, '#141820'); px(ctx, 2, 1 + bob, 1, 1, '#ffffff');
+  px(ctx, w - 4, 1 + bob, 2, 2, '#f0f5ff'); px(ctx, w - 3, 1 + bob, 1, 1, '#141820'); px(ctx, w - 4, 1 + bob, 1, 1, '#ffffff');
   /* snout + nose */
   px(ctx, w - 2, 3 + bob, 3, 3, belly);
-  px(ctx, w, 4 + bob, 1, 1, '#3a2b3a');
+  px(ctx, w - 1, 3 + bob, 1, 1, '#ffffff');       // snout highlight
+  px(ctx, w, 4 + bob, 2, 1, '#3a2b3a');
+  px(ctx, w, 4 + bob, 1, 1, '#5c4550');           // nose highlight
 
   /* arms / paws */
   if (state === 'attack') {
@@ -174,10 +185,17 @@ export function drawSombra(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 1, 1 + wob, w - 2, h - 1, OUT);
   px(ctx, 2, 2 + wob, w - 4, h - 3, body);
   px(ctx, 3, 3 + wob, w - 6, h - 6, hi);
+  px(ctx, 3, 3 + wob, w - 6, 1, '#5a4390');       // top rim highlight
   // pointed ears
   px(ctx, 1, -1 + wob, 2, 3, OUT); px(ctx, 1, 0 + wob, 2, 2, body);
   px(ctx, w - 3, -1 + wob, 2, 3, OUT); px(ctx, w - 3, 0 + wob, 2, 2, body);
-  // glowing eyes
+  // glowing eyes -- small cross-shaped glint reads sharper than a flat square
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = 'rgba(159,232,255,0.45)';
+  ctx.beginPath(); ctx.arc(4, 4 + wob, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(w - 4, 4 + wob, 3, 0, Math.PI * 2); ctx.fill();
+  ctx.restore();
   px(ctx, 3, 3 + wob, 2, 2, '#dff0ff'); px(ctx, w - 5, 3 + wob, 2, 2, '#dff0ff');
   px(ctx, 3, 3 + wob, 1, 1, '#8fb8ff'); px(ctx, w - 5, 3 + wob, 1, 1, '#8fb8ff');
   ctx.restore();
@@ -197,10 +215,15 @@ export function drawCuervo(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 1, h - 4, 5, 2, OUT);
   px(ctx, 2, h - 3, 4, 2, body);
 
+  // tucked talons (this one flies, but a hint of feet reads more like a bird)
+  px(ctx, 4, h - 3, 1, 2, '#b5822f');
+  px(ctx, w - 6, h - 3, 1, 2, '#b5822f');
+
   // body + head
   px(ctx, 3, 3, w - 5, h - 5, OUT);
   px(ctx, 4, 4, w - 7, h - 7, body);
   px(ctx, 5, 5, w - 9, 3, hi);
+  px(ctx, 5, 5, w - 9, 1, '#4a5878');             // sheen along the back
   px(ctx, w - 4, 2, 4, 4, OUT);
   px(ctx, w - 3, 3, 3, 3, body);
   px(ctx, w, 4, 2, 1, '#d9a441');                 // beak
@@ -234,10 +257,12 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 0, 3, w, h - 3, OUT);
   px(ctx, 1, 4, w - 1, h - 5, body);
   px(ctx, 2, 5, w - 3, 3, hi);
+  px(ctx, 2, 5, w - 3, 1, '#6a4f83');              // spine highlight
   // back plates
   for (let i = 0; i < 4; i++) {
     px(ctx, 2 + i * 4, 1, 3, 3, OUT);
     px(ctx, 3 + i * 4, 2, 2, 2, plate);
+    px(ctx, 3 + i * 4, 2, 1, 1, '#7a5c96');        // plate glint
   }
   // maw
   const open = chew ? 7 : 5;
@@ -249,7 +274,9 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
     px(ctx, w - 8 + i * 3, 6, 1, 2, '#f0f0ff');
     px(ctx, w - 7 + i * 3, 4 + open, 1, 2, '#f0f0ff');
   }
+  if (chew) px(ctx, w - 8, 4 + open + 1, 1, 2, '#8fd6ff');   // a drop of drool when the jaw opens wide
   px(ctx, w - 5, 3, 2, 2, '#ff5a5a');              // eye
+  px(ctx, w - 5, 3, 1, 1, '#ffb0a0');              // eye glint
   ctx.restore();
 }
 
@@ -269,12 +296,17 @@ export function drawGuardian(ctx, x, y, w, h, facing, frame, flash, charging) {
   px(ctx, 1, h - 4, 4, 4, OUT); px(ctx, w - 5, h - 4, 4, 4, OUT);
   px(ctx, 2, h - 3, 3, 3, metalD); px(ctx, w - 5, h - 3, 3, 3, metalD);
 
+  // antenna, blinking with the charge state
+  px(ctx, w / 2 - 1, bob - 3, 1, 3, metalD);
+  px(ctx, w / 2 - 1, bob - 4, 1, 1, charging ? '#ff7a3c' : '#8fb8ff');
+
   // head + torso
   px(ctx, 3, bob, w - 6, 4, OUT);
   px(ctx, 4, 1 + bob, w - 8, 3, metalD);
   px(ctx, w - 7, 1 + bob, 2, 2, charging ? '#ff5a5a' : '#8fb8ff');
   px(ctx, 1, 4, w - 2, h - 7, OUT);
   px(ctx, 2, 5, w - 4, h - 9, metal);
+  px(ctx, 2, 5, w - 4, 1, '#8f97a6');              // shoulder-line highlight
   px(ctx, 3, 6, w - 6, h - 12, metalD);
   // rivets
   px(ctx, 3, 6, 1, 1, rivet); px(ctx, w - 4, 6, 1, 1, rivet);

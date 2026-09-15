@@ -57,7 +57,7 @@ export class Pickup {
     const cx = sx + 5, cy = sy + 5;
     ctx.save();
     // purely visual up-scale, centered on the icon -- pickup radius/collision untouched
-    const scale = 1.5;
+    const scale = 1.65;
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
     ctx.translate(-cx, -cy);
@@ -85,21 +85,46 @@ export class Pickup {
 export function drawItemIcon(ctx, type, x, y) {
   switch (type) {
     case 'llave':
-      px(ctx, x + 1, y + 3, 4, 4, '#d99a3c'); px(ctx, x + 2, y + 4, 2, 2, '#3a2a12');
-      px(ctx, x + 5, y + 4, 4, 2, '#d99a3c'); px(ctx, x + 8, y + 4, 1, 3, '#d99a3c'); break;
+      px(ctx, x, y + 2, 6, 6, '#5c3d0e');             // outline
+      px(ctx, x + 1, y + 3, 4, 4, '#d99a3c');
+      px(ctx, x + 1, y + 3, 4, 1, '#f4c96a');         // top rim highlight
+      px(ctx, x + 2, y + 4, 2, 2, '#3a2a12');
+      px(ctx, x + 5, y + 3, 4, 3, '#5c3d0e');
+      px(ctx, x + 5, y + 4, 4, 2, '#d99a3c');
+      px(ctx, x + 8, y + 3, 2, 4, '#5c3d0e');
+      px(ctx, x + 8, y + 4, 1, 3, '#d99a3c'); break;
     case 'lata':
-      px(ctx, x + 2, y + 1, 6, 8, '#d64b3a'); px(ctx, x + 2, y + 3, 6, 2, '#eaeaea'); px(ctx, x + 2, y + 1, 6, 1, '#8a8a8a'); break;
+      px(ctx, x + 1, y, 8, 10, '#7a2c22');             // outline
+      px(ctx, x + 2, y + 1, 6, 8, '#d64b3a');
+      px(ctx, x + 2, y + 1, 1, 8, '#ff8a72');          // side highlight
+      px(ctx, x + 2, y + 3, 6, 2, '#eaeaea');
+      px(ctx, x + 2, y + 1, 6, 1, '#8a8a8a');
+      px(ctx, x + 3, y, 4, 1, '#c9c9c9');              // pull-tab
+      break;
     case 'bombilla':
-      px(ctx, x + 2, y + 1, 6, 6, '#f4c542'); px(ctx, x + 3, y + 7, 4, 2, '#8a8a8a'); px(ctx, x + 3, y + 2, 2, 2, '#fff'); break;
+      px(ctx, x + 1, y, 8, 8, '#8a6a1c');              // outline
+      px(ctx, x + 2, y + 1, 6, 6, '#f4c542');
+      px(ctx, x + 3, y + 2, 2, 2, '#fff');
+      px(ctx, x + 3, y + 2, 1, 1, '#fffde0');          // filament sparkle
+      px(ctx, x + 3, y + 7, 4, 2, '#8a8a8a');
+      px(ctx, x + 3, y + 8, 4, 1, '#5c5c5c'); break;
     case 'iman':
+      px(ctx, x, y, 10, 8, '#5c1c14');                 // outline
       px(ctx, x + 1, y + 1, 3, 6, '#d64b3a'); px(ctx, x + 6, y + 1, 3, 6, '#4a90d9');
-      px(ctx, x + 1, y + 6, 8, 3, '#888'); px(ctx, x + 1, y + 1, 3, 2, '#bbb'); px(ctx, x + 6, y + 1, 3, 2, '#bbb'); break;
+      px(ctx, x + 1, y + 6, 8, 3, '#888'); px(ctx, x + 1, y + 1, 3, 2, '#bbb'); px(ctx, x + 6, y + 1, 3, 2, '#bbb');
+      px(ctx, x + 1, y + 1, 1, 1, '#ffd0c8'); px(ctx, x + 8, y + 1, 1, 1, '#cfe6ff'); break;
     case 'cuerda':
+      ctx.strokeStyle = '#5c4325'; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(x + 5, y + 5, 4, 0.3, Math.PI * 1.9); ctx.stroke();
       ctx.strokeStyle = '#c9a06a'; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.arc(x + 5, y + 5, 3, 0, Math.PI * 2); ctx.stroke();
-      ctx.beginPath(); ctx.arc(x + 5, y + 5, 3, 0, Math.PI * 2); ctx.stroke(); break;
+      ctx.beginPath(); ctx.arc(x + 5, y + 5, 4, 0.3, Math.PI * 1.9); ctx.stroke();
+      ctx.strokeStyle = '#e8c48a'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(x + 4, y + 4, 2, 0.5, Math.PI * 1.4); ctx.stroke(); break;
     case 'memory':
-      px(ctx, x + 3, y + 1, 4, 8, '#f4c542'); px(ctx, x + 1, y + 3, 8, 4, '#f4c542'); px(ctx, x + 4, y + 4, 2, 2, '#fff'); break;
+      px(ctx, x + 3, y + 1, 4, 8, '#8a6a1c'); px(ctx, x + 1, y + 3, 8, 4, '#8a6a1c');
+      px(ctx, x + 3, y + 1, 4, 8, '#f4c542'); px(ctx, x + 1, y + 3, 8, 4, '#f4c542');
+      px(ctx, x + 4, y + 4, 2, 2, '#fff');
+      px(ctx, x + 2, y + 2, 1, 1, '#fff6d0'); px(ctx, x + 7, y + 7, 1, 1, '#fff6d0'); break;
     default:
       px(ctx, x + 2, y + 2, 6, 6, '#fff');
   }
