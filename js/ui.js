@@ -33,16 +33,16 @@ export function drawHUD(ctx, world) {
   if (sel) {
     drawItemIcon(ctx, sel, bx + 3, by + 3);
     const n = world.inventory.count(sel);
-    ctx.font = 'bold 8px "Courier New", monospace';
+    ctx.font = 'bold 9px "Courier New", monospace';
     ctx.textAlign = 'right';
-    outText(ctx, ITEM_DEFS[sel] && ITEM_DEFS[sel].consumable ? 'x' + n : '∞', bx + 15, by + 15, '#ffffff');
+    outText(ctx, ITEM_DEFS[sel] && ITEM_DEFS[sel].consumable ? 'x' + n : '∞', bx + 15, by + 16, '#ffffff');
     ctx.textAlign = 'left';
   } else {
-    ctx.font = '7px "Courier New", monospace';
-    outText(ctx, '--', bx + 5, by + 10, '#7a8aa0');
+    ctx.font = 'bold 8px "Courier New", monospace';
+    outText(ctx, '--', bx + 4, by + 10, '#9fb2cc');
   }
-  ctx.font = '7px "Courier New", monospace';
-  outText(ctx, 'Q/R', bx + 20, by + 12, '#9fb2cc');
+  ctx.font = 'bold 8px "Courier New", monospace';
+  outText(ctx, 'Q/R', bx + 20, by + 12, '#c3d0e4');
 
   // parry charges (perfect counter)
   const pc = p.parryCharges == null ? 0 : p.parryCharges;
@@ -64,35 +64,35 @@ export function drawHUD(ctx, world) {
       diamond(bx + i * 9, by + 20, i < pc ? '#9fe8ff' : '#28323c', i < pc);
     }
   }
-  ctx.font = '7px "Courier New", monospace';
-  outText(ctx, 'L', bx + 29, by + 26, '#9fb2cc');
+  ctx.font = 'bold 8px "Courier New", monospace';
+  outText(ctx, 'L', bx + 29, by + 26, '#c3d0e4');
 
   // memory counter
   const mem = (world.save.data && world.save.data.memories) || 0;
-  ctx.font = 'bold 8px "Courier New", monospace';
-  drawItemIcon(ctx, 'memory', world.W - 34, 6);
-  outText(ctx, 'x' + mem, world.W - 22, 14, '#ffd66a');
+  ctx.font = 'bold 9px "Courier New", monospace';
+  drawItemIcon(ctx, 'memory', world.W - 36, 6);
+  outText(ctx, 'x' + mem, world.W - 23, 15, '#ffd66a');
 
   // "clear the zone" objectives (only on levels with an exit)
   if (world.exitRect && (world.enemiesTotal > 0 || world.lanternsTotal > 0)) {
-    const rx = world.W - 80, ry = 22;
+    const rw = 96, rx = world.W - rw - 6, ry = 20;
     const done = world.cleared;
-    ctx.fillStyle = 'rgba(4,8,18,0.9)';
-    ctx.fillRect(rx, ry, 72, 26);
+    ctx.fillStyle = 'rgba(4,8,18,0.92)';
+    ctx.fillRect(rx, ry, rw, 30);
     ctx.strokeStyle = done ? '#6fbf73' : '#3b4c6b';
-    ctx.strokeRect(rx + 0.5, ry + 0.5, 71, 25);
+    ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, 29);
     ctx.textAlign = 'left';
-    ctx.font = 'bold 8px "Courier New", monospace';
+    ctx.font = 'bold 9px "Courier New", monospace';
 
     ctx.fillStyle = world.enemiesKilled >= world.enemiesTotal ? '#7fd98a' : '#ff8a6a';
-    ctx.fillRect(rx + 4, ry + 5, 6, 6);
-    ctx.fillStyle = '#141820'; ctx.fillRect(rx + 5, ry + 7, 4, 2);
-    outText(ctx, 'Enemigos ' + world.enemiesKilled + '/' + world.enemiesTotal, rx + 14, ry + 10, '#ffffff');
+    ctx.fillRect(rx + 5, ry + 6, 7, 7);
+    ctx.fillStyle = '#141820'; ctx.fillRect(rx + 6, ry + 8, 5, 3);
+    outText(ctx, 'Enemigos ' + world.enemiesKilled + '/' + world.enemiesTotal, rx + 17, ry + 12, '#ffffff');
 
     const lit = world.lanternsLit;
     ctx.fillStyle = lit >= world.lanternsTotal ? '#7fd98a' : '#f4c542';
-    ctx.fillRect(rx + 4, ry + 15, 6, 6);
-    outText(ctx, 'Faroles  ' + lit + '/' + world.lanternsTotal, rx + 14, ry + 20, '#ffffff');
+    ctx.fillRect(rx + 5, ry + 18, 7, 7);
+    outText(ctx, 'Faroles  ' + lit + '/' + world.lanternsTotal, rx + 17, ry + 24, '#ffffff');
     ctx.textAlign = 'left';
   }
 

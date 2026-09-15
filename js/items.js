@@ -58,7 +58,7 @@ export class Pickup {
     const cx = sx + 5, cy = sy + 5;
     ctx.save();
     // purely visual up-scale, centered on the icon -- pickup radius/collision untouched
-    const scale = 1.45;
+    const scale = 1.25;
     ctx.translate(cx, cy);
     ctx.scale(scale, scale);
     ctx.translate(-cx, -cy);
@@ -76,8 +76,8 @@ export class Pickup {
     // a friendly little floating hint above the item
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.font = 'bold 6px "Courier New", monospace';
-    _outMini(ctx, this.hint, cx, sy - 5, '#ffe07a');
+    ctx.font = 'bold 7px "Courier New", monospace';
+    _outMini(ctx, this.hint, cx, sy - 6, '#ffe07a');
     ctx.restore();
   }
 }

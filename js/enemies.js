@@ -129,7 +129,7 @@ class Enemy {
     const flash = this.hitFlash > 0;
     // purely visual up-scale, anchored on the feet (bottom-center) so the
     // hitbox / collision footprint never changes -- just easier to see
-    const scale = 1.35;
+    const scale = 1.15;
     const anchorX = sx + this.w / 2, anchorY = sy + this.h;
     ctx.translate(anchorX, anchorY);
     ctx.scale(scale, scale);
