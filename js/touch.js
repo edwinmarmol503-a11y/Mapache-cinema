@@ -7,8 +7,16 @@
    ============================================================ */
 import { Input } from './input.js';
 
-export const isTouchDevice =
+const hasTouch =
   ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0;
+const coarsePointer = !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+const mobileBrowser = navigator.userAgentData
+  ? !!navigator.userAgentData.mobile
+  : /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent || '');
+
+// A desktop with an incidental touch screen should keep the keyboard layout.
+// Phones/tablets (including iPadOS, whose UA may look like macOS) get touch UI.
+export const isTouchDevice = !!(hasTouch && (coarsePointer || mobileBrowser));
 
 function down(code) {
   if (!Input.keys.has(code)) Input.pressed.add(code);

@@ -14,6 +14,80 @@
 }
 .touch-mode.playing:not(.paused) #touch-layer { display: block; }
 
+/* On phones the TV cabinet costs too much of the short landscape viewport.
+   Keep it on desktop, but let the mobile canvas and menus use the full screen. */
+#app.touch-mode::before,
+#app.touch-mode::after,
+#app.touch-mode .tv-hardware { display: none; }
+
+#app.touch-mode {
+  background: #02030a;
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+.touch-mode .screen {
+  padding:
+    max(6px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(6px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+}
+
+/* The title menu must fit even on short landscape phones. */
+.touch-mode #screen-menu {
+  align-items: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.touch-mode .menu-content {
+  width: 100%;
+  min-height: 100%;
+  padding: clamp(7px, 2.2vh, 14px) 20px 8px;
+}
+.touch-mode .title {
+  font-size: clamp(30px, 10vh, 44px);
+  line-height: 0.9;
+}
+.touch-mode .title br { display: none; }
+.touch-mode .subtitle {
+  margin-top: 4px;
+  font-size: clamp(10px, 3.2vh, 14px);
+  letter-spacing: 5px;
+}
+.touch-mode #screen-menu .menu-nav {
+  align-items: center;
+  gap: 1px;
+  margin-top: clamp(5px, 2vh, 12px);
+}
+.touch-mode #screen-menu .menu-nav button {
+  padding: 2px 8px;
+  font-size: clamp(12px, 4vh, 16px);
+  line-height: 1.05;
+  text-align: center;
+}
+.touch-mode #screen-menu .menu-nav button:hover,
+.touch-mode #screen-menu .menu-nav button.sel,
+.touch-mode #screen-menu .menu-nav button:active:not(:disabled) {
+  transform: none;
+}
+.touch-mode .version { display: none; }
+
+/* Panels remain fully reachable: compact them and scroll their own content. */
+.touch-mode .panel {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding: 14px 20px;
+  overscroll-behavior: contain;
+}
+.touch-mode .panel h2 { margin-bottom: 10px; font-size: 21px; }
+.touch-mode .panel .menu-nav { margin-top: 8px; gap: 5px; }
+.touch-mode .panel .menu-nav button { padding: 8px 0; font-size: 14px; }
+.touch-mode .back { margin-top: 12px; padding: 8px 0; }
+
 .tc-btn {
   position: absolute;
   display: flex;
@@ -39,8 +113,8 @@
 /* ---- d-pad, bottom-left ---- */
 .tc-dpad {
   position: absolute;
-  left: 4vw;
-  bottom: 6vh;
+  left: max(12px, calc(env(safe-area-inset-left) + 8px));
+  bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
   width: 132px;
   height: 132px;
   pointer-events: none;
@@ -54,8 +128,8 @@
 /* ---- action diamond, bottom-right ---- */
 .tc-actions {
   position: absolute;
-  right: 4vw;
-  bottom: 6vh;
+  right: max(12px, calc(env(safe-area-inset-right) + 8px));
+  bottom: max(12px, calc(env(safe-area-inset-bottom) + 8px));
   width: 168px;
   height: 168px;
   pointer-events: none;
@@ -69,7 +143,7 @@
 /* ---- utility row, top ---- */
 .tc-utility {
   position: absolute;
-  top: max(8px, env(safe-area-inset-top));
+  top: max(8px, calc(env(safe-area-inset-top) + 4px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;

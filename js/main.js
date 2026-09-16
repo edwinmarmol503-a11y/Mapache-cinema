@@ -10,7 +10,7 @@ import { Game } from './game.js';
 import { Menu } from './menu.js';
 import { Pause } from './pause.js';
 import { drawMenuScene } from './ui.js';
-import { initTouch } from './touch.js';
+import { initTouch, isTouchDevice } from './touch.js';
 
 /* ---------------- PWA: offline cache + installability ---------------- */
 if ('serviceWorker' in navigator) {
@@ -114,21 +114,26 @@ function returnToMenu() {
 function applyScale(mode) {
   const o = Save.loadOpts();
   mode = mode || o.scale || 'auto';
-  const fit = Math.min(window.innerWidth / IW, (window.innerHeight - 6) / IH);
+  const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const fit = Math.min(vw / IW, vh / IH);
   let scale;
-  if (mode === 'auto') {
+  if (mode === 'auto' && isTouchDevice) {
+    // Mobile landscape heights often sit between integer scales. Fill the
+    // available viewport while preserving the game's 16:9 aspect ratio.
+    scale = fit;
+  } else if (mode === 'auto') {
     // ALWAYS an integer scale: pixelated image-rendering only stays crisp when
-    // every source pixel maps to a whole number of screen pixels. A fractional
-    // scale (tried briefly to fill more of a phone screen) made every bit of
-    // text and every sprite look blurry/uneven -- not worth it.
+    // every source pixel maps to a whole number of screen pixels on desktop.
     scale = Math.max(1, Math.floor(fit));
   } else {
     scale = Math.min(parseInt(mode, 10) || 2, Math.max(1, Math.floor(fit)));
   }
-  canvas.style.width = IW * scale + 'px';
-  canvas.style.height = IH * scale + 'px';
+  canvas.style.width = Math.floor(IW * scale) + 'px';
+  canvas.style.height = Math.floor(IH * scale) + 'px';
 }
 window.addEventListener('resize', () => applyScale());
+if (window.visualViewport) window.visualViewport.addEventListener('resize', () => applyScale());
 applyScale();
 
 /* ---------------- first user gesture (audio unlock) ---------------- */
