@@ -39,26 +39,26 @@ const KILL_PHRASES = [
   '¡BUEN TRABAJO!', '¡BIEN HECHO!', 'SUGAR CRUSH!!', '¡ASÍ SE HACE!', '¡COMBO!',
   'GG', '¡TASTY!', '¡PERFECTO!', '¡ESO ES, RIKO!', '¡BOOM!', '¡FATALITY!',
   '¡FLAWLESS!', 'ACHIEVEMENT DESBLOQUEADO', '¡K.O.!', '¡EXCELLENT!', '¡TOASTY!',
-  'S RANK', '¡WOMBO COMBO!', '¡RING OUT!', '¡CRITICAL HIT!', '¡GREAT!',
+  'S RANK', '¡WOMBO COMBO!', '¡RING OUT!', '¡CRITICAL HIT!', '¡GREAT!'
 ];
 const LANTERN_PHRASES = [
   '¡MÁS LUZ!', '¡ASÍ SE ILUMINA!', '¡BRILLANTE!', '¡BUEN OJO!', '¡LET THERE BE LIGHT!',
-  '¡ITEM GET!', '¡TACHÁN!', '¡DING!', 'PUZZLE SOLVED', '¡NUEVO RÉCORD DE BRILLO!',
+  '¡ITEM GET!', '¡TACHÁN!', '¡DING!', 'PUZZLE SOLVED', '¡NUEVO RÉCORD DE BRILLO!'
 ];
 const DEATH_PHRASES = [
   'jijiji ¿NO PUDISTE?', '¡JAJAJA GAME OVER!', 'F', 'uy... eso dolió (a ti, no a mí)',
   '¿en serio? JAJAJA', 'otra vez será, quizás...', 'YOU DIED', 'PRESS F TO PAY RESPECTS',
   'CONTINUE? 9... 8... 7...', '¿ESO ES TODO?', 'REKT', '0 VIDAS RESTANTES',
-  'INSERTA UNA MONEDA', 'skill issue (es broma... o no)',
+  'INSERTA UNA MONEDA', 'skill issue (es broma... o no)'
 ];
 const CLEAR_PHRASES = [
   '¡LO LOGRASTE!', '¡ZONA DESPEJADA!', '¡ERES UNA LEYENDA!', '¡IMPECABLE!', 'FLAWLESS!',
   '¡STAGE CLEAR!', '¡MISIÓN CUMPLIDA!', '¡GG WP!', '¡LEGENDARIO!', 'YOU WIN',
-  '¡A OTRA COSA, MARIPOSA!',
+  '¡A OTRA COSA, MARIPOSA!'
 ];
 const DODGE_PHRASES = [
   '¡GOTTA GO FAST!', '¡SONIC BOOM!', '¡MÁS RÁPIDO QUE EL SONIDO!', 'WOOOAH',
-  '¡SPIN DASH!', '¡A TODA VELOCIDAD!', 'ZOOM!', '¡COOL!', '¡SANIC!', '¡WHOOSH!',
+  '¡SPIN DASH!', '¡A TODA VELOCIDAD!', 'ZOOM!', '¡COOL!', '¡SANIC!', '¡WHOOSH!'
 ];
 
 export class Game {
@@ -263,7 +263,8 @@ export class Game {
     // spawn
     let sx, sy;
     const s = this.save.data;
-    if (useCheckpoint && s && s.checkpoint && s.level === index) {
+    const usingSavedCheckpoint = !!(useCheckpoint && s && s.checkpoint && s.level === index);
+    if (usingSavedCheckpoint) {
       sx = s.checkpoint.x; sy = s.checkpoint.y;
     } else {
       sx = L.spawn.tx * TS; sy = L.spawn.ty * TS - 2;
@@ -271,6 +272,9 @@ export class Game {
     this.player = new Player(sx, sy);
     this.player.maxHp = D.playerHp;
     this.player.hp = this.player.maxHp;   // forgiving respawn
+    // A respawn constructs a fresh Player, so restore the checkpoint grace
+    // immediately rather than waiting for the checkpoint overlap next frame.
+    if (usingSavedCheckpoint) this.player.invuln = 0.5;
     this.player.unlimitedParry = !!D.meleeOff;   // Pesadilla: parry is your only offense
 
     // lights  (level lanterns get a sprite; dynamic ones from lit nodes do not)
@@ -556,7 +560,7 @@ export class Game {
       'La esfera del Farolero late en tus manos. ¿Qué haces con la luz?',
       [
         { label: 'Devolverla a Lumera', value: 'A' },
-        { label: 'Conservarla, como el', value: 'B' },
+        { label: 'Conservarla, como él', value: 'B' },
         { label: 'Compartirla con todos', value: 'C' },
       ],
       (val) => this._playEnding(val),
@@ -566,18 +570,18 @@ export class Game {
   _playEnding(val) {
     const E = {
       A: [
-        { speaker: 'Riko', text: 'Riko abrio la esfera. La luz se derramo y volvio a cada farol de Lumera.' },
-        { text: 'La ciudad recordo lo justo para seguir. Y por fin, algunas cosas pudieron olvidarse.' },
+        { speaker: 'Riko', text: 'Riko abrió la esfera. La luz se derramó y volvió a cada farol de Lumera.' },
+        { text: 'La ciudad recordó lo justo para seguir. Y por fin, algunas cosas pudieron olvidarse.' },
         { text: 'FINAL A  -  DEVOLVER LA LUZ' },
       ],
       B: [
         { speaker: 'Riko', text: 'Riko sostuvo la esfera. Tanta memoria, tan brillante, tan quieta.' },
-        { text: 'Lumera quedo perfecta e inmovil: un cuadro hermoso que nadie volveria a pintar.' },
+        { text: 'Lumera quedó perfecta e inmóvil: un cuadro hermoso que nadie volvería a pintar.' },
         { text: 'FINAL B  -  CONSERVAR LA LUZ' },
       ],
       C: [
-        { speaker: 'Riko', text: 'Riko partio la esfera en mil chispas y las repartio por los tejados.' },
-        { text: 'Cada quien guardaria un poco. Lumera recordaria junta, y junta podria cambiar.' },
+        { speaker: 'Riko', text: 'Riko partió la esfera en mil chispas y las repartió por los tejados.' },
+        { text: 'Cada quien guardaría un poco. Lumera recordaría junta, y junta podría cambiar.' },
         { text: 'FINAL C  -  COMPARTIR LA LUZ   (el final verdadero)' },
       ],
     };
@@ -991,10 +995,10 @@ export class Game {
       const t = this.interactTarget;
       const anchorX = clamp(this.player.cx, t.x, t.x + t.w);
       const anchorY = clamp(this.player.cy - 14, t.y, t.y + t.h);
-      const sx = Math.round(anchorX - this.camera.renderX);
-      const sy = Math.round(anchorY - this.camera.renderY - 12);
       ctx.save();
       ctx.textAlign = 'center';
+      const sx = Math.round(anchorX - this.camera.renderX);
+      const sy = Math.round(anchorY - this.camera.renderY - 12);
       ctx.font = 'bold 9px "Courier New", monospace';
       ctx.fillStyle = 'rgba(4,7,16,0.92)';
       ctx.fillRect(sx - 32, sy - 9, 64, 15);
@@ -1094,7 +1098,7 @@ export class Game {
     // vignette (softer in bright mode)
     const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.35, this.W / 2, this.H / 2, this.H * 0.8);
     g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,' + (b ? 0.14 : 0.42) + ')');
+    g.addColorStop(1, 'rgba(0,0,0,' + (b ? 0.10 : 0.26) + ')');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, this.W, this.H);
     ctx.fillStyle = 'rgba(255,255,255,0.014)';
@@ -1237,6 +1241,16 @@ export class Game {
       return;
     }
     const cam = this.camera;
+    // Cut light holes in a transparent shadow layer, never in the scene itself.
+    // destination-out on the opaque game canvas used to erase the terrain to black.
+    const sceneCtx = ctx;
+    if (!this._shadowCanvas) {
+      this._shadowCanvas = document.createElement('canvas');
+      this._shadowCanvas.width = this.W;
+      this._shadowCanvas.height = this.H;
+    }
+    ctx = this._shadowCanvas.getContext('2d');
+    ctx.clearRect(0, 0, this.W, this.H);
     ctx.save();
     ctx.fillStyle = 'rgba(3,5,14,' + dark.toFixed(3) + ')';
     ctx.fillRect(0, 0, this.W, this.H);
@@ -1261,6 +1275,10 @@ export class Game {
     }
     if (this.boss && !this.boss.dead) hole(this.boss.x + this.boss.w / 2, this.boss.y + this.boss.h / 2, 78);
 
+    ctx.restore();
+    sceneCtx.drawImage(this._shadowCanvas, 0, 0);
+    ctx = sceneCtx;
+    ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     this._lightGlows(ctx, cam);
 
@@ -1320,11 +1338,12 @@ export class Game {
     ctx.fillStyle = this.boss.vulnerable ? '#f4c542' : '#8fb8ff';
     ctx.fillRect(x, y, w * clamp(frac, 0, 1), 8);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 8px "Courier New", monospace';
+    ctx.font = 'bold 9px "Courier New", monospace';
     outText(ctx,
       'EL FAROLERO   ·   Fase ' + this.boss.phase +
-      (this.boss.vulnerable ? '  ·  ¡AHORA! golpealo o cae sobre el' : '  ·  espera a que baje'),
+      (this.boss.vulnerable ? '  ·  ¡AHORA! golpéalo o cae sobre él' : '  ·  espera a que baje'),
       this.W / 2, y + 23, this.boss.vulnerable ? '#ffe07a' : '#c3d0e4');
     ctx.restore();
   }
 }
+

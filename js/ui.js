@@ -38,10 +38,10 @@ export function drawHUD(ctx, world) {
     outText(ctx, ITEM_DEFS[sel] && ITEM_DEFS[sel].consumable ? 'x' + n : '∞', bx + 15, by + 16, '#ffffff');
     ctx.textAlign = 'left';
   } else {
-    ctx.font = 'bold 8px "Courier New", monospace';
+    ctx.font = 'bold 9px "Courier New", monospace';
     outText(ctx, '--', bx + 4, by + 10, '#9fb2cc');
   }
-  ctx.font = 'bold 8px "Courier New", monospace';
+  ctx.font = 'bold 9px "Courier New", monospace';
   outText(ctx, 'Q/R', bx + 20, by + 12, '#c3d0e4');
 
   // parry charges (perfect counter)
@@ -64,7 +64,7 @@ export function drawHUD(ctx, world) {
       diamond(bx + i * 9, by + 20, i < pc ? '#9fe8ff' : '#28323c', i < pc);
     }
   }
-  ctx.font = 'bold 8px "Courier New", monospace';
+  ctx.font = 'bold 9px "Courier New", monospace';
   outText(ctx, 'L', bx + 29, by + 26, '#c3d0e4');
 
   // memory counter
@@ -657,3 +657,4 @@ export function drawMenuScene(ctx, W, H) {
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
 }
+

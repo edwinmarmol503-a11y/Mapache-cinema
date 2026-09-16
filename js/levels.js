@@ -119,7 +119,7 @@ export const LEVELS = [
     puzzles: [
       { type: 'lightnode', id: 'ln_g1', tx: 26, ty: 14, memory: true },
       { type: 'lightnode', id: 'ln_roof', tx: 67, ty: 8, memory: true,
-        dialogue: [{ speaker: 'Riko', text: 'Otra luz. Y dentro, un recuerdo que no es mio.' }] },
+        dialogue: [{ speaker: 'Riko', text: 'Otra luz. Y dentro, un recuerdo que no es mío.' }] },
       { type: 'door', id: 'd_gate', tx: 100, ty: 0, tall: 15, locked: true, needs: 'llave' },
       { type: 'door', id: 'd_exit1', tx: 110, ty: 0, tall: 15, requires: ['_clear'] },
     ],
@@ -127,8 +127,8 @@ export const LEVELS = [
     triggers: [
       { tx: 0, ty: 0, w: 7, h: 20, dialogue: [
         { speaker: 'Riko', text: 'Lumera. Mi ciudad. Cada luz, un recuerdo encendido.' },
-        { speaker: 'Riko', text: 'Toque una esfera en un contenedor... y ahora se apagan una a una.' },
-        { text: 'Mueve con A/D o Flechas. Salta con Espacio. En el aire, salta otra vez: doble salto (mas corto).' },
+        { speaker: 'Riko', text: 'Toqué una esfera en un contenedor… y ahora se apagan una a una.' },
+        { text: 'Mueve con A/D o Flechas. Salta con Espacio. En el aire, salta otra vez: doble salto (más corto).' },
       ] },
       { tx: 34, ty: 8, w: 3, h: 12, dialogue: [
         { text: 'Ataca con J. Esquiva con Shift. Cae sobre un enemigo para pisarle la cabeza (le quita 1 vida, a ti nada).' },
@@ -139,7 +139,7 @@ export const LEVELS = [
         { speaker: 'Riko', text: 'Y no puedo irme hasta acabar con todos los enemigos. Lo llevo arriba: enemigos y faroles.' },
       ] },
       { tx: 90, ty: 8, w: 3, h: 12, dialogue: [
-        { speaker: 'Riko', text: 'Un porton de hierro, del suelo al cielo. La llave oxidada. (E, junto a la base)' },
+        { speaker: 'Riko', text: 'Un portón de hierro, del suelo al cielo. La llave oxidada. (E, junto a la base)' },
       ] },
     ],
     intro: [{ text: 'LOS TEJADOS' }],
@@ -183,7 +183,7 @@ export const LEVELS = [
     ],
     puzzles: [
       { type: 'lightnode', id: 'ln_f1', tx: 40, ty: 16, memory: true, dialogue: [
-        { speaker: 'Riko', text: 'La luz me muestra un sendero que el bosque ya olvido.' },
+        { speaker: 'Riko', text: 'La luz me muestra un sendero que el bosque ya olvidó.' },
         { text: 'LAS LUCES CONTIENEN RECUERDOS. Enciende los tres para poder salir.' },
       ] },
       { type: 'lightnode', id: 'ln_f2', tx: 86, ty: 16, memory: true },
@@ -193,7 +193,7 @@ export const LEVELS = [
     memories: [{ tx: 58, ty: 12 }],
     triggers: [
       { tx: 0, ty: 0, w: 7, h: 22, dialogue: [
-        { speaker: 'Riko', text: 'El Bosque Azul. Sin sus faroles, ni los arboles recuerdan su forma.' },
+        { speaker: 'Riko', text: 'El Bosque Azul. Sin sus faroles, ni los árboles recuerdan su forma.' },
         { text: 'Enciende los dos pedestales con la BOMBILLA para abrir la salida.' },
       ] },
       { tx: 62, ty: 4, w: 3, h: 18, dialogue: [{ speaker: 'Riko', text: 'Alguien recoge las luces. Las guarda. Todas.' }] },
@@ -251,7 +251,7 @@ export const LEVELS = [
 
       /* light nodes (ground) -- must all be lit to clear the zone */
       { type: 'lightnode', id: 'ln_s1', tx: 48, ty: 16, memory: true, dialogue: [
-        { speaker: 'Riko', text: 'Hasta aqui abajo hay faroles apagados. Todos deben arder.' },
+        { speaker: 'Riko', text: 'Hasta aquí abajo hay faroles apagados. Todos deben arder.' },
       ] },
       { type: 'lightnode', id: 'ln_s2', tx: 95, ty: 16, memory: true },
 
@@ -266,12 +266,12 @@ export const LEVELS = [
     memories: [{ tx: 44, ty: 11 }, { tx: 60, ty: 11 }],
     triggers: [
       { tx: 0, ty: 0, w: 7, h: 22, dialogue: [
-        { speaker: 'Riko', text: 'Las alcantarillas. Tuberias, agua, maquinas viejas que aun zumban.' },
-        { text: 'Usa el IMAN (E) junto al pedestal: la caja metalica caera sobre el boton.' },
+        { speaker: 'Riko', text: 'Las alcantarillas. Tuberías, agua, máquinas viejas que aún zumban.' },
+        { text: 'Usa el IMÁN (E) junto al pedestal: la caja metálica caerá sobre el botón.' },
       ] },
-      { tx: 54, ty: 4, w: 3, h: 12, dialogue: [{ text: 'El vacio es infranqueable. Sube a la plataforma flotante: te cruza sola.' }] },
+      { tx: 54, ty: 4, w: 3, h: 12, dialogue: [{ text: 'El vacío es infranqueable. Sube a la plataforma flotante: te cruza sola.' }] },
       { tx: 96, ty: 4, w: 3, h: 12, dialogue: [
-        { speaker: 'Riko', text: 'Tres botones, de izquierda a derecha. Pisa el ultimo al final.' },
+        { speaker: 'Riko', text: 'Tres botones, de izquierda a derecha. Pisa el último al final.' },
       ] },
     ],
     intro: [{ text: 'LAS ALCANTARILLAS' }],
@@ -320,9 +320,9 @@ export const LEVELS = [
     puzzles: [
       { type: 'rope', id: 'rp1', tx: 25, ty: 16, len: 15, horizontal: true },
       { type: 'lightnode', id: 'ln_d1', tx: 66, ty: 16, memory: true, dialogue: [
-        { speaker: '???', text: 'No lo hago por crueldad. Cada luz perdida es un nombre que nadie recordara.' },
-        { speaker: 'Riko', text: 'El Farolero. Guardaba los recuerdos para salvarlos...' },
-        { speaker: 'Riko', text: 'pero lo guardo TODO. Y Lumera dejo de avanzar.' },
+        { speaker: '???', text: 'No lo hago por crueldad. Cada luz perdida es un nombre que nadie recordará.' },
+        { speaker: 'Riko', text: 'El Farolero. Guardaba los recuerdos para salvarlos…' },
+        { speaker: 'Riko', text: 'Pero lo guardó todo. Y Lumera dejó de avanzar.' },
       ] },
       { type: 'rope', id: 'rp2', tx: 79, ty: 16, len: 15, horizontal: true },
       { type: 'lightnode', id: 'ln_d2', tx: 118, ty: 16, memory: true },
@@ -332,9 +332,9 @@ export const LEVELS = [
     triggers: [
       { tx: 0, ty: 0, w: 7, h: 22, dialogue: [
         { speaker: 'Riko', text: 'El distrito abandonado. Llueve sobre calles que ya nadie nombra.' },
-        { text: 'La CUERDA (E en el anclaje) tiende un puente sobre los vacios.' },
+        { text: 'La CUERDA (E en el anclaje) tiende un puente sobre los vacíos.' },
       ] },
-      { tx: 47, ty: 0, w: 3, h: 12, dialogue: [{ speaker: 'Riko', text: 'Carteles en blanco. Las tiendas olvidaron lo que vendian.' }] },
+      { tx: 47, ty: 0, w: 3, h: 12, dialogue: [{ speaker: 'Riko', text: 'Carteles en blanco. Las tiendas olvidaron lo que vendían.' }] },
     ],
     intro: [{ text: 'EL DISTRITO ABANDONADO' }],
   },
@@ -377,14 +377,14 @@ export const LEVELS = [
     memories: [{ tx: 16, ty: 58 }, { tx: 6, ty: 30 }],
     triggers: [
       { tx: 0, ty: 58, w: 30, h: 8, dialogue: [
-        { speaker: 'Riko', text: 'La Torre. Aqui termina la noche... de un modo u otro.' },
+        { speaker: 'Riko', text: 'La Torre. Aquí termina la noche... de un modo u otro.' },
         { text: 'Sube. Lleva una BOMBILLA en mano para ver en la oscuridad.' },
       ] },
       { tx: 3, ty: 16, w: 24, h: 3, event: 'bossIntro', dialogue: [
-        { speaker: 'El Farolero', text: 'Pequeno Riko. Trepaste toda la noche para llegar a mi.' },
-        { speaker: 'El Farolero', text: 'Mire como Lumera olvidaba. No pude soportarlo. Asi que lo guarde todo.' },
-        { speaker: 'El Farolero', text: 'Nada se perderia jamas. Nada cambiaria jamas.' },
-        { speaker: 'Riko', text: 'Y nada podria vivir. Solo puedo alcanzarlo cuando baje: entonces, golpeo o caigo sobre el.' },
+        { speaker: 'El Farolero', text: 'Pequeño Riko. Trepaste toda la noche para llegar a mí.' },
+        { speaker: 'El Farolero', text: 'Miré cómo Lumera olvidaba. No pude soportarlo. Así que lo guardé todo.' },
+        { speaker: 'El Farolero', text: 'Nada se perdería jamás. Nada cambiaría jamás.' },
+        { speaker: 'Riko', text: 'Y nada podría vivir. Solo puedo alcanzarlo cuando baje: entonces, golpeo o caigo sobre él.' },
       ] },
     ],
     intro: [{ text: 'LA TORRE DEL FAROLERO' }],

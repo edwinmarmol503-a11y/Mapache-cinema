@@ -15,8 +15,8 @@
    ============================================================ */
 export const DIFFS = {
   easy: {
-    key: 'easy', label: 'Facil', color: '#6fbf73',
-    blurb: 'Menos enemigos, mas objetos, mas vida.',
+    key: 'easy', label: 'Fácil', color: '#6fbf73',
+    blurb: 'Menos enemigos, más objetos, más vida.',
     enemyHp: -1, enemyDmg: -1, enemySpeed: 0.9, halfEnemies: true,
     extraEnemies: 0, extraItems: 3, playerHp: 4, meleeOff: false, bossHpMul: 0.7, orbMul: 0.7,
   },
@@ -27,15 +27,15 @@ export const DIFFS = {
     extraEnemies: 0, extraItems: 0, playerHp: 3, meleeOff: false, bossHpMul: 1, orbMul: 1,
   },
   hard: {
-    key: 'hard', label: 'Dificil', color: '#e08a3c',
-    blurb: 'Mas enemigos, mas rapidos y resistentes.',
+    key: 'hard', label: 'Difícil', color: '#e08a3c',
+    blurb: 'Más enemigos, más rápidos y resistentes.',
     enemyHp: 1, enemyDmg: 0, enemySpeed: 1.35, halfEnemies: false,
     extraEnemies: 2, extraItems: 0, playerHp: 3, meleeOff: false, bossHpMul: 1.3, orbMul: 1.35,
   },
   nightmare: {
     key: 'nightmare', label: 'Pesadilla', color: '#d64b3a',
     blurb: '5 corazones, pero un toque de enemigo o del jefe te los quita TODOS de golpe. '
-         + 'Solo las bolitas de luz del jefe quitan 1 a la vez. El ataque no dana enemigos (si al jefe): solo la PARADA (ilimitada) y la esquiva.',
+         + 'Solo las bolitas de luz del jefe quitan 1 a la vez. El ataque no daña enemigos (sí al jefe): solo la PARADA (ilimitada) y la esquiva.',
     enemyHp: 1, enemyDmg: 1, enemySpeed: 1.55, halfEnemies: false,
     extraEnemies: 2, extraItems: -1, playerHp: 5, meleeOff: true, bossHpMul: 1.55, orbMul: 2.0,
     bossLataAssist: true,   // an occasional lata in the arena -- your only ranged hit vs regular foes doesn't apply here, but ammo helps

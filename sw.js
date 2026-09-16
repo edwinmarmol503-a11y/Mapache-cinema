@@ -3,7 +3,7 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const CACHE_NAME = 'mapache-cinema-v1';
+const CACHE_NAME = 'mapache-cinema-v2.1-visual';
 const ASSETS = [
   './',
   './index.html',

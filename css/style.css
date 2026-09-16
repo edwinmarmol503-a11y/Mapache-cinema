@@ -48,29 +48,46 @@ html, body {
   pointer-events: none;
   z-index: 61;
   box-sizing: border-box;
-  border: 11px solid #5a4128;
-  border-image: linear-gradient(155deg, #7a5c37 0%, #4a3520 35%, #2c1f10 60%, #6b4e2e 100%) 1;
+  border: 26px solid #5a4128;
+  border-image: linear-gradient(145deg, #8b6940 0%, #5a4128 28%, #2d1e0f 64%, #6f4e2c 100%) 1;
+  box-shadow: inset 0 0 0 4px #181108, inset 0 0 0 7px #9a7749;
   /* NOTE: every stop list below MUST end in `transparent` -- a radial-gradient
      with no final transparent stop floods the REST of the box with its last
      color instead of leaving it empty. (That silently blacked out the whole
      page here once already -- don't repeat it.) */
   background:
-    radial-gradient(circle 6px at 18px 18px, #cdb98a 35%, #241a0e 85%, transparent 100%),
-    radial-gradient(circle 6px at calc(100% - 18px) 18px, #cdb98a 35%, #241a0e 85%, transparent 100%),
-    radial-gradient(circle 6px at 18px calc(100% - 18px), #cdb98a 35%, #241a0e 85%, transparent 100%),
-    radial-gradient(circle 6px at calc(100% - 18px) calc(100% - 18px), #cdb98a 35%, #241a0e 85%, transparent 100%);
+    radial-gradient(circle 6px at 13px 13px, #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
+    radial-gradient(circle 6px at calc(100% - 13px) 13px, #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
+    radial-gradient(circle 6px at 13px calc(100% - 13px), #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
+    radial-gradient(circle 6px at calc(100% - 13px) calc(100% - 13px), #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
+    repeating-linear-gradient(4deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.045) 1px 4px, transparent 4px 9px);
   background-clip: padding-box;
 }
 #app::after {
   content: "";
   position: fixed;
-  inset: 11px;
+  inset: 26px;
   pointer-events: none;
   z-index: 60;
   /* soft screen vignette -- a plain radial gradient, so its extent is exact
      and can never accidentally cover the whole viewport */
-  background: radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.4) 100%);
+  border: 4px solid #17120c;
+  border-radius: 18px / 12px;
+  box-shadow: inset 0 0 22px rgba(0,0,0,.78), 0 0 0 2px #9a7749;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 3px, rgba(255,255,255,.012) 3px 4px),
+    radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.4) 100%);
 }
+
+/* Physical controls in the lower wooden lip make the frame read as a TV set. */
+.tv-hardware { position: fixed; inset: 0; z-index: 63; pointer-events: none; color: #c8a66a; }
+.tv-brand { position: absolute; left: 50%; bottom: 6px; transform: translateX(-50%); font: bold 8px/1 "Courier New", monospace; letter-spacing: 3px; color: #d0b77f; text-shadow: 0 1px #1a1007; }
+.tv-speaker { position: absolute; left: 54px; bottom: 7px; width: 92px; height: 10px; opacity: .72; background: repeating-linear-gradient(90deg, #1b120a 0 3px, transparent 3px 8px); }
+.tv-knob { position: absolute; bottom: 5px; width: 15px; height: 15px; border-radius: 50%; border: 2px solid #21160b; background: radial-gradient(circle at 35% 30%, #bd9a60 0 15%, #5a4024 38%, #24170b 72%); box-shadow: 0 1px 0 #aa8250; }
+.tv-knob::after { content: ""; position: absolute; left: 6px; top: 1px; width: 2px; height: 5px; background: #e2c88d; }
+.tv-knob-channel { right: 76px; }
+.tv-knob-volume { right: 50px; transform: rotate(38deg); }
+.tv-power { position: absolute; right: 26px; bottom: 10px; width: 5px; height: 5px; border-radius: 50%; background: #e85338; box-shadow: 0 0 6px #ff573d; }
 
 /* the game canvas -------------------------------------------------- */
 #gs {
@@ -157,3 +174,8 @@ button {
   font-family: inherit;
   cursor: pointer;
 }
+button:focus-visible, input:focus-visible, select:focus-visible {
+  outline: 3px solid var(--c-gold);
+  outline-offset: 4px;
+}
+button:disabled { cursor: not-allowed; }

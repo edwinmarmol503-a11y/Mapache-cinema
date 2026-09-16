@@ -20,7 +20,7 @@
 </head>
 <body>
 <div id="app">
-  <canvas id="gs" width="480" height="270"></canvas>
+  <canvas id="gs" width="480" height="270" aria-label="Mapache Cinema: escenario del juego"></canvas>
 
   <!-- ===== MENU PRINCIPAL ===== -->
   <div id="screen-menu" class="screen">
@@ -28,7 +28,7 @@
     <div class="menu-content">
       <h1 class="title">MAPACHE<br />CINEMA</h1>
       <p class="subtitle">La Última Noche</p>
-      <nav class="menu-nav" id="menu-nav">
+      <nav class="menu-nav" id="menu-nav" aria-label="Menú principal">
         <button data-act="play">JUGAR</button>
         <button data-act="continue" id="btn-continue">CONTINUAR</button>
         <button data-act="levels">NIVELES</button>
@@ -51,17 +51,17 @@
     <div class="panel">
       <h2>OPCIONES</h2>
       <div class="opt-row">
-        <label>Volumen música</label>
+        <label for="opt-music">Volumen música</label>
         <input type="range" id="opt-music" min="0" max="100" value="60" />
         <span id="opt-music-val">60</span>
       </div>
       <div class="opt-row">
-        <label>Volumen efectos</label>
+        <label for="opt-sfx">Volumen efectos</label>
         <input type="range" id="opt-sfx" min="0" max="100" value="70" />
         <span id="opt-sfx-val">70</span>
       </div>
       <div class="opt-row">
-        <label>Escala de pantalla</label>
+        <label for="opt-scale">Escala de pantalla</label>
         <select id="opt-scale">
           <option value="auto">Automática</option>
           <option value="1">1x</option>
@@ -70,11 +70,11 @@
         </select>
       </div>
       <div class="opt-row">
-        <label>Pantalla completa</label>
+        <label for="opt-fullscreen">Pantalla completa</label>
         <button id="opt-fullscreen" class="mini">Activar / Desactivar</button>
       </div>
       <div class="opt-row">
-        <label>Modo claro</label>
+        <label for="opt-bright">Modo claro</label>
         <button id="opt-bright" class="mini">Desactivado</button>
         <span></span>
       </div>
@@ -102,9 +102,9 @@
   <!-- ===== APODO (al empezar) ===== -->
   <div id="screen-nick" class="screen hidden">
     <div class="panel small">
-      <h2>TU APODO</h2>
+      <h2><label for="nick-input">TU APODO</label></h2>
       <p class="diff-blurb">Para la tabla de récords por tiempo.</p>
-      <input id="nick-input" type="text" maxlength="12" placeholder="RIKO" autocomplete="off" />
+      <input id="nick-input" type="text" maxlength="12" placeholder="RIKO" autocomplete="off" spellcheck="false" />
       <div class="nick-row">
         <button id="nick-go" class="back" style="margin:0;width:auto;padding:10px 22px;">EMPEZAR</button>
         <button id="nick-cancel" class="mini">Cancelar</button>
@@ -137,6 +137,12 @@
 
   <!-- ===== PANTALLA DE VICTORIA (tras elegir el final) ===== -->
   <div id="screen-victory" class="screen hidden">
+    <div class="victory-lanterns" aria-hidden="true">
+      <i class="victory-lantern lantern-a"></i>
+      <i class="victory-lantern lantern-b"></i>
+      <i class="victory-lantern lantern-c"></i>
+      <i class="victory-lantern lantern-d"></i>
+    </div>
     <div class="victory-box">
       <h1 id="victory-title">¡FELICIDADES!</h1>
       <p id="victory-sub">Terminaste Mapache Cinema: La Última Noche.</p>
@@ -158,8 +164,15 @@
   </div>
 
   <div id="fade"></div>
-  <div id="toast-layer"></div>
+  <div id="toast-layer" role="status" aria-live="polite"></div>
   <div id="boot-hint">Cargando… si no ves nada, abre el proyecto con <b>Live Server</b> (los módulos ES necesitan http://)</div>
+  <div class="tv-hardware" aria-hidden="true">
+    <span class="tv-brand">LUMERA</span>
+    <span class="tv-speaker"></span>
+    <span class="tv-knob tv-knob-channel"></span>
+    <span class="tv-knob tv-knob-volume"></span>
+    <span class="tv-power"></span>
+  </div>
 </div>
 <script type="module" src="js/main.js"></script>
 </body>

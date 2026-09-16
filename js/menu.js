@@ -15,12 +15,12 @@ const CONTROL_LABELS = {
 };
 
 const CREDITS = [
-  { sec: 'MAPACHE CINEMA — LA ULTIMA NOCHE' },
+  { sec: 'MAPACHE CINEMA — LA ÚLTIMA NOCHE' },
   { role: 'Game Design', who: 'Estudio Lumera' },
   { role: 'Programming', who: 'Estudio Lumera' },
   { role: 'Pixel Art', who: 'Estudio Lumera  (placeholders procedurales)' },
   { role: 'Level Design', who: 'Estudio Lumera' },
-  { role: 'Audio', who: 'Sintesis procedural (Web Audio API)' },
+  { role: 'Audio', who: 'Síntesis procedural (Web Audio API)' },
   { role: 'Story', who: 'La ciudad que recordaba demasiado' },
   { sec: 'GRACIAS POR JUGAR' },
 ];
@@ -83,7 +83,7 @@ export class Menu {
     else if (act === 'options') { this.optionsReturn = 'menu'; this.showOptions(); }
     else if (act === 'credits') { this.showCredits(); }
     else if (act === 'quit') {
-      this._flash('Cierra la pestana para salir  ·  ¡gracias por jugar!');
+      this._flash('Cierra la pestaña para salir. ¡Gracias por jugar!');
       window.close();
     }
   }
@@ -159,12 +159,12 @@ export class Menu {
     const list = Save.loadScores();
     box.innerHTML = '';
     if (!list.length) {
-      box.innerHTML = '<div class="score-empty">Aun no hay tiempos. ¡Termina una partida!</div>';
+      box.innerHTML = '<div class="score-empty">Aún no hay tiempos. ¡Termina una partida!</div>';
       return;
     }
     const head = document.createElement('div');
     head.className = 'score-row head';
-    head.innerHTML = '<span class="s-rank">#</span><span>APODO</span><span class="s-time">TIEMPO</span><span class="s-diff">DIFICULTAD</span><span class="s-end">FIN</span>';
+    head.innerHTML = '<span class="s-rank">#</span><span>APODO</span><span class="s-time">TIEMPO</span><span class="s-diff">DIFICULTAD</span><span class="s-end">FINAL</span>';
     box.appendChild(head);
     list.forEach((s, i) => {
       const mm = Math.floor(s.time / 60), ss = String(s.time % 60).padStart(2, '0');
@@ -464,10 +464,6 @@ export class Menu {
   }
 }
 
-function esc(s) {
-  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-}
-
 function prettyKey(code) {
   return code
     .replace('Key', '')
@@ -478,4 +474,8 @@ function prettyKey(code) {
     .replace('ShiftLeft', 'Shift').replace('ShiftRight', 'Shift')
     .replace('Space', 'Espacio')
     .replace('Escape', 'Esc');
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 }
