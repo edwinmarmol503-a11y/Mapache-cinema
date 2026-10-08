@@ -1,0 +1,276 @@
+/* ============================================================
+   TOUCH CONTROLS  -  only ever mounted on touch-capable devices
+   (see js/touch.js); only visible while a level is being played.
+   ============================================================ */
+#touch-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  display: none;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+.touch-mode.playing:not(.paused) #touch-layer { display: block; }
+
+/* On phones the TV cabinet costs too much of the short landscape viewport.
+   Keep it on desktop, but let the mobile canvas and menus use the full screen. */
+#app.touch-mode::before,
+#app.touch-mode::after,
+#app.touch-mode .tv-hardware { display: none; }
+
+#app.touch-mode {
+  background: #02030a;
+  padding:
+    max(4px, env(safe-area-inset-top))
+    max(4px, env(safe-area-inset-right))
+    max(4px, env(safe-area-inset-bottom))
+    max(4px, env(safe-area-inset-left));
+}
+
+.touch-mode .screen {
+  padding:
+    max(6px, env(safe-area-inset-top))
+    max(8px, env(safe-area-inset-right))
+    max(6px, env(safe-area-inset-bottom))
+    max(8px, env(safe-area-inset-left));
+}
+
+/* The title menu must fit even on short landscape phones. */
+.touch-mode #screen-menu {
+  align-items: flex-start;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.touch-mode .menu-content {
+  width: 100%;
+  min-height: 100%;
+  padding: clamp(7px, 2.2vh, 14px) 20px 8px;
+}
+.touch-mode .title {
+  display: flex;
+  justify-content: center;
+  gap: .3em;
+  font-size: clamp(30px, 10vh, 44px);
+  line-height: 0.9;
+}
+.touch-mode .title br { display: none; }
+.touch-mode .subtitle {
+  margin-top: 4px;
+  font-size: clamp(10px, 3.2vh, 14px);
+  letter-spacing: 5px;
+}
+.touch-mode #screen-menu .menu-nav {
+  align-items: center;
+  gap: 1px;
+  margin-top: clamp(5px, 2vh, 12px);
+}
+.touch-mode #screen-menu .menu-nav button {
+  padding: 2px 8px;
+  font-size: clamp(12px, 4vh, 16px);
+  line-height: 1.05;
+  text-align: center;
+}
+.touch-mode #screen-menu .menu-nav button:hover,
+.touch-mode #screen-menu .menu-nav button.sel,
+.touch-mode #screen-menu .menu-nav button:active:not(:disabled) {
+  transform: none;
+}
+.touch-mode .version { display: none; }
+
+/* Panels remain fully reachable: compact them and scroll their own content. */
+.touch-mode .panel {
+  width: min(620px, 100%);
+  max-height: calc(100dvh - 12px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  padding: 14px 20px;
+  overscroll-behavior: contain;
+}
+.touch-mode .panel h2 { margin-bottom: 10px; font-size: 21px; }
+.touch-mode .panel .menu-nav { margin-top: 8px; gap: 5px; }
+.touch-mode .panel .menu-nav button { padding: 8px 0; font-size: 14px; }
+.touch-mode .back { margin-top: 12px; padding: 8px 0; }
+
+.tc-btn {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: linear-gradient(145deg, rgba(23, 39, 65, .82), rgba(5, 12, 25, .70));
+  border: 2px solid rgba(131, 177, 220, 0.55);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 2px 0 rgba(0,0,0,.2);
+  color: var(--c-ink, #e8f4ff);
+  font-family: "Courier New", monospace;
+  font-weight: 700;
+  letter-spacing: .5px;
+  padding: 0;
+  line-height: 1;
+  touch-action: none;
+  pointer-events: auto;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.06s, border-color 0.1s, background 0.1s;
+}
+.tc-btn.active {
+  border-color: var(--c-gold, #f4c542);
+  background: rgba(244, 197, 66, 0.22);
+  transform: scale(0.92);
+}
+
+/* ---- thumb joystick, bottom-left ---- */
+.tc-movement {
+  position: absolute;
+  left: max(18px, calc(env(safe-area-inset-left) + 12px));
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+  width: 132px;
+  height: 132px;
+  pointer-events: none;
+}
+.tc-joystick {
+  width: 132px;
+  height: 132px;
+  border: 2px solid rgba(121, 165, 211, .45);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14, 26, 45, .72) 0 34%, rgba(27, 47, 72, .30) 35% 69%, rgba(8, 15, 29, .45) 70%);
+  box-shadow: inset 0 0 0 8px rgba(140, 181, 219, .06);
+  pointer-events: auto;
+  touch-action: none;
+}
+.tc-joystick.active { border-color: rgba(244,197,66,.70); }
+.tc-stick-thumb {
+  --stick-x: 0px;
+  --stick-y: 0px;
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  left: 39px;
+  top: 39px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid rgba(156,195,233,.72);
+  color: rgba(215,235,254,.8);
+  font-size: 24px;
+  background: radial-gradient(circle at 34% 25%, rgba(74,109,151,.88), rgba(20,37,62,.90) 80%);
+  box-shadow: 0 3px 0 rgba(0,0,0,.25);
+  transform: translate(var(--stick-x), var(--stick-y));
+  pointer-events: none;
+}
+.tc-joystick.active .tc-stick-thumb { border-color: var(--c-gold, #f4c542); }
+.tc-stick-guide { position: absolute; color: rgba(183,210,237,.55); font-size: 10px; pointer-events: none; }
+.tc-stick-up { top: 8px; left: 59px; }
+.tc-stick-down { bottom: 8px; left: 59px; }
+.tc-stick-left { left: 10px; top: 57px; }
+.tc-stick-right { right: 10px; top: 57px; }
+
+/* ---- optional classic D-pad ---- */
+.tc-dpad { position: absolute; inset: 0; display: none; pointer-events: none; }
+#touch-layer[data-mode="dpad"] .tc-joystick { display: none; }
+#touch-layer[data-mode="dpad"] .tc-dpad { display: block; }
+.tc-dpad .tc-btn { width: 46px; height: 46px; font-size: 18px; }
+.tc-d-up    { left: 43px; top: 0; }
+.tc-d-down  { left: 43px; top: 86px; }
+.tc-d-left  { left: 0; top: 43px; }
+.tc-d-right { left: 86px; top: 43px; }
+
+/* ---- four main actions; extra tools open above the cluster ---- */
+.tc-actions {
+  position: absolute;
+  right: max(16px, calc(env(safe-area-inset-right) + 10px));
+  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+  width: 202px;
+  height: 148px;
+  pointer-events: none;
+}
+.tc-actions .tc-btn { font-size: 11px; }
+.tc-a-jump { left: 128px; top: 74px; width: 72px; height: 72px; border-color: rgba(130,218,138,.80); }
+.tc-a-atk { left: 66px; top: 10px; width: 64px; height: 64px; border-color: rgba(241,126,101,.80); }
+.tc-a-dodge { left: 16px; top: 88px; width: 56px; height: 56px; }
+.tc-a-interact { left: 0; top: 24px; width: 48px; height: 48px; border-color: rgba(77,202,186,.72); }
+.tc-a-more { left: 152px; top: 19px; width: 46px; height: 46px; font-size: 10px; color: var(--c-dim, #9fb2cc); border-style: dashed; }
+.tc-a-more.expanded { color: var(--c-gold, #f4c542); border-color: var(--c-gold, #f4c542); }
+.tc-secondary {
+  position: absolute;
+  left: 0;
+  bottom: 158px;
+  width: 202px;
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+  pointer-events: none;
+}
+.tc-secondary[hidden] { display: none; }
+.tc-secondary .tc-btn { position: static; flex: 0 0 47px; width: 47px; height: 47px; font-size: 10px; }
+.tc-s-parry { border-color: rgba(244,197,66,.78); }
+.tc-pause {
+  top: max(8px, calc(env(safe-area-inset-top) + 4px));
+  left: var(--touch-pause-left, 64%);
+  width: 42px;
+  height: 42px;
+  font-size: 18px;
+  border-color: rgba(159,178,204,.55);
+}
+
+.touch-mode #toast-layer { top: 50%; bottom: auto; max-width: calc(100% - 24px); }
+
+/* Mirror the control groups without mirroring text or moving the pause button. */
+#touch-layer[data-layout="left"] .tc-movement { left: auto; right: max(18px, calc(env(safe-area-inset-right) + 12px)); }
+#touch-layer[data-layout="left"] .tc-actions { right: auto; left: max(16px, calc(env(safe-area-inset-left) + 10px)); }
+#touch-layer[data-layout="left"] .tc-a-jump { left: 2px; }
+#touch-layer[data-layout="left"] .tc-a-atk { left: 72px; }
+#touch-layer[data-layout="left"] .tc-a-dodge { left: 130px; }
+#touch-layer[data-layout="left"] .tc-a-interact { left: 154px; }
+#touch-layer[data-layout="left"] .tc-a-more { left: 4px; }
+#touch-layer[data-layout="left"] .tc-secondary { flex-direction: row-reverse; }
+.tc-options { border-top: 1px solid #1c2a48; margin-top: 12px; padding-top: 12px; }
+.tc-options h3 { color: var(--c-gold, #f4c542); font-size: 12px; letter-spacing: 2px; }
+.tc-options .opt-row { grid-template-columns: 1fr minmax(130px, 1fr); }
+.tc-options select { min-height: 40px; min-width: 0; }
+.tc-options p { color: var(--c-dim, #9fb2cc); font-size: 11px; line-height: 1.5; margin: 8px 0; }
+
+@media (max-height: 360px) and (orientation: landscape) {
+  .tc-movement { transform: scale(.88); transform-origin: bottom left; }
+  .tc-actions { transform: scale(.90); transform-origin: bottom right; }
+  #touch-layer[data-layout="left"] .tc-movement { transform-origin: bottom right; }
+  #touch-layer[data-layout="left"] .tc-actions { transform-origin: bottom left; }
+}
+
+/* ---- landscape-only nudge ---- */
+#rotate-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: #05070f;
+  color: var(--c-ink, #e8f4ff);
+  text-align: center;
+  font-family: "Courier New", monospace;
+}
+#rotate-overlay .ro-icon {
+  font-size: 44px;
+  color: var(--c-gold, #f4c542);
+  animation: ro-spin 1.8s ease-in-out infinite;
+}
+#rotate-overlay span { color: var(--c-dim, #9fb2cc); font-size: 12px; }
+@keyframes ro-spin {
+  0%, 100% { transform: rotate(0deg); }
+  50% { transform: rotate(-90deg); }
+}
+@media (orientation: portrait) {
+  .touch-mode .title { display: block; font-size: clamp(36px, 10vw, 52px); line-height: .98; letter-spacing: 3px; }
+  .touch-mode .title br { display: initial; }
+  .touch-mode #screen-menu .menu-nav { margin-top: 18px; gap: 3px; }
+  .touch-mode #screen-menu .menu-nav button { min-height: 44px; padding: 8px 12px; font-size: 16px; }
+  .touch-mode.playing #rotate-overlay { display: flex; }
+  .touch-mode.playing:not(.paused) #touch-layer { display: none; }
+}
+
+/* touch devices: give the canvas room, drop the keyboard hint text */
+.touch-mode #boot-hint { display: none; }
+@media (pointer: coarse), (hover: none) {
+  .touch-mode .hint { display: none; }
+}
