@@ -11,12 +11,13 @@ import { Menu } from './menu.js';
 import { Pause } from './pause.js';
 import { drawMenuScene } from './ui.js';
 import { initTouch, isTouchDevice } from './touch.js';
+import { Ranking } from './ranking.js';
 
 /* ---------------- PWA: offline cache + installability ---------------- */
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+  const registerOffline = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
+  if (document.readyState === 'complete') registerOffline();
+  else window.addEventListener('load', registerOffline, { once: true });
 }
 let _installPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
@@ -66,28 +67,30 @@ const game = new Game(ctx, canvas, {
   audio: Audio,
   save: Save,
   dialogue,
+  ranking: Ranking,
   onVictory: (ending) => { appState = 'victory'; document.getElementById('app').classList.remove('playing', 'paused'); menu.showVictory(ending); },
 });
 
 const menu = new Menu({
   onPlay: (nick) => startGame(false, nick),
   onContinue: () => startGame(true),
-  onPlayLevel: (diff, idx) => {
+  onPlayLevel: (diff, idx, nick) => {
     appState = 'game';
     document.getElementById('app').classList.add('playing');
     menu.hideAll();
     Audio.resume();
-    game.startAt(diff, idx);
+    game.startAt(diff, idx, nick);
   },
   onCreditsClosed: () => returnToMenu(),
   onVictoryClosed: () => returnToMenu(),
   applyScale: (mode) => applyScale(mode),
-  applyBright: (v) => game.setBright(v),
+  applyVisual: (mode) => { game.setVisualMode(mode); document.documentElement.dataset.visual = mode; },
+  applyEffects: (reduced) => { game.reducedEffects = reduced; document.documentElement.classList.toggle('reduced-effects', reduced); },
 });
 
 const pause = new Pause({
   onResume: () => {},
-  onRestart: () => { game.loadLevel(game.levelIndex, false); game.state = 'playing'; game.fadeAlpha = 0; },
+  onRestart: () => game.restartLevel(),
   onExitToMenu: () => returnToMenu(),
   onOptions: () => { menu.optionsReturn = 'pause'; menu.showOptions(); },
 });
@@ -103,6 +106,7 @@ function startGame(useContinue, nick) {
 }
 
 function returnToMenu() {
+  if (appState === 'game') game.suspendRun();
   appState = 'menu';
   document.getElementById('app').classList.remove('playing', 'paused');
   Audio.stopMusic();
@@ -116,7 +120,7 @@ function applyScale(mode) {
   mode = mode || o.scale || 'auto';
   const vw = window.visualViewport ? window.visualViewport.width : window.innerWidth;
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  const fit = Math.min(vw / IW, vh / IH);
+  const fit = Math.min((vw - (isTouchDevice ? 8 : 64)) / IW, (vh - (isTouchDevice ? 8 : 64)) / IH);
   let scale;
   if (mode === 'auto' && isTouchDevice) {
     // Mobile landscape heights often sit between integer scales. Fill the
@@ -125,7 +129,7 @@ function applyScale(mode) {
   } else if (mode === 'auto') {
     // ALWAYS an integer scale: pixelated image-rendering only stays crisp when
     // every source pixel maps to a whole number of screen pixels on desktop.
-    scale = Math.max(1, Math.floor(fit));
+    scale = fit < 1 ? fit : Math.floor(fit);
   } else {
     scale = Math.min(parseInt(mode, 10) || 2, Math.max(1, Math.floor(fit)));
   }
@@ -172,7 +176,8 @@ function frame(now) {
 function tick(dt) {
   if (appState === 'game') {
     if (Input.justPressed('pause')) {
-      if (pause.active) pause.resume();
+      if (!menu.elOptions.classList.contains('hidden')) menu.closeOptions();
+      else if (pause.active) pause.resume();
       else if (!game.transition && game.state === 'playing') pause.open();
     }
     if (!pause.active) game.update(dt);
@@ -185,7 +190,7 @@ function draw() {
   if (appState === 'game') {
     game.render();
   } else {
-    drawMenuScene(ctx, IW, IH);
+    drawMenuScene(ctx, IW, IH, game.visualMode, game.reducedEffects);
   }
 }
 
@@ -202,18 +207,27 @@ document.addEventListener('visibilitychange', () => {
     last = performance.now();   // don't dump a huge dt into the loop
     acc = 0;
     Audio.resume();
-    if (appState === 'menu') Audio.playMusic('menu');
+    if (appState === 'menu') { Audio.resumeMusic(); if (!Audio.currentTrack) Audio.playMusic('menu'); }
     // music for the game resumes when the player closes the pause menu
   }
 });
 window.addEventListener('pagehide', () => {
+  if (appState === 'game') game.suspendRun();
   Audio.stopMusic();
   if (Audio.ctx && Audio.ctx.state === 'running') Audio.ctx.suspend();
 });
 
 /* ---------------- go ---------------- */
 menu.showMenu();
+document.documentElement.dataset.visual = game.visualMode;
+document.documentElement.classList.toggle('reduced-effects', game.reducedEffects);
+Ranking.init?.().catch(() => {});
+// Persist only every ten seconds, keeping disk writes out of the simulation loop.
+setInterval(() => {
+  if (appState !== 'game' || !Save.data || !game.player) return;
+  Save.update({ items: game.inventory.serialize(), levelElapsedMs: game._levelClockCarry + Math.max(0, performance.now() - game._levelClockStart) });
+}, 10000);
 requestAnimationFrame(frame);
 
 // expose for debugging in the console
-window.MC = { game, menu, pause, Save, Audio, Input };
+window.MC = { game, menu, pause, Save, Audio, Input, Ranking };

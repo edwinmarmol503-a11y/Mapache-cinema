@@ -1,7 +1,11 @@
 /* ============================================================
-   audio.js  -  Web Audio API. Fully procedural (no asset files
-   required). Separate music / sfx buses with saved volumes.
+   audio.js  -  Web Audio API, optional streamed soundtrack.
+   Separate music / sfx buses. Procedural fallback works offline.
    ============================================================ */
+export const MUSIC_MANIFEST_URL = new URL('../assets/audio/tracks.json', import.meta.url).href;
+const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending'];
+const volume = (v, fallback) => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
+
 export const Audio = {
   ctx: null,
   master: null,
@@ -12,12 +16,23 @@ export const Audio = {
   _musicTimer: null,
   _pausedTrack: null,
   _muted: false,
+  _tracks: new Map(),
+  _playlists: {},
+  _playlistCounters: {},
+  _manifestPromise: null,
+  _media: null,
+  _mediaSource: null,
+  _mediaGain: null,
+  _externalTrack: null,
+  _musicMode: 'stopped',
+  _playGeneration: 0,
 
   init(opts) {
     if (opts) {
-      if (typeof opts.music === 'number') this.opts.music = opts.music;
-      if (typeof opts.sfx === 'number') this.opts.sfx = opts.sfx;
+      this.opts.music = volume(opts.music, this.opts.music);
+      this.opts.sfx = volume(opts.sfx, this.opts.sfx);
     }
+    if (this.ctx) { this.applyVolumes(); return; }
     try {
       const AC = window.AudioContext || window.webkitAudioContext;
       this.ctx = new AC();
@@ -28,23 +43,110 @@ export const Audio = {
       this.musicGain.connect(this.master);
       this.sfxGain.connect(this.master);
       this.applyVolumes();
+      // Empty until the owner supplies 5–20 tracks; no music asset is required.
+      this.loadTrackManifest();
     } catch (e) {
       console.warn('[audio] Web Audio unavailable', e);
     }
   },
 
-  resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  resume() {
+    if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    if (this._media && this.currentTrack && this._externalTrack && this._media.paused) {
+      this._playMedia(this.currentTrack, this._playGeneration);
+    }
+  },
 
   applyVolumes() {
     if (!this.ctx) return;
     this.musicGain.gain.value = this._muted ? 0 : this.opts.music;
     this.sfxGain.gain.value = this._muted ? 0 : this.opts.sfx;
   },
-  setMusicVol(v) { this.opts.music = v; this.applyVolumes(); },
-  setSfxVol(v)   { this.opts.sfx = v; this.applyVolumes(); },
+  setMusicVol(v) { this.opts.music = volume(v, this.opts.music); this.applyVolumes(); },
+  setSfxVol(v)   { this.opts.sfx = volume(v, this.opts.sfx); this.applyVolumes(); },
+
+  /** Supply soundtrack metadata without changing any existing gameplay call. */
+  configureTracks(manifest) {
+    const entries = Array.isArray(manifest?.tracks) ? manifest.tracks : [];
+    this._tracks = new Map();
+    for (const entry of entries.slice(0, 20)) {
+      if (!entry || typeof entry.id !== 'string' || !entry.id.trim() || typeof entry.src !== 'string' || !entry.src.trim()) continue;
+      let url;
+      try {
+        url = new URL(entry.src, MUSIC_MANIFEST_URL);
+        if (!['http:', 'https:'].includes(url.protocol)) continue;
+      } catch { continue; }
+      this._tracks.set(entry.id, { ...entry, src: url.href, gain: volume(entry.gain, 0.7) });
+    }
+    this._playlists = {};
+    for (const theme of MUSIC_THEMES) {
+      const ids = manifest?.playlists?.[theme];
+      this._playlists[theme] = Array.isArray(ids) ? ids.filter((id) => this._tracks.has(id)) : [];
+    }
+    this._playlistCounters = {};
+    if (this.currentTrack) this.playMusic(this.currentTrack, { restart: true });
+    return this._tracks.size;
+  },
+
+  loadTrackManifest() {
+    if (!this._manifestPromise) {
+      this._manifestPromise = fetch(MUSIC_MANIFEST_URL, { cache: 'no-cache' })
+        .then((response) => { if (!response.ok) throw new Error('Music manifest unavailable'); return response.json(); })
+        .then((manifest) => this.configureTracks(manifest))
+        .catch(() => 0); // Missing file/network never prevents the game from running.
+    }
+    return this._manifestPromise;
+  },
+
+  getMusicStatus() {
+    return { mode: this._musicMode, theme: this.currentTrack, title: this._externalTrack?.title || '', configuredTracks: this._tracks.size };
+  },
+
+  _ensureMedia() {
+    if (this._media) return;
+    const media = new window.Audio();
+    media.preload = 'metadata';
+    media.crossOrigin = 'anonymous';
+    const source = this.ctx.createMediaElementSource(media);
+    const gain = this.ctx.createGain();
+    source.connect(gain);
+    gain.connect(this.musicGain);
+    this._media = media;
+    this._mediaSource = source;
+    this._mediaGain = gain;
+  },
+
+  _playMedia(theme, generation) {
+    if (!this._media || !this._externalTrack) return;
+    let result;
+    try { result = this._media.play(); }
+    catch { this._fallbackMusic(theme, generation); return; }
+    if (result?.catch) result.catch((error) => {
+      if (generation !== this._playGeneration || this.currentTrack !== theme) return;
+      // Autoplay waits for the next user gesture. Unsupported/missing files use synth.
+      if (error.name !== 'NotAllowedError' && error.name !== 'AbortError') this._fallbackMusic(theme, generation);
+    });
+  },
+
+  _fallbackMusic(theme, generation) {
+    if (generation !== this._playGeneration || this.currentTrack !== theme) return;
+    this._stopMedia();
+    this._startProcedural(theme);
+  },
+
+  _stopMedia() {
+    if (!this._media) return;
+    this._media.onerror = null;
+    this._media.onended = null;
+    this._media.onplaying = null;
+    this._media.pause();
+    this._media.removeAttribute('src');
+    this._media.load();
+    this._externalTrack = null;
+  },
 
   _tone(freq, dur, type, vol, bus, glideTo) {
-    if (!this.ctx) return;
+    if (!this.ctx || this.ctx.state !== 'running' || vol <= 0) return;
     const t = this.ctx.currentTime;
     const o = this.ctx.createOscillator();
     const g = this.ctx.createGain();
@@ -56,6 +158,7 @@ export const Audio = {
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     o.connect(g);
     g.connect(bus || this.sfxGain);
+    o.onended = () => { o.disconnect(); g.disconnect(); };
     o.start(t);
     o.stop(t + dur + 0.02);
   },
@@ -91,12 +194,46 @@ export const Audio = {
     (S[name] || (() => {}))();
   },
 
-  playMusic(track) {
-    if (this.currentTrack === track) return;
+  playMusic(track, { restart = false } = {}) {
+    if (this.currentTrack === track && !restart) return;
+    this._playGeneration++;
+    const generation = this._playGeneration;
     this.currentTrack = track;
+    this._pausedTrack = null;
     this._stopLoop();
+    this._stopMedia();
     if (!this.ctx) return;
 
+    const playlist = this._playlists[track] || [];
+    if (playlist.length) {
+      const index = this._playlistCounters[track] || 0;
+      this._playlistCounters[track] = index + 1;
+      const entry = this._tracks.get(playlist[index % playlist.length]);
+      try {
+        this._ensureMedia();
+        this._externalTrack = entry;
+        this._musicMode = 'loading';
+        this._media.loop = entry.loop === true || playlist.length === 1;
+        this._media.src = entry.src;
+        this._media.onerror = () => this._fallbackMusic(track, generation);
+        this._media.onplaying = () => {
+          if (generation === this._playGeneration && this.currentTrack === track) this._musicMode = 'external';
+        };
+        this._media.onended = () => {
+          if (generation === this._playGeneration && this.currentTrack === track) this.playMusic(track, { restart: true });
+        };
+        this._mediaGain.gain.setValueAtTime(0, this.ctx.currentTime);
+        this._mediaGain.gain.linearRampToValueAtTime(entry.gain, this.ctx.currentTime + 0.35);
+        this._playMedia(track, generation);
+        return;
+      } catch { this._stopMedia(); }
+    }
+    this._startProcedural(track);
+  },
+
+  _startProcedural(track) {
+    this._stopLoop();
+    this._musicMode = 'procedural';
     const SCALES = {
       menu:     [262, 330, 392, 494, 587, 494, 392, 330],
       roofs:    [220, 277, 330, 415, 494, 415, 330, 277],
@@ -112,6 +249,7 @@ export const Audio = {
     let i = 0;
     const step = () => {
       if (!this.ctx || this.currentTrack !== track) return;
+      if (this.ctx.state !== 'running') { this._musicTimer = setTimeout(step, 250); return; }
       const f = scale[i % scale.length];
       // melody
       this._tone(f, 0.42, 'triangle', 0.10, this.musicGain);
@@ -124,11 +262,32 @@ export const Audio = {
   },
 
   _stopLoop() { if (this._musicTimer) { clearTimeout(this._musicTimer); this._musicTimer = null; } },
-  stopMusic() { this.currentTrack = null; this._stopLoop(); },
+  stopMusic() {
+    this._playGeneration++;
+    this.currentTrack = null;
+    this._pausedTrack = null;
+    this._musicMode = 'stopped';
+    this._stopLoop();
+    this._stopMedia();
+  },
 
-  pauseMusic() { this._pausedTrack = this.currentTrack; this.stopMusic(); },
+  pauseMusic() {
+    if (!this.currentTrack) return;
+    this._pausedTrack = this.currentTrack;
+    this.currentTrack = null;
+    this._musicMode = 'paused';
+    this._stopLoop();
+    if (this._media) this._media.pause();
+  },
   resumeMusic() {
     this.resume();
-    if (this._pausedTrack) { const t = this._pausedTrack; this._pausedTrack = null; this.playMusic(t); }
+    if (!this._pausedTrack) return;
+    const track = this._pausedTrack;
+    this._pausedTrack = null;
+    if (this._externalTrack && this._media) {
+      this.currentTrack = track;
+      this._musicMode = 'loading';
+      this._playMedia(track, this._playGeneration);
+    } else this.playMusic(track);
   },
 };

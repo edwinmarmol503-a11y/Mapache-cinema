@@ -282,6 +282,7 @@ export class Player {
       const sel = world.inventory.selected;
       if (sel === 'lata' && world.inventory.has('lata')) {
         world.inventory.use('lata');
+        world.save.update({ items: world.inventory.serialize() });
         this.throwCd = 0.4;
         world.audio.sfx('attack');
         world.addProjectile(new Projectile({

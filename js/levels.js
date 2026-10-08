@@ -85,6 +85,12 @@ export const LEVELS = [
     name: 'Los Tejados',
     music: 'roofs',
     darkness: 0.46,
+    scenery: [
+      { type: 'vent', tx: 6, ty: 15 }, { type: 'planter', tx: 17, ty: 15 },
+      { type: 'sign', tx: 23, ty: 15, label: 'SALTA' }, { type: 'puddle', tx: 34, ty: 15, w: 26 },
+      { type: 'vent', tx: 53, ty: 15 }, { type: 'planter', tx: 74, ty: 15 },
+      { type: 'puddle', tx: 92, ty: 15, w: 34 }, { type: 'sign', tx: 107, ty: 15, label: 'SALIDA' },
+    ],
     def: {
       W: 116, H: 20, groundY: 15,
       pits: [[26, 2], [48, 2], [72, 2], [96, 2]],
@@ -153,6 +159,12 @@ export const LEVELS = [
     name: 'El Bosque Azul',
     music: 'forest',
     darkness: 0.56,
+    scenery: [
+      { type: 'fern', tx: 7, ty: 17 }, { type: 'bench', tx: 34, ty: 17 },
+      { type: 'fern', tx: 54, ty: 17 }, { type: 'sign', tx: 72, ty: 17, label: 'LUMERA >>' },
+      { type: 'fern', tx: 83, ty: 17 }, { type: 'fern', tx: 109, ty: 17 },
+      { type: 'puddle', tx: 118, ty: 17, w: 38 },
+    ],
     def: {
       W: 128, H: 22, groundY: 17,
       pits: [[22, 2], [44, 2], [70, 2], [100, 2]],
@@ -194,7 +206,7 @@ export const LEVELS = [
     triggers: [
       { tx: 0, ty: 0, w: 7, h: 22, dialogue: [
         { speaker: 'Riko', text: 'El Bosque Azul. Sin sus faroles, ni los árboles recuerdan su forma.' },
-        { text: 'Enciende los dos pedestales con la BOMBILLA para abrir la salida.' },
+        { text: 'Enciende los tres pedestales con la BOMBILLA para abrir la salida.' },
       ] },
       { tx: 62, ty: 4, w: 3, h: 18, dialogue: [{ speaker: 'Riko', text: 'Alguien recoge las luces. Las guarda. Todas.' }] },
     ],
@@ -209,6 +221,11 @@ export const LEVELS = [
     name: 'Las Alcantarillas',
     music: 'sewers',
     darkness: 0.56,
+    scenery: [
+      { type: 'pipe', tx: 14, ty: 17 }, { type: 'puddle', tx: 36, ty: 17, w: 30 },
+      { type: 'sign', tx: 59, ty: 17, label: 'FERRY >>' }, { type: 'pipe', tx: 85, ty: 17 },
+      { type: 'sign', tx: 98, ty: 17, label: '1 > 2 > 3' }, { type: 'puddle', tx: 116, ty: 17, w: 20 },
+    ],
     def: {
       W: 124, H: 22, groundY: 17,
       pits: [[64, 17]],                     // 17 wide -> uncrossable; the lever platform is the ONLY way
@@ -286,6 +303,12 @@ export const LEVELS = [
     music: 'district',
     darkness: 0.58,
     rain: true,
+    scenery: [
+      { type: 'bench', tx: 10, ty: 17 }, { type: 'sign', tx: 23, ty: 17, label: 'CUERDA' },
+      { type: 'puddle', tx: 41, ty: 17, w: 44 }, { type: 'planter', tx: 57, ty: 17 },
+      { type: 'sign', tx: 76, ty: 17, label: 'CUERDA' }, { type: 'puddle', tx: 93, ty: 17, w: 34 },
+      { type: 'bench', tx: 107, ty: 17 }, { type: 'sign', tx: 123, ty: 17, label: 'TORRE >>' },
+    ],
     def: {
       W: 132, H: 22, groundY: 17,
       pits: [[27, 11], [81, 11]],           // 11 wide -> uncrossable; the ROPE bridge is the only way
@@ -347,6 +370,11 @@ export const LEVELS = [
     name: 'La Torre del Farolero',
     music: 'tower',
     darkness: 0.52,
+    scenery: [
+      { type: 'banner', tx: 4, ty: 59 }, { type: 'banner', tx: 24, ty: 45 },
+      { type: 'banner', tx: 4, ty: 29 }, { type: 'banner', tx: 24, ty: 18 },
+      { type: 'banner', tx: 5, ty: 12 }, { type: 'banner', tx: 22, ty: 12 },
+    ],
     def: {
       W: 30, H: 66, groundY: 64,
       blocks: [[0, 0, 3, 66], [27, 0, 3, 66], [3, 18, 24, 1]],   // arena floor (1 thick -> no ceiling over the climb)

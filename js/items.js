@@ -36,14 +36,19 @@ export class Pickup {
     const p = world.player;
     if (rectsOverlap(this.x, this.y, this.w, this.h, p.x, p.y, p.w, p.h)) {
       this.taken = true;
-      if (world.markCollected) world.markCollected(this.id);   // no re-farming after a death
+      // The inventory/memory and the taken ID form one save state. Persist only
+      // after awarding the item so a reload cannot remove an unawarded key/bulb.
       if (this.type === 'memory') {
         world.save.data.memories = (world.save.data.memories || 0) + 1;
+      } else {
+        world.inventory.add(this.type);
+      }
+      if (world.markCollected) world.markCollected(this.id);
+      if (this.type === 'memory') {
         world.toast('Recuerdo recuperado  (' + world.save.data.memories + ')');
         world.audio.sfx('light');
         world.particles.burst(this.x + 5, this.y + 5, 20, { color: '#f4c542', speed: 70, life: 0.7, glow: true, gravity: -10 });
       } else {
-        world.inventory.add(this.type);
         world.toast('Obtienes:  ' + (ITEM_DEFS[this.type]?.name || this.type));
         world.audio.sfx('pickup');
         world.particles.burst(this.x + 5, this.y + 5, 12, { color: ITEM_DEFS[this.type]?.color || '#fff', speed: 60, life: 0.5 });

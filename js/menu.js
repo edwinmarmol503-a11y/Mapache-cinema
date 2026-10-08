@@ -7,6 +7,7 @@ import { Save } from './save.js';
 import { Audio } from './audio.js';
 import { DIFFS, DIFF_ORDER } from './difficulty.js';
 import { LEVELS } from './levels.js';
+import { Ranking } from './ranking.js';
 
 const CONTROL_LABELS = {
   left: 'Izquierda', right: 'Derecha', jump: 'Saltar', attack: 'Atacar',
@@ -39,6 +40,8 @@ export class Menu {
     this.optionsReturn = 'menu';
     this._selIndex = 0;
     this._diffSel = 'normal';
+    this._scoreDiff = 'normal';
+    this._scoresRevision = 0;
 
     this._wireMenu();
     this._wireOptions();
@@ -110,6 +113,7 @@ export class Menu {
     const go = () => {
       const v = (input.value || '').trim().toUpperCase().slice(0, 12) || 'RIKO';
       const o = Save.loadOpts(); o.nick = v; Save.saveOpts(o);
+      Ranking.setNickname(v);
       const cb = this._nickCb; this._nickCb = null;
       this.elNick.classList.add('hidden');
       Audio.sfx('confirm');
@@ -142,10 +146,27 @@ export class Menu {
       this.showMenu();
     });
     document.getElementById('scores-clear').addEventListener('click', () => {
+      if (!window.confirm('¿Borrar los récords guardados en este dispositivo? La clasificación mundial se conserva.')) return;
       Save.clearScores();
       Audio.sfx('cancel');
       this._renderScores();
     });
+    const level = document.getElementById('score-level');
+    LEVELS.forEach((L, i) => {
+      const option = document.createElement('option'); option.value = i; option.textContent = (i + 1) + ' · ' + L.name;
+      level.appendChild(option);
+    });
+    for (const id of ['score-scope', 'score-level']) document.getElementById(id).addEventListener('change', () => this._renderScores());
+    document.getElementById('scores-refresh').addEventListener('click', () => this._renderScores());
+    Ranking.subscribe(() => {
+      const s = Ranking.getStatus();
+      const badge = document.getElementById('menu-network');
+      badge.textContent = s.online ? '● CLASIFICACIÓN CONECTADA' : s.configured ? '○ CLASIFICACIÓN · SIN CONEXIÓN' : '○ RÉCORDS EN ESTE DISPOSITIVO';
+      badge.classList.toggle('connected', !!s.online);
+    });
+    this._scoreInterval = setInterval(() => {
+      if (!this.elScores.classList.contains('hidden') && document.getElementById('score-scope').value === 'global' && !document.hidden) this._renderScores(true);
+    }, 30000);
   }
 
   showScores() {
@@ -154,30 +175,58 @@ export class Menu {
     this._renderScores();
   }
 
-  _renderScores() {
+  async _renderScores(quiet = false) {
+    const revision = ++this._scoresRevision;
     const box = document.getElementById('score-table');
-    const list = Save.loadScores();
-    box.innerHTML = '';
+    const status = document.getElementById('score-status');
+    const player = document.getElementById('score-player');
+    const scope = document.getElementById('score-scope').value;
+    const level = +document.getElementById('score-level').value;
+    const kind = level < 0 ? 'campaign' : 'level';
+    const tabs = document.getElementById('score-diff-tabs'); tabs.replaceChildren();
+    for (const key of DIFF_ORDER) {
+      const button = document.createElement('button'); button.textContent = DIFFS[key].label;
+      button.classList.toggle('sel', key === this._scoreDiff); button.style.borderColor = DIFFS[key].color;
+      button.setAttribute('aria-pressed', String(key === this._scoreDiff));
+      button.addEventListener('click', () => { this._scoreDiff = key; this._renderScores(); }); tabs.append(button);
+    }
+    document.getElementById('scores-clear').classList.toggle('hidden', scope !== 'local');
+    player.textContent = '';
+    if (!quiet) { box.innerHTML = '<div class="score-empty">Consultando tiempos…</div>'; status.textContent = scope === 'global' ? 'Conectando con Lumera…' : 'Récords guardados en este dispositivo.'; }
+    let list;
+    if (scope === 'local') {
+      list = Save.loadScores().filter(s => s.diff === this._scoreDiff && (s.kind || 'campaign') === kind && (s.level ?? -1) === level).sort((a, b) => (a.timeMs ?? a.time * 1000) - (b.timeMs ?? b.time * 1000));
+      status.textContent = 'Solo este dispositivo · no son posiciones mundiales.';
+    } else {
+      try {
+        const result = await Ranking.getLeaderboard({ difficulty: this._scoreDiff, kind, level });
+        if (revision !== this._scoresRevision || this.elScores.classList.contains('hidden')) return;
+        list = result.entries || [];
+        status.textContent = result.cached ? 'Sin conexión · última tabla guardada; puede haber cambiado.' : result.status === 'ready' ? 'Mundial · se actualiza cada 30 segundos.' : result.reason || 'No se pudo conectar con la clasificación. Puedes jugar y ver tus récords locales.';
+        if (result.player) player.textContent = 'TU MEJOR TIEMPO · #' + result.player.rank + ' · ' + formatTime(result.player.elapsedMs ?? result.player.timeMs);
+      } catch {
+        if (revision !== this._scoresRevision) return;
+        list = []; status.textContent = 'La clasificación está temporalmente desconectada. Pulsa Actualizar para reintentar.';
+      }
+    }
+    box.replaceChildren();
     if (!list.length) {
-      box.innerHTML = '<div class="score-empty">Aún no hay tiempos. ¡Termina una partida!</div>';
-      return;
+      const empty = document.createElement('div'); empty.className = 'score-empty';
+      empty.textContent = scope === 'local' ? 'Aún no tienes tiempos para este nivel y dificultad.' : 'Todavía no hay tiempos publicados aquí, o no se pudo consultar la tabla.';
+      box.append(empty); return;
     }
     const head = document.createElement('div');
     head.className = 'score-row head';
-    head.innerHTML = '<span class="s-rank">#</span><span>APODO</span><span class="s-time">TIEMPO</span><span class="s-diff">DIFICULTAD</span><span class="s-end">FINAL</span>';
+    head.innerHTML = '<span class="s-rank">#</span><span>JUGADOR</span><span class="s-time">TIEMPO</span><span class="s-end">FINAL</span>';
     box.appendChild(head);
     list.forEach((s, i) => {
-      const mm = Math.floor(s.time / 60), ss = String(s.time % 60).padStart(2, '0');
-      const dlabel = (DIFFS[s.diff] && DIFFS[s.diff].label) || s.diff;
       const row = document.createElement('div');
       row.className = 'score-row';
-      row.innerHTML =
-        '<span class="s-rank">' + (i + 1) + '</span>' +
-        '<span>' + esc(s.nick) + '</span>' +
-        '<span class="s-time">' + mm + ':' + ss + '</span>' +
-        '<span class="s-diff">' + dlabel + '</span>' +
-        '<span class="s-end">' + s.ending + '</span>';
-      if (DIFFS[s.diff]) row.querySelector('.s-diff').style.color = DIFFS[s.diff].color;
+      if (s.isMe || s.playerId === Ranking.getStatus().playerId) row.classList.add('is-me');
+      const values = [s.rank || i + 1, (s.nickname || s.nick || 'RIKO') + (s.assisted ? ' · ayuda' : ''), formatTime(s.elapsedMs ?? s.timeMs ?? s.time * 1000), s.ending || '—'];
+      ['s-rank', 's-name', 's-time', 's-end'].forEach((cls, index) => {
+        const cell = document.createElement('span'); cell.className = cls; cell.textContent = values[index]; row.append(cell);
+      });
       box.appendChild(row);
     });
   }
@@ -222,11 +271,13 @@ export class Menu {
 
     let anyLocked = false;
     LEVELS.forEach((L, i) => {
-      const card = document.createElement('div');
+      const card = document.createElement('button');
       card.className = 'level-card';
       const unlocked = Save.levelUnlocked(this._diffSel, i);
       const beaten = Save.levelBeaten(this._diffSel, i);
       if (!unlocked) { card.classList.add('locked'); anyLocked = true; }
+      card.disabled = !unlocked;
+      card.setAttribute('aria-label', L.name + (unlocked ? beaten ? ', completado' : ', disponible' : ', bloqueado'));
       if (beaten) card.classList.add('beaten');
       card.innerHTML =
         '<div class="lv-badge">' + (beaten ? '✔' : !unlocked ? '🔒' : '') + '</div>' +
@@ -236,8 +287,7 @@ export class Menu {
         card.addEventListener('click', () => {
           Audio.resume();
           Audio.sfx('confirm');
-          this.hideAll();
-          this.hooks.onPlayLevel(this._diffSel, i);
+          this._askNick((nick) => { this.hideAll(); this.hooks.onPlayLevel(this._diffSel, i, nick); });
         });
       }
       grid.appendChild(card);
@@ -275,6 +325,7 @@ export class Menu {
 
     const persist = () => {
       Save.saveOpts({
+        ...Save.loadOpts(),
         music: +this.musicSlider.value,
         sfx: +this.sfxSlider.value,
         scale: this.scaleSel.value,
@@ -304,22 +355,22 @@ export class Menu {
       else document.exitFullscreen && document.exitFullscreen();
     });
 
-    // Modo claro (no darkness)
-    this.brightBtn = document.getElementById('opt-bright');
-    const syncBright = () => {
-      const on = !!Save.loadOpts().bright;
-      this.brightBtn.textContent = on ? 'Activado' : 'Desactivado';
-      this.brightBtn.style.color = on ? 'var(--c-gold)' : '';
-      this.brightBtn.style.borderColor = on ? 'var(--c-gold)' : '';
-    };
-    syncBright();
-    this.brightBtn.addEventListener('click', () => {
-      const o = Save.loadOpts();
-      o.bright = !o.bright;
-      Save.saveOpts(o);
+    const visual = document.getElementById('opt-visual');
+    visual.value = opts.visualMode;
+    visual.addEventListener('change', () => {
+      Save.saveOpts({ visualMode: visual.value, bright: visual.value !== 'night' });
       Audio.sfx('menu');
-      syncBright();
-      this.hooks.applyBright && this.hooks.applyBright(o.bright);
+      this.hooks.applyVisual && this.hooks.applyVisual(visual.value);
+    });
+    const effects = document.getElementById('opt-effects'); effects.value = opts.reducedEffects ? 'reduced' : 'full';
+    effects.addEventListener('change', () => {
+      Save.saveOpts({ reducedEffects: effects.value === 'reduced' });
+      this.hooks.applyEffects && this.hooks.applyEffects(effects.value === 'reduced');
+    });
+    const nickname = document.getElementById('opt-nickname'); nickname.value = opts.nick;
+    nickname.addEventListener('change', () => {
+      const value = nickname.value.trim().toUpperCase().slice(0, 12) || 'RIKO'; nickname.value = value;
+      Save.saveOpts({ nick: value }); Ranking.setNickname(value);
     });
 
     document.getElementById('opt-reset-controls').addEventListener('click', () => {
@@ -478,4 +529,9 @@ function prettyKey(code) {
 
 function esc(s) {
   return String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+}
+
+function formatTime(ms) {
+  const seconds = Math.floor(Math.max(0, Number(ms) || 0) / 1000);
+  return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0') + '.' + String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
 }

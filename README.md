@@ -1,7 +1,7 @@
 # MAPACHE CINEMA: LA ÚLTIMA NOCHE
 
 Videojuego 2D pixel-art para navegador. **HTML5 + CSS3 + JavaScript (ES6 modules)**.
-Sin frameworks, sin motores externos, sin dependencias. Todo el gameplay se
+Sin frameworks ni motores externos en el juego. Todo el gameplay se
 renderiza en un `<canvas>` 2D a resolución interna baja (480×270) y se escala
 por CSS con `image-rendering: pixelated`.
 
@@ -12,6 +12,32 @@ hasta **El Farolero**, que lo estaba guardando todo.
 ---
 
 ## Cómo ejecutar
+
+Juego publicado: https://mapache-cinema-lumera.codyworksoporte.chatgpt.site
+
+**Versión 3.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
+el lanzador también reconoce el Node incluido
+en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
+
+El servidor de desarrollo (`pnpm start`, Node.js 24+, puerto 4173) incluye una
+base SQLite de prueba en `.local/ranking.sqlite`.
+Sus datos de prueba no se publican en la clasificación mundial. El juego alojado
+y las copias descargadas utilizan la URL HTTPS de `js/config.js` para consultar
+la misma base D1. El servidor de desarrollo configura su propia URL para probar
+sin alterar los récords públicos.
+
+Para trabajar desde terminal:
+
+```bash
+pnpm install
+pnpm start
+pnpm test
+pnpm build
+```
+
+Solo las herramientas de desarrollo usan dependencias; el navegador y el
+servidor de clasificación conservan JavaScript sin frameworks.
 
 Los módulos ES necesitan servirse por HTTP (no `file://`).
 
@@ -125,7 +151,9 @@ es permanente, aparte de la partida). `JUGAR` = Normal desde el principio.
 
 ## Guardado
 
-`NUEVA PARTIDA` sobrescribe. `CONTINUAR` retoma desde el último checkpoint.
+`JUGAR` inicia una campaña Normal nueva. `NIVELES` permite elegir dificultad.
+Empezar en el primer nivel registra también una campaña completa. `CONTINUAR`
+retoma desde el último checkpoint y conserva los resultados como locales.
 Para borrar el progreso desde la consola del navegador:
 ```js
 MC.Save.clear()
@@ -137,4 +165,63 @@ Todo el arte es procedural (formas dibujadas en canvas). Para sustituirlo por
 sprite-sheets reales, reemplaza las funciones de `js/sprites.js` cargando
 imágenes desde `assets/` — la lógica de juego no cambia. El audio es síntesis
 por `Web Audio API`; puedes cambiar `js/audio.js` por `<audio>`/buffers si
-añades ficheros a `assets/audio/`.
+añades ficheros a `assets/audio/`. La versión 3.0 ya incluye reproducción de
+archivos, listas por zona y respaldo sintetizado: consulta `assets/audio/README.md`.
+
+## Versión 3.0: clasificación compartida
+
+- Tablas independientes para Fácil, Normal, Difícil y Pesadilla, por cada uno de
+  los cinco niveles o por campaña completa. El menor tiempo gana; cada jugador
+  conserva su mejor resultado por tabla. Los empates se ordenan por fecha y jugador.
+- El servidor entrega un ticket al comenzar y mide el tiempo real hasta recibir
+  el final. Incluye introducciones, diálogos, pausas, muertes y demora de envío.
+  La fecha o reloj del dispositivo no determina el tiempo mundial.
+- Una campaña exige cinco niveles vinculados y completados en orden, desde el
+  principio, y elegir un final. Entrar directamente a otro nivel registra ese
+  nivel; nunca fabrica un tiempo de campaña.
+- Para participar se utiliza un apodo y una identidad anónima persistente en el
+  navegador. No requiere Google Play ni Play Store. El servidor guarda el hash
+  de esa identidad, apodo, dificultad, nivel/campaña, mejor tiempo, final, muertes
+  y tickets. El progreso, opciones y récords locales permanecen en el dispositivo.
+- Borrar los datos del navegador crea otra identidad. Todavía no hay cuenta,
+  recuperación entre dispositivos ni guardado de progreso en la nube.
+- Sin conexión al comenzar, la partida es local. Si se pierde la conexión al
+  terminar una partida iniciada en línea, el envío se conserva hasta 15 minutos
+  y se reintenta al recuperar conexión o abrir la clasificación. El tiempo
+  mundial incluye esa demora. La tabla almacenada sin conexión se etiqueta.
+- Pesadilla con la ayuda automática tras 25 muertes se registra solo localmente.
+- Tickets, validación de datos, límites de solicitudes y envíos idempotentes
+  reducen tiempos imposibles y duplicados. El juego se ejecuta en el navegador:
+  estas medidas no verifican cada movimiento ni impiden todas las trampas.
+
+El backend está en `server/`; su esquema en `db/schema.ts` y las migraciones
+de producción en `drizzle/`. El alojamiento usa `.openai/hosting.json` y el
+binding D1 `DB`. Las migraciones se aplican al publicar, nunca al recibir una
+partida. `migrations/0001_ranking.sql` es la versión del emulador de desarrollo.
+
+## Controles móviles y ambientes
+
+Joystick con zona muerta y movimientos diagonales. SALTO, ATQ, ESQ y USAR son
+las acciones principales; MÁS abre BLOQ, LANZA y cambio de objeto. El joystick
+hacia abajo + salto baja de una plataforma; su dirección también orienta la
+parada. Opciones permite cruceta clásica o acciones a la izquierda para zurdos.
+Pausar, cancelar un toque o cambiar de pestaña libera los controles.
+
+Opciones ofrece **Noche original**, **Noche clara** y **Día**. Día cambia cielo,
+sol, nubes, fachadas, vegetación, terrenos y reflejos. Las alcantarillas siguen
+siendo subterráneas con luz desde rejillas. La ambientación no cambia colisiones,
+puzzles ni dificultad. Efectos reducidos elimina lluvia, relámpagos y parte de
+las partículas decorativas.
+
+Hay decoración y señales específicas en cada zona, menú adaptable, pantalla de
+carga con recuperación y guardado coherente de llaves, bombillas y puzzles al
+recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
+
+## Verificación
+
+`pnpm test` prueba clasificación con SQLite real, identidad entre dispositivos,
+concurrencia, reintentos, reinicios, partidas continuadas, inventario y multitouch.
+`tests/visual-review.html` comprueba niveles, dificultades, diálogos, jefe y finales.
+Los revisores `tests/release-review.mjs` y `tests/world-review.mjs` usan Playwright
+(instalado aparte o mediante la variable `PLAYWRIGHT_MODULE`) para la prueba de
+dos navegadores, PWA sin conexión y ambientes. Las capturas quedan en `test-results/`.

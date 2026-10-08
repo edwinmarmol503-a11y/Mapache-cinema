@@ -16,7 +16,7 @@ import { LEVELS, TS, buildTileMap } from './levels.js';
 import { getDiff, NIGHTMARE_MERCY_DEATHS, nightmareMercyDiff } from './difficulty.js';
 import { resolveSolids } from './physics.js';
 import { rectsOverlap } from './collision.js';
-import { drawHUD, drawBackground, currentLightning, outText } from './ui.js';
+import { drawHUD, drawBackground, currentLightning, outText, DAY_TILE_PALETTES } from './ui.js';
 import { drawLantern, drawTrashcan } from './sprites.js';
 import { clamp, choice } from './utils.js';
 
@@ -70,6 +70,13 @@ export class Game {
     this.hooks = hooks || {};
     this.audio = hooks.audio;
     this.save = hooks.save;
+    this.ranking = hooks.ranking;
+    this._rankGeneration = 0;
+    this._rankLevelGeneration = 0;
+    this._rankingStarting = false;
+    this._campaignTicket = null;
+    this._levelTicket = null;
+    this._levelFinish = Promise.resolve();
 
     this.camera = new Camera(this.W, this.H);
     this.particles = new Particles(900);
@@ -82,13 +89,102 @@ export class Game {
     this.levelIndex = 0;
     this.fadeAlpha = 0;
     this.transition = null;
-    this.brightMode = !!(this.save.loadOpts && this.save.loadOpts().bright);
+    this.setVisualMode(this.save.loadOpts?.().visualMode || (this.save.loadOpts?.().bright ? 'clear' : 'night'));
+    this.reducedEffects = !!this.save.loadOpts?.().reducedEffects;
     this.weather = 'clear';
 
     this.reset();
   }
 
-  setBright(v) { this.brightMode = !!v; }
+  setBright(v) { this.setVisualMode(v ? 'clear' : 'night'); }
+  setVisualMode(mode) {
+    this.visualMode = ['night', 'clear', 'day'].includes(mode) ? mode : 'night';
+    this.brightMode = this.visualMode !== 'night';
+  }
+
+  _startRankingSession(campaign, continuing = false) {
+    const generation = ++this._rankGeneration;
+    this._campaignTicket = null;
+    this._campaignStartedAt = performance.now();
+    this._campaignFresh = campaign && !continuing;
+    this._rankDeaths = 0;
+    this._continuingRun = continuing;
+    this._levelFinish = Promise.resolve();
+    this._rankAssisted = this.diff.key === 'nightmare' && this.save.nightmareDeaths() >= NIGHTMARE_MERCY_DEATHS;
+    this.ranking?.setNickname(this.save.data.nick);
+    this._campaignTicketPromise = (async () => {
+      if (!this.ranking || !this._campaignFresh || this._rankAssisted) return null;
+      const result = await this.ranking.beginRun({ difficulty: this.diff.key, kind: 'campaign', level: -1 });
+      if (generation !== this._rankGeneration) return null;
+      this._campaignTicket = result.ok ? result.ticket : null;
+      return this._campaignTicket;
+    })().catch(() => null);
+    this._beginLevelRanking(this._campaignTicketPromise, continuing);
+  }
+
+  _beginLevelRanking(after = Promise.resolve(), continuing = false) {
+    continuing = continuing || this._continuingRun;
+    const generation = ++this._rankLevelGeneration;
+    this._levelTicket = null;
+    this._levelScored = false;
+    this._levelFinalMs = null;
+    this._levelClockCarry = continuing ? this.save.data.levelElapsedMs || 0 : 0;
+    this._levelClockStart = performance.now();
+    this._levelActiveStart = this.save.data.playtime;
+    this._rankingStarting = !!this.ranking && !continuing && !this._rankAssisted;
+    this._levelTicketPromise = (async () => {
+      await after;
+      if (generation !== this._rankLevelGeneration) return null;
+      if (!this.ranking || continuing || this._rankAssisted) return null;
+      const result = await this.ranking.beginRun({ difficulty: this.diff.key, kind: 'level', level: this.levelIndex, campaignId: this._campaignTicket?.id });
+      if (generation !== this._rankLevelGeneration) return null;
+      this._levelTicket = result.ok ? result.ticket : null;
+      return this._levelTicket;
+    })().catch(() => null).finally(() => {
+      if (generation === this._rankLevelGeneration) {
+        this._rankingStarting = false;
+        this._levelClockStart = performance.now();
+        if (this.ranking) this.toast(this._levelTicket ? 'Clasificación conectada · el tiempo incluye pausas' : 'Partida local · sin envío a la clasificación');
+      }
+    });
+  }
+
+  _finishLevelRanking() {
+    if (this._levelScored) return this._levelFinish;
+    this._levelScored = true;
+    const timeMs = this._levelClockCarry + Math.max(0, performance.now() - (this._levelClockStart || performance.now()));
+    this._levelFinalMs = timeMs;
+    const payload = { activeMs: Math.max(0, Math.round((this.save.data.playtime - this._levelActiveStart) * 1000)), deaths: this._rankDeaths, assisted: this._rankAssisted };
+    this.save.addScore({ nick: this.save.data.nick, diff: this.diff.key, kind: 'level', level: this.levelIndex, time: timeMs / 1000, timeMs, assisted: this._rankAssisted });
+    const ticketPromise = this._levelTicketPromise;
+    this._levelFinish = (async () => {
+      const ticket = await ticketPromise;
+      if (!ticket || !this.ranking) return;
+      const result = await this.ranking.finishRun(ticket, payload);
+      this.toast(result.ok ? 'Tiempo enviado a la clasificación' : result.status === 'queued' ? 'Tiempo pendiente · se reintentará al conectar' : 'Tiempo guardado en este dispositivo');
+    })().catch(() => this.toast('Tiempo guardado en este dispositivo'));
+    return this._levelFinish;
+  }
+
+  suspendRun() {
+    if (this.save.data && !this._levelScored) {
+      this.save.update({ items: this.inventory.serialize(), levelElapsedMs: this._levelClockCarry + Math.max(0, performance.now() - this._levelClockStart) });
+    }
+    this._rankGeneration++;
+    this._rankLevelGeneration++;
+    this._rankingStarting = false;
+  }
+
+  restartLevel() {
+    // Restore the inventory from entry: consumed keys/bulbs must reappear with their puzzles.
+    if (this._levelStartSnapshot) {
+      this.save.update({ ...JSON.parse(JSON.stringify(this._levelStartSnapshot)), checkpoint: null, collected: [], levelProgress: {}, levelElapsedMs: 0 });
+      this.inventory.load(this.save.data.items || {});
+    }
+    this.loadLevel(this.levelIndex, false);
+    this.state = 'playing'; this.fadeAlpha = 0;
+    this._beginLevelRanking(this._levelFinish);
+  }
 
   reset() {
     this.map = null;
@@ -180,6 +276,7 @@ export class Game {
     if (!this.save.data.collected) this.save.data.collected = [];
     if (!this.save.data.collected.includes(id)) {
       this.save.data.collected.push(id);
+      this.save.data.items = this.inventory.serialize();
       this.save.persist();
     }
   }
@@ -198,6 +295,7 @@ export class Game {
   markProgress(id, value = true) {
     if (!id) return;
     this._prog()[id] = value;
+    this.save.data.items = this.inventory.serialize();
     this.save.persist();
   }
 
@@ -210,6 +308,7 @@ export class Game {
     this.inventory.load({});
     this.levelIndex = 0;
     this._enter(0, false, true);
+    this._startRankingSession(true);
   }
 
   continueGame() {
@@ -217,14 +316,16 @@ export class Game {
     this.inventory.load(s.items || {});
     this.levelIndex = clamp(s.level || 0, 0, LEVELS.length - 1);
     this._enter(this.levelIndex, true, true);
+    this._startRankingSession(false, true);
   }
 
   /** start a specific level at a chosen difficulty (from the level-select menu) */
-  startAt(diffKey, index) {
-    this.save.newGame(diffKey, index);
+  startAt(diffKey, index, nick) {
+    this.save.newGame(diffKey, index, nick);
     this.inventory.load({});
     this.levelIndex = index;
     this._enter(index, false, true);
+    this._startRankingSession(index === 0);
   }
 
   _enter(index, useCheckpoint, withTitle) {
@@ -235,7 +336,9 @@ export class Game {
   }
 
   loadLevel(index, useCheckpoint) {
+    const transition = this.transition;
     this.reset();
+    this.transition = transition;
     this.levelIndex = index;
     const L = LEVELS[index];
     this.levelDef = L;
@@ -248,10 +351,20 @@ export class Game {
     let D = getDiff((this.save.data && this.save.data.difficulty) || 'normal');
     if (D.key === 'nightmare' && this.save.nightmareDeaths && this.save.nightmareDeaths() >= NIGHTMARE_MERCY_DEATHS) {
       D = nightmareMercyDiff(D);
+      this._rankAssisted = true;
     }
     this.diff = D;
     this.meleeDisabled = !!D.meleeOff;
-    this.brightMode = !!(this.save.loadOpts && this.save.loadOpts().bright);
+    this.setVisualMode(this.save.loadOpts?.().visualMode || (this.save.loadOpts?.().bright ? 'clear' : 'night'));
+    if (!useCheckpoint) {
+      const entry = this.save.data;
+      this._levelStartSnapshot = JSON.parse(JSON.stringify({ level: index, difficulty: entry.difficulty, nick: entry.nick, items: this.inventory.serialize(), memories: entry.memories, flags: entry.flags, hp: D.playerHp, maxHp: D.playerHp }));
+      this.save.data.levelEntry = this._levelStartSnapshot;
+      this.save.persist();
+    } else {
+      const savedEntry = this.save.data.levelEntry;
+      this._levelStartSnapshot = savedEntry?.level === index && savedEntry?.difficulty === this.save.data.difficulty ? JSON.parse(JSON.stringify(savedEntry)) : { level: index, difficulty: this.save.data.difficulty, nick: this.save.data.nick, items: {}, memories: this.save.data.memories, flags: {}, hp: D.playerHp, maxHp: D.playerHp };
+    }
 
     // random weather for this visit (besides the periodic lightning)
     const wpool = L.key === 'sewers' ? ['clear', 'clear', 'rain']
@@ -463,6 +576,7 @@ export class Game {
   /** called exactly once per real (non-revived) death -- mocking call-out +
       counts toward the Pesadilla mercy nerf (see NIGHTMARE_MERCY_DEATHS) */
   _onRealDeath() {
+    this._rankDeaths = (this._rankDeaths || 0) + 1;
     if (this.bossActive) {
       // a running score, only for the Farolero fight, that keeps climbing
       // across every retry (survives the death -> respawn cycle like any
@@ -548,6 +662,7 @@ export class Game {
   }
 
   onBossDefeated() {
+    this._finishLevelRanking();
     this.bossActive = false;
     this.audio.stopMusic();
     this.state = 'postboss';
@@ -587,12 +702,21 @@ export class Game {
     };
     this.save.update({ ending: val, completed: true, items: this.inventory.serialize() });
     this.save.markLevelBeaten((this.diff && this.diff.key) || 'normal', this.levelIndex);   // beat the tower
-    this.save.addScore({
+    if (this._campaignFresh) this.save.addScore({
       nick: this.save.data.nick,
-      time: this.save.data.playtime,
+      time: (performance.now() - this._campaignStartedAt) / 1000,
+      timeMs: performance.now() - this._campaignStartedAt,
       diff: (this.diff && this.diff.key) || 'normal',
       ending: val,
+      assisted: this._rankAssisted,
     });
+    const campaignTicket = this._campaignTicket;
+    const campaignPayload = { activeMs: Math.round(this.save.data.playtime * 1000), ending: val, deaths: this._rankDeaths, assisted: this._rankAssisted };
+    if (campaignTicket && this.ranking) {
+      this._levelFinish.then(() => this.ranking.finishRun(campaignTicket, campaignPayload))
+        .then(result => this.toast(result.ok ? 'Campaña registrada en la clasificación' : 'Campaña guardada · revisa la conexión'))
+        .catch(() => this.toast('Campaña guardada en este dispositivo'));
+    }
     this.state = 'ending';
     this.audio.playMusic('ending');
     this.dialogue.start(E[val], () => this.hooks.onVictory && this.hooks.onVictory(val));
@@ -604,6 +728,7 @@ export class Game {
   nextLevel() {
     if (this.levelIndex >= LEVELS.length - 1) return;
     this.audio.sfx('confirm');
+    const finished = this._finishLevelRanking();
     this.save.markLevelBeaten((this.diff && this.diff.key) || 'normal', this.levelIndex);
     this.save.update({
       level: this.levelIndex + 1, checkpoint: null,
@@ -611,9 +736,11 @@ export class Game {
       collected: [],                          // fresh level -> pickups reappear
       levelProgress: {},                      // fresh level -> puzzles reset
       memories: this.save.data.memories,
+      levelElapsedMs: 0,
     });
     this.startTransition(() => {
       this.loadLevel(this.levelIndex + 1, false);
+      this._beginLevelRanking(finished);
       this.state = 'intro';
       this.introT = 2.0;
     });
@@ -623,6 +750,7 @@ export class Game {
      UPDATE
      ============================================================ */
   update(dt) {
+    if (this._rankingStarting) return;
     // transition freezes the world
     if (this.transition) {
       const tr = this.transition;
@@ -860,6 +988,7 @@ export class Game {
     this.camera.follow(this.player, dt);
     this.particles.update(dt);
     if (this.save.data) this.save.data.playtime += dt;
+    if (this.diff.key === 'nightmare' && this.save.nightmareDeaths() >= NIGHTMARE_MERCY_DEATHS) this._rankAssisted = true;
   }
 
   _handleEvent(ev) {
@@ -922,11 +1051,11 @@ export class Game {
     this._renderLighting(ctx);
 
     // atmosphere: drifting motes / embers in FRONT of the scene (depth)
-    this._renderForegroundAtmo(ctx);
+    if (!this.reducedEffects) this._renderForegroundAtmo(ctx);
 
     // keep Riko readable even in the dark: warm glow + redraw on top of the shadow.
     // Holding the BOMBILLA widens the halo noticeably (it's a real light now).
-    if (this.player && !this.player.dead && this.levelDef.darkness > 0.01) {
+    if (this.visualMode !== 'day' && this.player && !this.player.dead && this.levelDef.darkness > 0.01) {
       const psx = this.player.cx - this.camera.renderX;
       const psy = this.player.cy - this.camera.renderY;
       const bulb = !!this.player.holdingBulb;
@@ -1093,12 +1222,12 @@ export class Game {
       sewers: 'rgba(20,45,45,', district: 'rgba(45,25,35,', tower: 'rgba(35,25,60,',
     }[theme] || 'rgba(20,30,60,';
     ctx.save();
-    ctx.fillStyle = tint + (b ? 0.03 : 0.11) + ')';
+    ctx.fillStyle = this.visualMode === 'day' ? 'rgba(255,217,139,0.035)' : tint + (b ? 0.03 : 0.11) + ')';
     ctx.fillRect(0, 0, this.W, this.H);
     // vignette (softer in bright mode)
     const g = ctx.createRadialGradient(this.W / 2, this.H / 2, this.H * 0.35, this.W / 2, this.H / 2, this.H * 0.8);
     g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,' + (b ? 0.10 : 0.26) + ')');
+    g.addColorStop(1, 'rgba(0,0,0,' + (this.visualMode === 'day' ? 0.04 : b ? 0.10 : 0.26) + ')');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, this.W, this.H);
     ctx.fillStyle = 'rgba(255,255,255,0.014)';
@@ -1116,7 +1245,7 @@ export class Game {
     const y1 = Math.min(m.h - 1, Math.ceil((cam.y + this.H) / ts));
     const theme = this.levelDef.key;
 
-    const P = TILE_PAL[theme] || TILE_PAL.roofs;
+    const P = this.visualMode === 'day' ? (DAY_TILE_PALETTES[theme] || DAY_TILE_PALETTES.roofs) : TILE_PAL[theme] || TILE_PAL.roofs;
     const rnd = (a, b) => { const s = Math.sin(a * 91.3 + b * 47.7) * 4375.55; return s - Math.floor(s); };
 
     for (let ty = y0; ty <= y1; ty++) {
@@ -1185,7 +1314,7 @@ export class Game {
             ctx.fillStyle = P.topHi;
             ctx.fillRect(sx, sy, ts, 1);
             if (theme === 'forest') { // grass tufts
-              ctx.fillStyle = '#2f5a3a';
+              ctx.fillStyle = this.visualMode === 'day' ? '#69964e' : '#2f5a3a';
               for (let k = 1; k < ts; k += 5) ctx.fillRect(sx + k, sy - 2, 1, 3);
             }
           }
@@ -1233,7 +1362,7 @@ export class Game {
     const base = clamp(this.levelDef.darkness || 0.5, 0.44, 0.6);
     // "Modo claro": far less darkness (bright, not day). Lightning briefly lifts it.
     const lf = currentLightning ? currentLightning() : 0;
-    let dark = this.brightMode ? Math.min(base, 0.09) : base;
+    let dark = this.visualMode === 'day' ? (this.levelDef.key === 'sewers' ? 0.06 : 0) : this.brightMode ? Math.min(base, 0.09) : base;
     dark *= 1 - lf * 0.9;
     if (dark <= 0.02) {
       // still add the warm glows even with no shadow layer

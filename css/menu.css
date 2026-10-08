@@ -254,7 +254,7 @@
 .score-table { font-size: 12px; margin: 6px 0 14px; }
 .score-row {
   display: grid;
-  grid-template-columns: 28px 1fr 68px 92px 42px;
+  grid-template-columns: 32px minmax(0, 1fr) 96px 42px;
   gap: 6px;
   padding: 5px 8px;
   border-bottom: 1px solid #1c2a48;
@@ -267,6 +267,46 @@
 .score-row .s-end  { color: var(--c-teal); text-align: center; }
 .score-empty { color: var(--c-dim); text-align: center; padding: 14px; }
 #scores-clear { display: block; margin: 0 auto 4px; }
+#scores-clear.hidden { display: none; }
+.score-row .s-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score-row.is-me { background: #f4c54212; border-left: 2px solid var(--c-gold); }
+.score-toolbar { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
+.score-toolbar select { max-width: 100%; background: #0b1224; color: var(--c-ink); border: 1px solid #2b3c63; border-radius: 4px; padding: 9px; font: inherit; font-size: 12px; }
+.score-status, .score-player { text-align: center; color: var(--c-teal); font-size: 11px; line-height: 1.6; margin: 12px 0; }
+.score-player { color: var(--c-gold); }
+.option-note { color: var(--c-dim); font-size: 11px; line-height: 1.7; margin: 8px 0 14px; }
+.opt-row input[type=text], #opt-nickname { width: 100%; min-width: 0; padding: 7px; color: var(--c-ink); background: #0b1224; border: 1px solid #2b3c63; font: inherit; }
+.audio-note { border: 1px solid #263654; border-radius: 5px; padding: 10px; font-size: 11px; line-height: 1.7; color: var(--c-dim); }
+.audio-note summary { cursor: pointer; color: var(--c-gold); }
+.menu-tagline { color: #b4cce0; font-size: 12px; letter-spacing: 1px; margin-top: 16px; }
+.network-badge { display: inline-block; font-size: 9px; letter-spacing: 1px; margin-top: 12px; color: #9aaac0; padding: 7px 10px; background: #071022bb; border: 1px solid #263854; border-radius: 20px; }
+.network-badge.connected { color: #8bdca2; border-color: #385e48; }
+.menu-content { max-width: 940px; padding: 26px 42px; }
+#screen-menu .hint { max-width: 700px; line-height: 1.7; font-size: 10px; margin-top: 20px; }
+#screen-menu .menu-nav { margin-top: 24px; gap: 5px; }
+#screen-menu .menu-nav button { min-height: 28px; padding: 4px 6px; font-size: 15px; }
+.level-card { font-family: inherit; }
+html[data-visual="day"] .menu-content { background: radial-gradient(ellipse at center, #0a2442cc, #14324a85 70%, transparent); }
+@media (max-height: 650px) {
+  .title { font-size: clamp(32px, 9vh, 52px); }
+  .subtitle { font-size: 13px; letter-spacing: 5px; }
+  .menu-tagline { margin-top: 8px; }
+  #screen-menu .menu-nav { margin-top: 12px; gap: 1px; }
+  #screen-menu .menu-nav button { min-height: 24px; font-size: 13px; padding: 3px; }
+  #screen-menu .hint { margin-top: 12px; }
+  .menu-content { padding: 16px 30px; }
+}
+@media (max-width: 600px) {
+  .panel { padding: 20px 16px; max-height: calc(100dvh - 34px); }
+  .panel h2 { font-size: 20px; letter-spacing: 2px; }
+  .opt-row { grid-template-columns: 116px minmax(0, 1fr) 24px; gap: 6px; font-size: 11px; }
+  .diff-tabs button { padding: 8px 9px; font-size: 11px; letter-spacing: 1px; }
+  .score-row { grid-template-columns: 26px minmax(0,1fr) 86px 32px; font-size: 11px; gap: 4px; }
+  .menu-content { width: 100%; padding: 22px; }
+  .title { font-size: 44px; }
+  .subtitle { letter-spacing: 4px; font-size: 14px; }
+  #screen-menu .hint { display: none; }
+}
 
 .credits-sub { text-align: center; color: var(--c-blue); letter-spacing: 6px; margin-bottom: 16px; font-size: 13px; }
 .credits-body { font-size: 13px; line-height: 1.9; }

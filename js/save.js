@@ -50,6 +50,7 @@ export const Save = {
       created: Date.now(),
       difficulty,
       nick: nick || this.loadOpts().nick || 'RIKO',
+      levelElapsedMs: 0,
     };
     this.persist();
     return this.data;
@@ -114,7 +115,7 @@ export const Save = {
 
   /* ---- leaderboard (best times) ---- */
   loadScores() {
-    try { return (JSON.parse(localStorage.getItem(SCORE_KEY)) || []).slice(); }
+    try { const list = JSON.parse(localStorage.getItem(SCORE_KEY)); return Array.isArray(list) ? list.filter(s => s && Number.isFinite(s.time) && DIFF_KEYS.includes(s.diff)).slice() : []; }
     catch (e) { return []; }
   },
   addScore(entry) {
@@ -125,9 +126,21 @@ export const Save = {
       diff: entry.diff || 'normal',
       ending: entry.ending || '-',
       date: Date.now(),
+      kind: entry.kind === 'level' ? 'level' : 'campaign',
+      level: entry.kind === 'level' ? entry.level : -1,
+      timeMs: Math.max(0, Math.round(entry.timeMs ?? (entry.time || 0) * 1000)),
+      assisted: !!entry.assisted,
     });
     list.sort((a, b) => a.time - b.time);
-    const top = list.slice(0, 25);
+    // Keep separate boards; a fast first level must not erase campaign records.
+    const groups = new Map();
+    for (const score of list) {
+      const key = score.diff + '/' + (score.kind || 'campaign') + '/' + (score.level ?? -1);
+      const group = groups.get(key) || [];
+      if (group.length < 25) group.push(score);
+      groups.set(key, group);
+    }
+    const top = [...groups.values()].flat();
     try { localStorage.setItem(SCORE_KEY, JSON.stringify(top)); } catch (e) {}
     return top;
   },
@@ -135,11 +148,18 @@ export const Save = {
 
   /* ---- options ---- */
   loadOpts() {
-    const def = { music: 60, sfx: 70, scale: 'auto', bindings: null, bright: false, nick: '' };
-    try { return Object.assign(def, JSON.parse(localStorage.getItem(OPT_KEY)) || {}); }
+    const def = { music: 60, sfx: 70, scale: 'auto', bindings: null, bright: false, visualMode: 'night', nick: '', touchMode: 'joystick', touchLayout: 'right', reducedEffects: false };
+    try {
+      const stored = JSON.parse(localStorage.getItem(OPT_KEY)) || {};
+      const opts = Object.assign(def, stored);
+      if (!stored.visualMode) opts.visualMode = stored.bright ? 'clear' : 'night';
+      if (!['night', 'clear', 'day'].includes(opts.visualMode)) opts.visualMode = 'night';
+      opts.bright = opts.visualMode !== 'night';
+      return opts;
+    }
     catch (e) { return def; }
   },
   saveOpts(o) {
-    try { localStorage.setItem(OPT_KEY, JSON.stringify(o)); } catch (e) {}
+    try { localStorage.setItem(OPT_KEY, JSON.stringify({ ...this.loadOpts(), ...o })); } catch (e) {}
   },
 };

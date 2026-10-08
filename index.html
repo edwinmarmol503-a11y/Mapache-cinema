@@ -28,11 +28,13 @@
     <div class="menu-content">
       <h1 class="title">MAPACHE<br />CINEMA</h1>
       <p class="subtitle">La Última Noche</p>
+      <p class="menu-tagline">Una ciudad. Cinco zonas. Toda una noche.</p>
+      <p id="menu-network" class="network-badge" role="status">Preparando clasificación…</p>
       <nav class="menu-nav" id="menu-nav" aria-label="Menú principal">
         <button data-act="play">JUGAR</button>
         <button data-act="continue" id="btn-continue">CONTINUAR</button>
         <button data-act="levels">NIVELES</button>
-        <button data-act="scores">RÉCORDS</button>
+        <button data-act="scores">CLASIFICACIÓN</button>
         <button data-act="options">OPCIONES</button>
         <button data-act="credits">CRÉDITOS</button>
         <button data-act="quit">SALIR</button>
@@ -42,7 +44,7 @@
         Atacar: <b>J</b> &nbsp;·&nbsp; Esquivar: <b>Shift</b> &nbsp;·&nbsp; Parada: <b>L</b> (con <b>↑</b>/<b>↓</b> arriba/abajo) &nbsp;·&nbsp;
         Interactuar: <b>E</b> &nbsp;·&nbsp; Lanzar: <b>K</b> &nbsp;·&nbsp; Pausa: <b>Esc</b>
       </p>
-      <p class="version">v1.0 — pixel art web game</p>
+      <p class="version">v3.0 · LUMERA · AVENTURA PIXEL ART</p>
     </div>
   </div>
 
@@ -74,10 +76,27 @@
         <button id="opt-fullscreen" class="mini">Activar / Desactivar</button>
       </div>
       <div class="opt-row">
-        <label for="opt-bright">Modo claro</label>
-        <button id="opt-bright" class="mini">Desactivado</button>
+        <label for="opt-visual">Ambiente</label>
+        <select id="opt-visual">
+          <option value="night">Noche original</option>
+          <option value="clear">Noche clara</option>
+          <option value="day">Día</option>
+        </select>
         <span></span>
       </div>
+      <p class="option-note">El ambiente solo cambia la iluminación; conserva los niveles y la dificultad.</p>
+      <div class="opt-row">
+        <label for="opt-effects">Efectos visuales</label>
+        <select id="opt-effects"><option value="full">Completos</option><option value="reduced">Reducidos</option></select>
+        <span></span>
+      </div>
+      <div class="opt-row">
+        <label for="opt-nickname">Tu apodo</label>
+        <input id="opt-nickname" maxlength="12" placeholder="RIKO" autocomplete="off" spellcheck="false" />
+        <span></span>
+      </div>
+      <p class="option-note">El apodo aparece en la clasificación. Tu identidad se conserva en este navegador; todavía no se vincula a una cuenta.</p>
+      <details class="audio-note"><summary>Banda sonora personalizada</summary><p>Espacio preparado para 5–20 pistas. Por ahora suena la música original; las nuevas pistas se asignarán a cada zona.</p></details>
       <div class="opt-controls">
         <h3>Controles (clic para reasignar)</h3>
         <div id="control-list"></div>
@@ -103,7 +122,7 @@
   <div id="screen-nick" class="screen hidden">
     <div class="panel small">
       <h2><label for="nick-input">TU APODO</label></h2>
-      <p class="diff-blurb">Para la tabla de récords por tiempo.</p>
+      <p class="diff-blurb">Así aparecerás en la clasificación. No necesitas una cuenta.</p>
       <input id="nick-input" type="text" maxlength="12" placeholder="RIKO" autocomplete="off" spellcheck="false" />
       <div class="nick-row">
         <button id="nick-go" class="back" style="margin:0;width:auto;padding:10px 22px;">EMPEZAR</button>
@@ -115,9 +134,20 @@
   <!-- ===== RÉCORDS ===== -->
   <div id="screen-scores" class="screen hidden">
     <div class="panel">
-      <h2>RÉCORDS · MEJORES TIEMPOS</h2>
+      <h2>CLASIFICACIÓN</h2>
+      <div class="score-filters">
+        <div class="diff-tabs" id="score-diff-tabs" aria-label="Dificultad de la clasificación"></div>
+        <div class="score-toolbar">
+          <select id="score-scope" aria-label="Origen de los récords"><option value="global">Mundial</option><option value="local">En este dispositivo</option></select>
+          <select id="score-level" aria-label="Nivel de la clasificación"><option value="-1">Campaña completa</option></select>
+          <button id="scores-refresh" class="mini">Actualizar</button>
+        </div>
+      </div>
+      <p id="score-status" class="score-status" role="status" aria-live="polite"></p>
       <div class="score-table" id="score-table"></div>
-      <button id="scores-clear" class="mini">Borrar tabla</button>
+      <p id="score-player" class="score-player"></p>
+      <p class="option-note">Ranking por tiempo real: incluye pausas, diálogos y reintentos. Campaña: cinco niveles desde el principio. Las partidas con ayuda de Pesadilla quedan en récords locales.</p>
+      <button id="scores-clear" class="mini hidden">Borrar récords de este dispositivo</button>
       <button class="back" data-act="back">VOLVER</button>
     </div>
   </div>
@@ -126,6 +156,7 @@
   <div id="screen-pause" class="screen hidden">
     <div class="panel small">
       <h2>PAUSA</h2>
+      <p id="pause-ranking" class="option-note">El cronómetro de clasificación continúa durante la pausa.</p>
       <nav class="menu-nav">
         <button data-act="resume">CONTINUAR</button>
         <button data-act="options">OPCIONES</button>
@@ -165,7 +196,12 @@
 
   <div id="fade"></div>
   <div id="toast-layer" role="status" aria-live="polite"></div>
-  <div id="boot-hint">Cargando… si no ves nada, abre el proyecto con <b>Live Server</b> (los módulos ES necesitan http://)</div>
+  <div id="boot-hint" class="boot-screen" role="status" aria-live="polite">
+    <img src="icons/icon-192.png" alt="" width="72" height="72" />
+    <strong>ENCENDIENDO LUMERA</strong>
+    <div class="boot-track" aria-hidden="true"><span></span></div>
+    <p id="boot-message">Preparando tejados, luces y recuerdos…</p>
+  </div>
   <div class="tv-hardware" aria-hidden="true">
     <span class="tv-brand">LUMERA</span>
     <span class="tv-speaker"></span>
@@ -174,6 +210,6 @@
     <span class="tv-power"></span>
   </div>
 </div>
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/bootstrap.js"></script>
 </body>
 </html>

@@ -114,6 +114,7 @@ export class Door extends PuzzleEl {
   }
   canInteract(world) { return this.locked && !this.open; }
   interact(world) {
+    if (!this.canInteract(world)) return;
     if (world.inventory.has(this.needs)) {
       world.inventory.use(this.needs);
       this.open = true; this.locked = false;
@@ -251,6 +252,7 @@ export class Magnet extends PuzzleEl {
   update(dt) { this.pulse += dt; }
   canInteract(world) { return !this.used && world.inventory.has('iman'); }
   interact(world) {
+    if (!this.canInteract(world)) return;
     const c = world.crates.find((k) => k.tag === this.crateTag);
     if (!c) { world.toast('No hay nada metálico que atraer'); return; }
     c.x = this.snapTx * this.ts;
@@ -302,7 +304,7 @@ export class Rope extends PuzzleEl {
   get extraSolids() { return this.done ? this._solids : null; }
   canInteract(world) { return !this.done && world.inventory.has('cuerda'); }
   interact(world) {
-    world.inventory.use('cuerda');
+    if (!this.canInteract(world) || !world.inventory.use('cuerda')) return;
     this.done = true;
     this._build();
     world.audio.sfx('interact');
@@ -340,8 +342,9 @@ export class LightNode extends PuzzleEl {
   }
   canInteract(world) { return !this.lit && world.inventory.has('bombilla'); }
   interact(world) {
-    world.inventory.use('bombilla');
+    if (!this.canInteract(world) || !world.inventory.use('bombilla')) return;
     this.lit = true;
+    if (this.memory) world.save.data.memories = (world.save.data.memories || 0) + 1;
     if (this.id) world.markProgress('lit:' + this.id, true);
     world.audio.sfx('light');
     if (world.announceLantern) world.announceLantern();
@@ -349,7 +352,6 @@ export class LightNode extends PuzzleEl {
     world.addLight(this.x + this.ts / 2, this.y + this.ts / 2 - 4, 58, 'rgba(255,223,154,0.9)', true);
     world.particles.burst(this.x + 8, this.y + 6, 18, { color: '#ffdf9a', speed: 70, life: 0.7, glow: true, gravity: -18 });
     if (this.memory) {
-      world.save.data.memories = (world.save.data.memories || 0) + 1;
       world.toast('Un recuerdo vuelve a brillar  (' + world.save.data.memories + ')');
     }
     if (this.dialogue && !this.said) { this.said = true; world.startDialogue(this.dialogue); }
