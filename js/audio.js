@@ -1,6 +1,6 @@
 /* ============================================================
    audio.js  -  Web Audio API, optional streamed soundtrack.
-   Separate music / sfx buses. Procedural fallback works offline.
+   Separate music / sfx buses. Missing music never interrupts SFX.
    ============================================================ */
 export const MUSIC_MANIFEST_URL = new URL('../assets/audio/tracks.json', import.meta.url).href;
 const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending'];
@@ -20,6 +20,8 @@ export const Audio = {
   _playlists: {},
   _shuffleBags: new Map(),
   _lastExternalTrack: null,
+  _failedTracks: new Set(),
+  _attemptedTracks: new Set(),
   _manifestPromise: null,
   _media: null,
   _mediaSource: null,
@@ -28,6 +30,9 @@ export const Audio = {
   _musicMode: 'stopped',
   _playGeneration: 0,
   _mediaPlayRequest: 0,
+  _mediaAttempt: 0,
+  _activeSource: null,
+  _sourceIndex: 0,
 
   init(opts) {
     if (opts) {
@@ -45,7 +50,7 @@ export const Audio = {
       this.musicGain.connect(this.master);
       this.sfxGain.connect(this.master);
       this.applyVolumes();
-      // Soundtrack files are streamed; an empty or unavailable manifest uses synth.
+      // Soundtrack files stream through one element. Missing files stay silent.
       this.loadTrackManifest();
     } catch (e) {
       console.warn('[audio] Web Audio unavailable', e);
@@ -73,12 +78,16 @@ export const Audio = {
     this._tracks = new Map();
     for (const entry of entries.slice(0, 20)) {
       if (!entry || typeof entry.id !== 'string' || !entry.id.trim() || typeof entry.src !== 'string' || !entry.src.trim()) continue;
-      let url;
-      try {
-        url = new URL(entry.src, MUSIC_MANIFEST_URL);
-        if (!['http:', 'https:'].includes(url.protocol)) continue;
-      } catch { continue; }
-      this._tracks.set(entry.id, { ...entry, src: url.href, gain: volume(entry.gain, 0.7) });
+      const sources = [];
+      for (const source of [entry.src, ...(Array.isArray(entry.alternateSrcs) ? entry.alternateSrcs : [])]) {
+        if (typeof source !== 'string' || !source.trim()) continue;
+        try {
+          const url = new URL(source, MUSIC_MANIFEST_URL);
+          if (['http:', 'https:'].includes(url.protocol) && !sources.includes(url.href)) sources.push(url.href);
+        } catch { /* Invalid alternate URLs cannot prevent valid music loading. */ }
+      }
+      if (!sources.length) continue;
+      this._tracks.set(entry.id, { ...entry, src: sources[0], sources, gain: volume(entry.gain, 0.7) });
     }
     this._playlists = {};
     for (const theme of MUSIC_THEMES) {
@@ -86,6 +95,8 @@ export const Audio = {
       this._playlists[theme] = Array.isArray(ids) ? [...new Set(ids.filter((id) => this._tracks.has(id)))] : [];
     }
     this._shuffleBags = new Map();
+    this._failedTracks = new Set();
+    this._attemptedTracks = new Set();
     if (!this._tracks.has(this._lastExternalTrack)) this._lastExternalTrack = null;
     if (this.currentTrack) this.playMusic(this.currentTrack, { restart: true });
     return this._tracks.size;
@@ -102,24 +113,26 @@ export const Audio = {
   },
 
   getMusicStatus() {
-    return { mode: this._musicMode, theme: this.currentTrack, title: this._externalTrack?.title || '', configuredTracks: this._tracks.size };
+    return { mode: this._musicMode, theme: this.currentTrack, title: this._externalTrack?.title || '',
+      src: this._activeSource || '', configuredTracks: this._tracks.size, unavailableTracks: this._failedTracks.size };
   },
 
-  _nextTrack(theme) {
-    const ids = this._playlists[theme] || [];
+  _nextTrack(theme, excluded = new Set()) {
+    const playlist = this._playlists[theme] || [];
+    const ids = playlist.filter((id) => !this._failedTracks.has(id) && !excluded.has(id));
     if (!ids.length) return null;
     // Themes using the same collection share a bag, so changing levels cannot
     // keep choosing the first song or discard tracks that have not played yet.
-    const key = JSON.stringify([...ids].sort());
-    let bag = this._shuffleBags.get(key);
+    const key = JSON.stringify([...playlist].sort());
+    let bag = (this._shuffleBags.get(key) || []).filter((id) => ids.includes(id));
     if (!bag?.length) {
       bag = [...ids];
       for (let i = bag.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [bag[i], bag[j]] = [bag[j], bag[i]];
       }
-      this._shuffleBags.set(key, bag);
     }
+    this._shuffleBags.set(key, bag);
     // Also avoid the last song after reshuffling or switching to another pool.
     if (bag[0] === this._lastExternalTrack) {
       if (bag.length > 1) {
@@ -157,32 +170,45 @@ export const Audio = {
     if (!this._media || !this._externalTrack) return;
     const media = this._media;
     const entry = this._externalTrack;
+    const source = this._activeSource;
+    const attempt = this._mediaAttempt;
     const request = ++this._mediaPlayRequest;
     let result;
     try { result = media.play(); }
-    catch { this._fallbackMusic(theme, generation, entry); return; }
+    catch (error) {
+      if (error?.name !== 'NotAllowedError' && error?.name !== 'AbortError') this._tryNextSource(theme, generation, entry, media, source, attempt);
+      return;
+    }
     if (result?.catch) result.catch((error) => {
-      if (request !== this._mediaPlayRequest || !this._isCurrentMedia(theme, generation, entry, media)) return;
-      // Autoplay waits for the next user gesture. Unsupported/missing files use synth.
-      if (error?.name !== 'NotAllowedError' && error?.name !== 'AbortError') this._fallbackMusic(theme, generation, entry);
+      if (request !== this._mediaPlayRequest || !this._isCurrentMedia(theme, generation, entry, media, source, attempt, false)) return;
+      // Autoplay waits for a gesture. Missing files try that song's other URLs.
+      if (error?.name !== 'NotAllowedError' && error?.name !== 'AbortError') this._tryNextSource(theme, generation, entry, media, source, attempt);
     });
   },
 
-  _isCurrentMedia(theme, generation, entry, media) {
+  _isCurrentMedia(theme, generation, entry, media, source, attempt, checkCurrentSrc = true) {
     return generation === this._playGeneration && this.currentTrack === theme &&
       this._externalTrack === entry && this._media === media &&
-      (!media.currentSrc || media.currentSrc === entry.src);
+      attempt === this._mediaAttempt && source === this._activeSource && media.src === source &&
+      (!checkCurrentSrc || !media.currentSrc || media.currentSrc === source);
   },
 
-  _fallbackMusic(theme, generation, entry = this._externalTrack) {
-    if (generation !== this._playGeneration || this.currentTrack !== theme || this._externalTrack !== entry) return;
-    this._stopMedia();
-    this._startProcedural(theme);
+  _tryNextSource(theme, generation, entry, media, source, attempt) {
+    if (!this._isCurrentMedia(theme, generation, entry, media, source, attempt, false)) return;
+    const nextIndex = this._sourceIndex + 1;
+    if (nextIndex < entry.sources.length) {
+      this._startMediaSource(theme, generation, entry, nextIndex);
+    } else {
+      this._failedTracks.add(entry.id);
+      this._playNextAvailable(theme, generation);
+    }
   },
 
   _stopMedia() {
     this._mediaPlayRequest++;
+    this._mediaAttempt++;
     this._externalTrack = null;
+    this._activeSource = null;
     if (!this._media) return;
     this._media.onerror = null;
     this._media.onended = null;
@@ -247,74 +273,70 @@ export const Audio = {
     const generation = this._playGeneration;
     this.currentTrack = track;
     this._pausedTrack = null;
-    this._stopLoop();
     this._stopMedia();
-    if (!this.ctx) return;
+    this._attemptedTracks = new Set();
+    if (!this.ctx) { this._musicMode = 'unavailable'; return; }
+    this._playNextAvailable(track, generation);
+  },
 
-    const entry = this._nextTrack(track);
-    if (entry) {
-      try {
-        this._ensureMedia();
-        const media = this._media;
-        this._externalTrack = entry;
-        this._musicMode = 'loading';
-        media.loop = entry.loop === true || this._playlists[track].length === 1;
-        media.src = entry.src;
-        media.onerror = () => {
-          if (media.error && this._isCurrentMedia(track, generation, entry, media)) this._fallbackMusic(track, generation, entry);
-        };
-        media.onplaying = () => {
-          if (!media.paused && !media.ended && this._isCurrentMedia(track, generation, entry, media)) this._musicMode = 'external';
-        };
-        media.onended = () => {
-          if (media.ended && this._isCurrentMedia(track, generation, entry, media)) this.playMusic(track, { restart: true });
-        };
-        this._mediaGain.gain.setValueAtTime(0, this.ctx.currentTime);
-        this._mediaGain.gain.linearRampToValueAtTime(entry.gain, this.ctx.currentTime + 0.35);
-        this._playMedia(track, generation);
-        return;
-      } catch { this._stopMedia(); }
+  _playNextAvailable(theme, generation) {
+    if (generation !== this._playGeneration || this.currentTrack !== theme) return;
+    const entry = this._nextTrack(theme, this._attemptedTracks);
+    if (!entry) {
+      this._stopMedia();
+      this._musicMode = 'unavailable';
+      return;
     }
-    this._startProcedural(track);
+    // Each song gets one bounded attempt per selection, including its URLs.
+    this._attemptedTracks.add(entry.id);
+    this._startMediaSource(theme, generation, entry, 0);
   },
 
-  _startProcedural(track) {
-    this._stopLoop();
-    this._musicMode = 'procedural';
-    const SCALES = {
-      menu:     [262, 330, 392, 494, 587, 494, 392, 330],
-      roofs:    [220, 277, 330, 415, 494, 415, 330, 277],
-      forest:   [196, 233, 294, 349, 392, 349, 294, 233],
-      sewers:   [147, 175, 220, 262, 294, 262, 220, 175],
-      district: [165, 196, 247, 294, 330, 294, 247, 196],
-      tower:    [131, 165, 196, 262, 294, 262, 196, 165],
-      boss:     [110, 138, 165, 220, 165, 138, 110, 98],
-      ending:   [262, 330, 392, 523, 659, 523, 392, 330],
-    };
-    const scale = SCALES[track] || SCALES.menu;
-    const interval = track === 'boss' ? 210 : 300;
-    let i = 0;
-    const step = () => {
-      if (!this.ctx || this.currentTrack !== track) return;
-      if (this.ctx.state !== 'running') { this._musicTimer = setTimeout(step, 250); return; }
-      const f = scale[i % scale.length];
-      // melody
-      this._tone(f, 0.42, 'triangle', 0.10, this.musicGain);
-      // bass every 4th
-      if (i % 4 === 0) this._tone(f / 2, 0.7, 'sine', 0.08, this.musicGain);
-      i++;
-      this._musicTimer = setTimeout(step, interval);
-    };
-    step();
+  _startMediaSource(theme, generation, entry, sourceIndex) {
+    if (generation !== this._playGeneration || this.currentTrack !== theme) return;
+    this._stopMedia();
+    try {
+      this._ensureMedia();
+      const media = this._media;
+      const source = entry.sources[sourceIndex];
+      const attempt = this._mediaAttempt;
+      this._externalTrack = entry;
+      this._activeSource = source;
+      this._sourceIndex = sourceIndex;
+      this._musicMode = 'loading';
+      media.loop = entry.loop === true || this._playlists[theme].filter((id) => !this._failedTracks.has(id)).length === 1;
+      media.src = source;
+      media.onerror = () => {
+        if (media.error && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) {
+          this._tryNextSource(theme, generation, entry, media, source, attempt);
+        }
+      };
+      media.onplaying = () => {
+        if (!media.paused && !media.ended && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) this._musicMode = 'external';
+      };
+      media.onended = () => {
+        if (media.ended && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) this.playMusic(theme, { restart: true });
+      };
+      this._mediaGain.gain.setValueAtTime(0, this.ctx.currentTime);
+      this._mediaGain.gain.linearRampToValueAtTime(entry.gain, this.ctx.currentTime + 0.35);
+      this._playMedia(theme, generation);
+    } catch {
+      this._failedTracks.add(entry.id);
+      this._playNextAvailable(theme, generation);
+    }
   },
 
-  _stopLoop() { if (this._musicTimer) { clearTimeout(this._musicTimer); this._musicTimer = null; } },
+  // Used after reconnecting or replacing files; there is no automatic retry loop.
+  retryUnavailableMusic() {
+    this._failedTracks.clear();
+    if (this.currentTrack && this._musicMode === 'unavailable') this.playMusic(this.currentTrack, { restart: true });
+  },
+
   stopMusic() {
     this._playGeneration++;
     this.currentTrack = null;
     this._pausedTrack = null;
     this._musicMode = 'stopped';
-    this._stopLoop();
     this._stopMedia();
   },
 
@@ -324,7 +346,6 @@ export const Audio = {
     this.currentTrack = null;
     this._musicMode = 'paused';
     this._mediaPlayRequest++;
-    this._stopLoop();
     if (this._media) this._media.pause();
   },
   resumeMusic() {

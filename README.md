@@ -15,7 +15,7 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://mapache-cinema-lumera.codyworksoporte.chatgpt.site
 
-**Versión 3.1.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión 3.1.1:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -97,7 +97,7 @@ index.html
 css/   style.css · menu.css · game.css · ui.css
 js/    main.js          bootstrap + game loop (requestAnimationFrame, fixed step)
        input.js         input centralizado + rebinding
-       audio.js         MP3 aleatorios, efectos y respaldo con Web Audio API
+       audio.js         MP3 aleatorios y efectos con Web Audio API
        save.js          localStorage (progreso + opciones)
        particles.js     sistema de partículas con pooling
        camera.js        cámara 2D (follow suave, límites, shake, zoom)
@@ -175,8 +175,10 @@ con `Web Audio API`. La versión 3.1 añade 11 pistas MP3 de fondo a los cinco
 niveles y al jefe, mezcladas aleatoriamente sin repetir una canción seguida.
 Al terminar una pista empieza otra; la pausa conserva su posición y Opciones
 controla el volumen de música por separado de los efectos. El menú y el final
-conservan su música sintetizada. Consulta `assets/audio/README.md` para añadir
-o reasignar pistas. Los originales de `AUDIOS/` permanecen intactos; una copia
+también usan las once pistas. La versión 3.1.1 elimina la melodía genérica;
+si una canción no carga, intenta otra ruta de esa misma pista y después otra
+canción disponible. Consulta `assets/audio/README.md` para añadir o reasignar
+pistas. Los originales de `AUDIOS/` permanecen intactos; una copia
 duplicada se omite de la distribución.
 
 ## Versión 3.0: clasificación compartida

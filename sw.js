@@ -3,7 +3,15 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const CACHE_NAME = 'mapache-cinema-v3.1.0-soundtrack';
+const CACHE_NAME = 'mapache-cinema-v3.1.1-pistas';
+// GitHub web uploads may retain the three soundtrack batch directories.
+// Both layouts stay inside this game's scope and use the same lazy cache.
+const AUDIO_DIRECTORIES = [
+  './assets/audio/',
+  './01-AUDIOS-1-A-4/assets/audio/',
+  './02-AUDIOS-5-A-8/assets/audio/',
+  './03-AUDIOS-9-A-11/assets/audio/',
+];
 const ASSETS = [
   './',
   './index.html',
@@ -127,8 +135,9 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(e.request.url);
   // Shared times always come from the server. Never turn cached JSON into a live ranking.
   if (url.origin !== self.location.origin || url.pathname.includes('/api/') || e.request.headers.has('X-Player-Token')) return;
-  const audioRoot = new URL('./assets/audio/', self.registration.scope).pathname;
-  if (url.pathname.startsWith(audioRoot) && /\.(mp3|ogg|wav)$/i.test(url.pathname)) {
+  const audioPath = AUDIO_DIRECTORIES.some(directory =>
+    url.pathname.startsWith(new URL(directory, self.registration.scope).pathname));
+  if (audioPath && /\.(mp3|ogg|wav)$/i.test(url.pathname)) {
     e.respondWith(serveAudio(e));
     return;
   }

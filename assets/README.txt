@@ -3,7 +3,7 @@ ASSETS  -  MAPACHE CINEMA: LA ULTIMA NOCHE
 
 El arte se genera por codigo (js/sprites.js dibuja formas en canvas).
 La carpeta audio contiene 11 pistas MP3 de fondo para los niveles y el jefe.
-Los efectos y el respaldo de musica se sintetizan con Web Audio API.
+Solo los efectos se sintetizan con Web Audio API; la musica usa tus pistas.
 
 Cuando tengas assets definitivos, colocalos asi:
 
