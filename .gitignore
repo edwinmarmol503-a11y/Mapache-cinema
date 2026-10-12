@@ -1,0 +1,26 @@
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+
+# Live Server / local tooling (keep the port setting out of version control if you prefer)
+.vscode/*
+!.vscode/settings.json
+
+# never commit real credentials or local env files if you add any later
+.env
+node_modules/
+dist/
+.local/
+.release/
+test-results/
+output/
+tmp/
+.wrangler/
+*.tgz
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Supplied originals are preserved locally; the game ships assets/audio copies.
+AUDIOS/

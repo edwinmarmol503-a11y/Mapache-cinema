@@ -2,8 +2,9 @@
 
 Videojuego 2D pixel-art para navegador. **HTML5 + CSS3 + JavaScript (ES6 modules)**.
 Sin frameworks ni motores externos en el juego. Todo el gameplay se
-renderiza en un `<canvas>` 2D a resolución interna baja (480×270) y se escala
-por CSS con `image-rendering: pixelated`.
+renderiza en un `<canvas>` 2D con un mundo lógico de 480×270. El dibujo utiliza
+una resolución de 960×540 a 1920×1080, según la pantalla, para conservar las
+formas del pixel art y mostrar letras nítidas sin modificar las colisiones.
 
 Lumera es una ciudad nocturna cuyas luces guardan recuerdos. Una noche empiezan
 a apagarse. **Riko**, un mapache de los tejados, cruza cinco zonas para llegar
@@ -13,9 +14,9 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 ## Cómo ejecutar
 
-Juego publicado: https://mapache-cinema-lumera.codyworksoporte.chatgpt.site
+Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión 3.1.1:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 4.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -24,8 +25,8 @@ La opción **Ajustar a pantalla** amplía el escenario hasta el mayor tamaño
 posible dentro del marco, manteniendo su proporción 16:9 y el pixel art.
 También funciona con la escala de Windows al 125% o 150%. En celular se ajusta
 siempre al espacio disponible en horizontal, respetando las zonas seguras de
-la pantalla; los menús también pueden usarse en vertical. En escritorio puedes
-elegir 1x, 2x o 3x si prefieres un tamaño fijo.
+la pantalla; los menús también pueden usarse en vertical. El tamaño siempre
+se ajusta automáticamente; la antigua opción de escala se ha retirado.
 
 El servidor de desarrollo (`pnpm start`, Node.js 24+, puerto 4173) incluye una
 base SQLite de prueba en `.local/ranking.sqlite`.
@@ -67,7 +68,7 @@ Luego abre `http://localhost:PUERTO`.
 | Acción        | Tecla por defecto        |
 |---------------|--------------------------|
 | Mover         | `A` / `D` o `←` / `→`    |
-| Saltar        | `Espacio`  (altura variable, coyote-time, buffer, **doble salto** — el 2º a media altura) |
+| Saltar        | `W` / `↑` (altura variable, coyote-time, buffer, **doble salto** al soltar y volver a pulsar) |
 | Atacar        | `J`  (o **caer encima** de un enemigo: −1 vida al enemigo, 0 a Riko, rebota) |
 | Esquivar      | `Shift`  (i-frames + impulso) |
 | Parada        | `L`  (contraataque perfecto — solo **3 cargas** por nivel/reintento) |
@@ -76,7 +77,7 @@ Luego abre `http://localhost:PUERTO`.
 | Cambiar objeto| `Q` / `R`                |
 | Pausa         | `Esc`                    |
 
-`↓` + salto para bajar de plataformas de un sentido.
+`↓` permite bajar de plataformas de un sentido.
 
 **Parada (L):** justo antes de recibir un golpe (Sombra, Cuervo, Devorador,
 Guardián, proyectil o el jefe), pulsa `L`. Si aciertas: no recibes daño, el mundo
@@ -171,15 +172,16 @@ MC.Save.clear()
 Todo el arte es procedural (formas dibujadas en canvas). Para sustituirlo por
 sprite-sheets reales, reemplaza las funciones de `js/sprites.js` cargando
 imágenes desde `assets/` — la lógica de juego no cambia. Los efectos se sintetizan
-con `Web Audio API`. La versión 3.1 añade 11 pistas MP3 de fondo a los cinco
-niveles y al jefe, mezcladas aleatoriamente sin repetir una canción seguida.
-Al terminar una pista empieza otra; la pausa conserva su posición y Opciones
-controla el volumen de música por separado de los efectos. El menú y el final
-también usan las once pistas. La versión 3.1.1 elimina la melodía genérica;
-si una canción no carga, intenta otra ruta de esa misma pista y después otra
-canción disponible. Consulta `assets/audio/README.md` para añadir o reasignar
-pistas. Los originales de `AUDIOS/` permanecen intactos; una copia
-duplicada se omite de la distribución.
+con `Web Audio API`. Hay 37 pistas MP3: **ARCADE** en el menú,
+**CHUTY VS ACZINO** durante el jefe y **LO QUE SOY** en los créditos finales.
+Las otras 34 comparten una bolsa aleatoria sin repetición hasta agotarla.
+Se elige otra al entrar en un nivel o reaparecer después de morir; los textos,
+opciones, créditos informativos, pausa y reinicio manual conservan canción y
+posición. Si una canción aleatoria termina se repite la misma. Los créditos
+de victoria vuelven al menú cuando LO QUE SOY acaba de forma natural.
+Opciones controla música y efectos por separado. Los originales de `AUDIOS/`
+permanecen intactos; una copia antigua duplicada se omite. Consulta
+`assets/audio/README.md` e `INVENTARIO.md` para títulos y huellas de los archivos.
 
 ## Versión 3.0: clasificación compartida
 
@@ -214,10 +216,13 @@ partida. `migrations/0001_ranking.sql` es la versión del emulador de desarrollo
 
 ## Controles móviles y ambientes
 
-Joystick con zona muerta y movimientos diagonales. SALTO, ATQ, ESQ y USAR son
-las acciones principales; MÁS abre BLOQ, LANZA y cambio de objeto. El joystick
-hacia abajo + salto baja de una plataforma; su dirección también orienta la
-parada. Opciones permite cruceta clásica o acciones a la izquierda para zurdos.
+Joystick con zona muerta, histéresis y movimientos diagonales. Empujar hacia
+arriba salta; volver al centro y subir de nuevo hace el doble salto. No hay
+botón SALTO adicional. ATQ, ESQ y USAR forman un arco cómodo a la derecha;
+MÁS abre BLOQ, LANZA y cambio de objeto. Hacia abajo permite bajar plataformas;
+la dirección también orienta la parada. Opciones permite cruceta clásica o
+acciones a la izquierda para zurdos. Los botones de acción avanzan los textos
+con una pulsación nueva; mantener un botón no descarta toda la conversación.
 Pausar, cancelar un toque o cambiar de pestaña libera los controles.
 
 Opciones ofrece **Noche original**, **Noche clara** y **Día**. Día cambia cielo,
@@ -232,9 +237,61 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
+La versión 4.0.0 conserva letras nativas con mayor contraste, siluetas de enemigos
+más visibles y controles de exposición. Agrega lluvia y hojas más suaves,
+una barrera del imán que no se puede saltar, el alma de Riko al morir y créditos
+con tejados en movimiento, EKD, FELICIDADES y 3E. Las pruebas de mandos utilizan
+dispositivos simulados; la televisión y el DualShock físico requieren una prueba
+en el equipo del evento.
+
 `pnpm test` prueba clasificación con SQLite real, identidad entre dispositivos,
 concurrencia, reintentos, reinicios, partidas continuadas, inventario y multitouch.
 `tests/visual-review.html` comprueba niveles, dificultades, diálogos, jefe y finales.
 Los revisores `tests/release-review.mjs` y `tests/world-review.mjs` usan Playwright
 (instalado aparte o mediante la variable `PLAYWRIGHT_MODULE`) para la prueba de
 dos navegadores, PWA sin conexión y ambientes. Las capturas quedan en `test-results/`.
+
+## Controles para la exposición
+
+Créditos contiene el apartado **Código**. Después de introducir el código del
+desarrollador aparecen las opciones **Táctil**, **Teclado** y **Mando**. El acceso
+solo dura en la página abierta: recargar o pulsar **Cerrar acceso de desarrollador**
+restaura los controles normales del dispositivo. Las preferencias, los récords
+y las partidas guardadas no se borran al cambiar la forma de jugar.
+
+El código se conserva fuera de los archivos públicos, en
+`.local/developer-controls/access.json`. El cliente contiene únicamente su
+verificador SHA-256 con sal. Este bloqueo de interfaz sirve para la exposición;
+no equivale a autenticación de cuenta o a permisos comprobados en un servidor.
+No incluyas la carpeta `.local` al subir el juego a GitHub.
+
+El mando debe estar vinculado por Bluetooth con el dispositivo que ejecuta el
+navegador. Reconocerlo en los ajustes del televisor no garantiza que su navegador
+ofrezca **Gamepad API**. El panel muestra si el navegador lo admite, si detecta el
+mando y si su distribución de botones es estándar. Para activar la lectura,
+pulsa y suelta un botón y deja el stick centrado.
+
+| Acción | DualShock 4 con distribución estándar |
+| --- | --- |
+| Mover / navegar | Stick izquierdo o cruceta |
+| Saltar | Arriba en el stick o cruceta |
+| Confirmar menús | ✕ |
+| Atacar | □ |
+| Esquivar / volver | ○ |
+| Interactuar / avanzar diálogo | △ |
+| Parada / lanzar | L1 / R1 |
+| Cambiar objeto | L2 / R2 |
+| Pausar / reanudar | OPTIONS |
+
+Los menús, niveles y opciones se pueden recorrer con el mando. Izquierda y
+derecha ajustan selectores y volumen. Puedes empezar con el apodo guardado o
+RIKO. Si el mando se desconecta durante la partida, el juego se pausa y libera
+los botones; al volver a conectarlo pide soltar las teclas y centrar el stick.
+
+Referencias: [Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Gamepad_API/Using_the_Gamepad_API)
+y [mandos en aplicaciones Samsung Tizen](https://developer.samsung.com/smarttv/develop/guides/user-interaction/gamepad.html).
+Estas referencias no confirman la compatibilidad del modelo de televisor del evento.
+
+El arco de controles táctiles sigue la disposición del ejemplo oficial de
+[plataformas 2D de Microsoft](https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/game-streaming/building-touch-layouts/samples/game-streaming-touch-tak-sample-platformer?view=gdk-2604),
+adaptado al salto con joystick solicitado para este juego.

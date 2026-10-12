@@ -39,12 +39,12 @@
         <button data-act="credits">CRÉDITOS</button>
         <button data-act="quit">SALIR</button>
       </nav>
-      <p class="hint">
-        Mover: <b>A / D</b> o <b>Flechas</b> &nbsp;·&nbsp; Saltar: <b>Espacio</b> (2x en el aire) &nbsp;·&nbsp;
+      <p class="hint" id="game-control-hint">
+        Mover: <b>A / D</b> o <b>Flechas</b> &nbsp;·&nbsp; Saltar: <b>W / ↑</b> (2x en el aire) &nbsp;·&nbsp;
         Atacar: <b>J</b> &nbsp;·&nbsp; Esquivar: <b>Shift</b> &nbsp;·&nbsp; Parada: <b>L</b> (con <b>↑</b>/<b>↓</b> arriba/abajo) &nbsp;·&nbsp;
         Interactuar: <b>E</b> &nbsp;·&nbsp; Lanzar: <b>K</b> &nbsp;·&nbsp; Pausa: <b>Esc</b>
       </p>
-      <p class="version">v3.1.1 · LUMERA · AVENTURA PIXEL ART</p>
+      <p class="version">v4.0.0 · LUMERA · AVENTURA PIXEL ART</p>
     </div>
   </div>
 
@@ -62,16 +62,6 @@
         <input type="range" id="opt-sfx" min="0" max="100" value="70" />
         <span id="opt-sfx-val">70</span>
       </div>
-      <div class="opt-row">
-        <label for="opt-scale">Escala de pantalla</label>
-        <select id="opt-scale">
-          <option value="auto">Ajustar a pantalla</option>
-          <option value="1">1x</option>
-          <option value="2">2x</option>
-          <option value="3">3x</option>
-        </select>
-      </div>
-      <p class="option-note">Ajustar a pantalla aprovecha el espacio disponible sin deformar el juego. En celular el ajuste es automático.</p>
       <div class="opt-row">
         <label for="opt-fullscreen">Pantalla completa</label>
         <button id="opt-fullscreen" class="mini">Activar / Desactivar</button>
@@ -97,7 +87,7 @@
         <span></span>
       </div>
       <p class="option-note">El apodo aparece en la clasificación. Tu identidad se conserva en este navegador; todavía no se vincula a una cuenta.</p>
-      <details class="audio-note"><summary>Banda sonora · 11 pistas</summary><p>El menú, los niveles y el jefe mezclan tus pistas al azar, sin repetir la misma seguida. Al terminar una canción suena otra. Ajusta su volumen con Volumen música.</p></details>
+      <details class="audio-note"><summary>Banda sonora · 37 pistas</summary><p>ARCADE acompaña el menú; CHUTY VS ACZINO, al jefe; LO QUE SOY, a los créditos finales. Las otras 34 pistas se eligen al entrar en un nivel o después de morir. Los diálogos y las opciones mantienen la canción.</p></details>
       <div class="opt-controls">
         <h3>Controles (clic para reasignar)</h3>
         <div id="control-list"></div>
@@ -169,17 +159,13 @@
 
   <!-- ===== PANTALLA DE VICTORIA (tras elegir el final) ===== -->
   <div id="screen-victory" class="screen hidden">
-    <div class="victory-lanterns" aria-hidden="true">
-      <i class="victory-lantern lantern-a"></i>
-      <i class="victory-lantern lantern-b"></i>
-      <i class="victory-lantern lantern-c"></i>
-      <i class="victory-lantern lantern-d"></i>
-    </div>
+    <span class="ending-mark ending-mark-left">EKD</span>
+    <span class="ending-mark ending-mark-right">3E</span>
     <div class="victory-box">
-      <h1 id="victory-title">¡FELICIDADES!</h1>
+      <h1 id="victory-title">FELICIDADES</h1>
       <p id="victory-sub">Terminaste Mapache Cinema: La Última Noche.</p>
-      <button id="victory-menu" class="back">VOLVER AL MENÚ</button>
     </div>
+    <button id="victory-menu" class="back">VOLVER AL MENÚ</button>
   </div>
 
   <!-- ===== CREDITOS ===== -->

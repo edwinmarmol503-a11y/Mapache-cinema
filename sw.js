@@ -3,7 +3,7 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const CACHE_NAME = 'mapache-cinema-v3.1.1-pistas';
+const CACHE_NAME = 'mapache-cinema-v4.0.0-musica-creditos';
 // GitHub web uploads may retain the three soundtrack batch directories.
 // Both layouts stay inside this game's scope and use the same lazy cache.
 const AUDIO_DIRECTORIES = [
@@ -26,6 +26,10 @@ const ASSETS = [
   './js/config.js',
   './js/ranking.js',
   './js/input.js',
+  './js/gamepad.js',
+  './js/control-mode.js',
+  './js/developer-controls.js',
+  './js/display.js',
   './js/touch.js',
   './js/audio.js',
   './js/save.js',
