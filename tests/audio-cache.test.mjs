@@ -13,6 +13,7 @@ function fixture({ network, failRead = false, failWrite = false } = {}) {
   const requested = [];
   const installed = [];
   const writes = [];
+  const opened = [];
   const key = request => new URL(typeof request === 'string' ? request : request.url, scope).href;
   const cache = {
     async addAll(assets) { installed.push(...assets); },
@@ -31,14 +32,14 @@ function fixture({ network, failRead = false, failWrite = false } = {}) {
     self: { location: { origin: new URL(scope).origin }, registration: { scope },
       addEventListener: (name, listener) => listeners.set(name, listener),
       skipWaiting: async () => {}, clients: { claim: async () => {} } },
-    caches: { open: async () => cache, match: request => cache.match(request),
+    caches: { open: async name => { opened.push(name); return cache; }, match: request => cache.match(request),
       keys: async () => [], delete: async () => true },
     fetch: async request => { requested.push(request); return network ? network(request) : new Response('0123456789', {
       headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': '10', 'Accept-Ranges': 'bytes' },
     }); },
     URL, Headers, Request, Response,
   });
-  return { requested, stored, installed, writes,
+  return { requested, stored, installed, writes, opened,
     install() {
       const waits = [];
       listeners.get('install')({ waitUntil: promise => waits.push(promise) });
@@ -58,6 +59,10 @@ test('installation caches the small manifest and game files, never all music tra
   const f = fixture();
   await f.install();
   assert.ok(f.installed.includes('./assets/audio/tracks.json'));
+  assert.ok(f.opened.includes('mapache-cinema-v4.0.0-musica-creditos'));
+  for (const module of ['gamepad', 'control-mode', 'developer-controls', 'display']) {
+    assert.ok(f.installed.includes('./js/' + module + '.js'), module + ' is available offline');
+  }
   assert.equal(f.installed.some(path => /\.(mp3|ogg|wav)$/i.test(path)), false);
   assert.equal(f.requested.length, 0);
 });
@@ -164,6 +169,41 @@ test('partial or failed network responses are never saved as complete offline tr
   }
 });
 
+for (const [directory, filename] of [
+  ['01-AUDIOS-1-A-4', 'pista-01.mp3'],
+  ['02-AUDIOS-5-A-8', 'pista-05.ogg'],
+  ['03-AUDIOS-9-A-11', 'pista-09.wav'],
+]) {
+  test(`the ${directory} upload layout streams once and serves cached ranges offline`, async () => {
+    let online = true;
+    const f = fixture({ network: () => {
+      if (!online) throw new Error('offline');
+      return new Response('0123456789abcdef', { headers: { 'Content-Type': 'audio/mpeg', 'Content-Length': '16' } });
+    } });
+    const url = new URL(`${directory}/assets/audio/${filename}`, scope).href;
+    const event = f.dispatch(url, { Range: 'bytes=0-15' });
+    const response = await event.response;
+    assert.equal(response.status, 200);
+    assert.equal(await response.text(), '0123456789abcdef');
+    await Promise.all(event.waits);
+    assert.equal(f.requested.length, 1);
+    assert.equal(f.requested[0].headers.has('Range'), false);
+    assert.ok(f.stored.has(url));
+    online = false;
+    const cached = await f.dispatch(url, { Range: 'bytes=0-15' }).response;
+    assert.equal(cached.status, 206);
+    assert.equal(cached.headers.get('Content-Range'), 'bytes 0-15/16');
+    assert.equal(cached.headers.get('Content-Length'), '16');
+    assert.equal(await cached.text(), '0123456789abcdef');
+    const suffix = await f.dispatch(url, { Range: 'bytes=-4' }).response;
+    assert.equal(suffix.status, 206);
+    assert.equal(await suffix.text(), 'cdef');
+    const invalid = await f.dispatch(url, { Range: 'bytes=16-' }).response;
+    assert.equal(invalid.status, 416);
+    assert.equal(f.requested.length, 1, 'all later seeks remain offline');
+  });
+}
+
 test('music caching is scoped to this game and cannot intercept ranking, authenticated or foreign requests', () => {
   const f = fixture();
   for (const [url, headers, method] of [
@@ -171,6 +211,14 @@ test('music caching is scoped to this game and cannot intercept ranking, authent
     [new URL('assets/audio/api/result.mp3', scope).href, {}, 'GET'],
     ['https://game.example/other/assets/audio/song.mp3', {}, 'GET'],
     ['https://elsewhere.example/Mapache-cinema/assets/audio/song.mp3', {}, 'GET'],
+    [new URL('01-AUDIOS-1-A-4-extra/assets/audio/song.mp3', scope).href, {}, 'GET'],
+    [new URL('00-AUDIOS/assets/audio/song.mp3', scope).href, {}, 'GET'],
+    [new URL('04-AUDIOS-9-A-11/assets/audio/song.mp3', scope).href, {}, 'GET'],
+    ['https://game.example/other/01-AUDIOS-1-A-4/assets/audio/song.mp3', {}, 'GET'],
+    ['https://elsewhere.example/Mapache-cinema/01-AUDIOS-1-A-4/assets/audio/song.mp3', {}, 'GET'],
+    [new URL('02-AUDIOS-5-A-8/assets/audio/api/result.mp3', scope).href, {}, 'GET'],
+    [new URL('01-AUDIOS-1-A-4/assets/audio/pista-01.mp3', scope).href, { 'X-Player-Token': 'guest' }, 'GET'],
+    [new URL('01-AUDIOS-1-A-4/assets/audio/pista-01.mp3', scope).href, {}, 'POST'],
     [track, { 'X-Player-Token': 'guest' }, 'GET'],
     [track, {}, 'POST'],
   ]) assert.equal(f.dispatch(url, headers, method).response, undefined);

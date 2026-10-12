@@ -36,28 +36,76 @@ test('joystick dead zone, cardinal directions, diagonals and invalid positions',
   assert.deepEqual(joystickActions(0.15, -0.08), []);
   assert.deepEqual(joystickActions(-1, 0), ['left']);
   assert.deepEqual(joystickActions(1, 0), ['right']);
-  assert.deepEqual(joystickActions(0, -1), ['up']);
+  assert.deepEqual(joystickActions(0, -1), ['up', 'jump']);
   assert.deepEqual(joystickActions(0, 1), ['down']);
-  assert.deepEqual(joystickActions(0.7, -0.7), ['right', 'up']);
+  assert.deepEqual(joystickActions(0.7, -0.7), ['right', 'up', 'jump']);
   assert.deepEqual(joystickActions(-0.7, 0.7), ['left', 'down']);
   assert.deepEqual(joystickActions(NaN, 1), []);
   assert.deepEqual(joystickActions(1, Infinity), []);
   assert.equal(isTouchDevice, false, 'desktop keeps its keyboard layout');
 });
 
-test('movement, jumping and attacking can be held by separate fingers', () => {
-  Input.setVirtualActions('stick', ['right']);
-  Input.setVirtualActions('jump-finger', ['jump']);
+test('one thumb moves and jumps diagonally while the other attacks independently', () => {
+  Input.setVirtualActions('stick', joystickActions(0.7, -0.7));
   Input.setVirtualActions('attack-finger', ['attack']);
   assert.equal(Input.down('right'), true);
   assert.equal(Input.justPressed('jump'), true);
   assert.equal(Input.justPressed('attack'), true);
   Input.clearFrame();
-  Input.releaseVirtual('jump-finger');
+  Input.setVirtualActions('stick', joystickActions(1, 0));
   assert.equal(Input.down('jump'), false);
   assert.equal(Input.justReleased('jump'), true);
   assert.equal(Input.down('right'), true);
   assert.equal(Input.down('attack'), true);
+});
+
+test('thumb hysteresis prevents accidental repeated jumps and neutral allows a deliberate double jump', () => {
+  let actions = joystickActions(0.5, -0.6);
+  Input.setVirtualActions('stick', actions); assert.equal(Input.justPressed('jump'), true);
+  Input.clearFrame();
+  actions = joystickActions(0.5, -0.25, actions);
+  Input.setVirtualActions('stick', actions);
+  assert.equal(Input.down('jump'), true); assert.equal(Input.justPressed('jump'), false);
+  actions = joystickActions(0.5, -0.19, actions);
+  Input.setVirtualActions('stick', actions); assert.equal(Input.justReleased('jump'), true);
+  Input.clearFrame();
+  actions = joystickActions(0.5, -0.6, actions);
+  Input.setVirtualActions('stick', actions); assert.equal(Input.justPressed('jump'), true);
+});
+
+test('W and ArrowUp jump by default; a one-time legacy migration preserves custom keys', () => {
+  key('keydown', 'Space'); assert.equal(Input.down('jump'), false);
+  key('keyup', 'Space'); Input.clearFrame();
+  key('keydown', 'KeyW'); assert.equal(Input.justPressed('jump'), true); assert.equal(Input.down('up'), true);
+  key('keyup', 'KeyW'); Input.clearFrame();
+  key('keydown', 'ArrowUp'); assert.equal(Input.justPressed('jump'), true);
+  Input.reset(); Input.clearFrame();
+  assert.equal(Input.loadBindings({ jump: ['Space'], attack: ['KeyF'] }, 0), true);
+  assert.deepEqual(Input.bindings.jump, ['KeyW', 'ArrowUp']); assert.deepEqual(Input.bindings.attack, ['KeyF']);
+  assert.equal(Input.loadBindings({ jump: ['KeyZ'], left: ['KeyH'] }, 0), false);
+  assert.deepEqual(Input.bindings.jump, ['KeyZ']); assert.deepEqual(Input.bindings.left, ['KeyH']);
+  assert.equal(Input.loadBindings({ jump: ['Space'] }, 4), false);
+  assert.deepEqual(Input.bindings.jump, ['Space'], 'an explicit current-version binding remains customised');
+});
+
+test('fresh actions advance dialogue once while directions navigate choices without confirming', () => {
+  for (const action of ['attack', 'dodge', 'interact', 'parry', 'throw', 'cycleL', 'cycleR', 'confirm', 'cancel']) {
+    Input.setVirtualActions('button', [action]);
+    assert.equal(Input.advanceDialoguePressed(), true, action);
+    assert.equal(Input.advanceDialoguePressed(true), true, action + ' chooses');
+    Input.clearFrame(); Input.setVirtualActions('button', [action]);
+    assert.equal(Input.advanceDialoguePressed(), false, 'holding ' + action + ' cannot skip more text');
+    Input.releaseVirtual('button'); Input.clearFrame();
+  }
+  Input.setVirtualActions('stick', joystickActions(0, -1));
+  assert.equal(Input.advanceDialoguePressed(), true); assert.equal(Input.advanceDialoguePressed(true), false);
+  Input.releaseVirtual('stick'); Input.clearFrame();
+  key('keydown', 'ArrowUp'); assert.equal(Input.advanceDialoguePressed(), true); assert.equal(Input.advanceDialoguePressed(true), false);
+  key('keyup', 'ArrowUp'); Input.clearFrame();
+  key('keydown', 'KeyJ'); assert.equal(Input.advanceDialoguePressed(true), true);
+  key('keyup', 'KeyJ'); Input.clearFrame();
+  key('keydown', 'Escape'); assert.equal(Input.advanceDialoguePressed(), false, 'Pause does not skip text');
+  Input.setVirtualActions('pause', ['pause']); assert.equal(Input.advanceDialoguePressed(), false);
 });
 
 test('two owners of one action release only when the final finger lifts', () => {

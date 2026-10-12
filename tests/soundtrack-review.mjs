@@ -66,7 +66,7 @@ async function waitPlaying(page, expectedTheme) {
   }, expectedTheme, { timeout: 15000 });
   const state = await playback(page);
   assert.equal(state.contextState, 'running', 'user gesture unlocked Web Audio');
-  assert.equal(state.loop, false, 'the multi-track playlist rotates when a song ends');
+  assert.equal(state.loop, expectedTheme !== 'ending', 'only the victory song has a natural end');
   assert.equal(state.mediaError, null, 'actual supplied MP3 has no playback error');
   assert.match(state.src, /\/assets\/audio\/pista-\d{2}\.mp3$/);
   return state;
@@ -82,7 +82,7 @@ async function startWithGesture(page, mobile) {
 
 try {
   const { context, page } = await makePage();
-  assert.equal(await page.evaluate(() => MC.Audio.getMusicStatus().configuredTracks), 11);
+  assert.equal(await page.evaluate(() => MC.Audio.getMusicStatus().configuredTracks), 37);
 
   report.tracks = await page.evaluate(async () => {
     const manifest = await (await fetch('./assets/audio/tracks.json')).json();
@@ -91,30 +91,60 @@ try {
       const media = new window.Audio();
       media.muted = true;
       media.preload = 'auto';
-      media.src = new URL(track.src, new URL('./assets/audio/tracks.json', location.href)).href;
-      await new Promise((resolve, reject) => {
-        const timer = setTimeout(() => finish(new Error('Decode timeout: ' + track.id)), 12000);
-        const finish = error => {
-          clearTimeout(timer); media.oncanplay = null; media.onerror = null;
-          error ? reject(error) : resolve();
-        };
-        media.oncanplay = () => finish();
-        media.onerror = () => finish(new Error('Decode error ' + media.error?.code + ': ' + track.id));
-        media.load();
-      });
+      let failure;
+      for (const source of [track.src, ...(track.alternateSrcs || [])]) {
+        media.src = new URL(source, new URL('./assets/audio/tracks.json', location.href)).href;
+        try {
+          await new Promise((resolve, reject) => {
+            const timer = setTimeout(() => finish(new Error('Decode timeout: ' + track.id)), 12000);
+            const finish = error => {
+              clearTimeout(timer); media.oncanplay = null; media.onerror = null;
+              error ? reject(error) : resolve();
+            };
+            media.oncanplay = () => finish();
+            media.onerror = () => finish(new Error('Decode error ' + media.error?.code + ': ' + track.id));
+            media.load();
+          });
+          failure = null;
+          break;
+        } catch (error) { failure = error; }
+      }
+      if (failure) throw failure;
       result.push({ id: track.id, seconds: media.duration, readyState: media.readyState, error: media.error?.code || null });
       media.removeAttribute('src'); media.load();
     }
     return result;
   });
-  assert.equal(report.tracks.length, 11);
+  assert.equal(report.tracks.length, 37);
   for (const track of report.tracks) {
     assert.ok(Number.isFinite(track.seconds) && track.seconds > 1, track.id + ': decodes a real positive duration');
     assert.ok(track.readyState >= 3, track.id + ': browser can play the file');
     assert.equal(track.error, null, track.id + ': no media error');
   }
 
+  // Options and informational credits are overlays on the same Arcade song.
+  await page.locator('#screen-menu').click({ position: { x: 10, y: 10 } });
+  const menuSong = await waitPlaying(page, 'menu');
+  assert.equal(menuSong.id, 'pista-37');
+  await page.locator('#menu-nav [data-act="options"]').click();
+  await page.locator('#screen-options [data-act="back"]').click();
+  const afterOptions = await playback(page);
+  assert.equal(afterOptions.id, menuSong.id);
+  assert.ok(afterOptions.seconds >= menuSong.seconds, 'returning from options does not restart Arcade');
+  await page.locator('#menu-nav [data-act="credits"]').click();
+  await page.locator('#screen-credits [data-act="back"]').click();
+  const afterCredits = await playback(page);
+  assert.equal(afterCredits.id, menuSong.id);
+  assert.ok(afterCredits.seconds >= afterOptions.seconds, 'informational credits do not restart Arcade');
+  report.desktop.menu = { initial: menuSong, afterOptions, afterCredits };
+
   const initial = await startWithGesture(page, false);
+  const reserved = new Set(['pista-03', 'pista-34', 'pista-37']);
+  assert.equal(reserved.has(initial.id), false, 'fixed songs are absent from random level play');
+  await page.evaluate(() => {
+    const dialogue = MC.game.dialogue;
+    for (let i = 0; i < 30 && dialogue.active; i++) dialogue.advance();
+  });
   await page.evaluate(() => {
     window.__soundtrackMediaErrors = [];
     MC.Audio._media.addEventListener('error', () => {
@@ -157,6 +187,24 @@ try {
   await page.waitForFunction(seconds => MC.Audio._media.currentTime > seconds + .2, paused.seconds);
   report.desktop.pause = { paused, resumed: await playback(page) };
 
+  // Closing a gameplay text must leave the current source and position intact.
+  const beforeText = await playback(page);
+  await page.evaluate(() => MC.game.dialogue.start(['Texto breve para comprobar la continuidad de la canción.']));
+  await page.waitForTimeout(150);
+  await page.evaluate(() => { MC.game.dialogue.advance(); MC.game.dialogue.advance(); });
+  const afterText = await playback(page);
+  assert.equal(afterText.id, beforeText.id);
+  assert.equal(afterText.src, beforeText.src);
+  assert.ok(afterText.seconds >= beforeText.seconds, 'closing text does not reset playback');
+  report.desktop.dialogue = { beforeText, afterText };
+
+  // A real death does draw a new random song after the respawn transition.
+  await page.evaluate(() => MC.game.killPlayer('fall'));
+  await page.waitForFunction(id => MC.game.state === 'playing' && MC.Audio._externalTrack?.id !== id, afterText.id, { timeout: 10000 });
+  const afterDeath = await waitPlaying(page, 'roofs');
+  assert.equal(reserved.has(afterDeath.id), false);
+  report.desktop.death = { before: afterText, after: afterDeath };
+
   const themes = ['roofs', 'forest', 'sewers', 'district', 'tower'];
   const levelTracks = [await playback(page)];
   for (let level = 1; level < themes.length; level++) {
@@ -166,31 +214,79 @@ try {
     levelTracks.push(state);
   }
   assert.equal(new Set(levelTracks.map(track => track.id)).size, 5, 'the five levels share a shuffle bag without repetitions');
-  await page.evaluate(() => MC.Audio.playMusic('boss'));
+  await page.evaluate(() => MC.game.startBoss());
   const boss = await waitPlaying(page, 'boss');
-  assert.ok(!levelTracks.some(track => track.id === boss.id), 'boss consumes a new track from the same bag');
+  assert.equal(boss.id, 'pista-03', 'the actual boss encounter uses Chuty vs Aczino');
+  for (const track of levelTracks) assert.equal(reserved.has(track.id), false);
   report.desktop.levels = levelTracks;
   report.desktop.boss = boss;
 
-  // Play through a real MP3 at 16x until its native ended event advances
-  // the playlist. This avoids seeking on the dev server without Range support.
+  // Play a random song through its real end at 16x. The media element must
+  // loop that same source instead of using another shuffle entry. Freeze
+  // gameplay during the accelerated audio check to avoid an unrelated death.
+  await page.evaluate(() => {
+    window.__soundtrackGameUpdate = MC.game.update;
+    MC.game.update = () => {};
+    MC.Audio.playMusic('tower', { restart: true });
+  });
+  const beforeLoop = await waitPlaying(page, 'tower');
   await page.evaluate(() => {
     const media = MC.Audio._media;
-    window.__soundtrackNativeEnded = [];
-    media.addEventListener('ended', event => window.__soundtrackNativeEnded.push({
-      trusted: event.isTrusted,
-    }), { once: true });
+    window.__soundtrackLoop = { peak: media.currentTime, wrapped: false };
+    window.__soundtrackBag = JSON.stringify([...MC.Audio._shuffleBags.entries()]);
     media.playbackRate = 16;
   });
-  await page.waitForFunction(id => MC.Audio._externalTrack?.id !== id, boss.id, { timeout: 40000 });
+  await page.waitForFunction(() => {
+    const media = MC.Audio._media;
+    const check = window.__soundtrackLoop;
+    check.wrapped ||= check.peak > media.duration * .8 && media.currentTime < media.duration * .2;
+    check.peak = Math.max(check.peak, media.currentTime);
+    return check.wrapped;
+  }, undefined, { timeout: 40000 });
   await page.evaluate(() => { MC.Audio._media.playbackRate = 1; });
-  const endedNext = await waitPlaying(page, 'boss');
-  assert.notEqual(endedNext.id, boss.id, 'a completed song selects the next random song');
-  assert.ok(endedNext.seconds < 5, 'the next song begins near its start');
-  report.desktop.nativeEnded = await page.evaluate(() => window.__soundtrackNativeEnded);
-  assert.deepEqual(report.desktop.nativeEnded, [{ trusted: true }], 'the browser emits a real native ended event');
-  report.desktop.afterEnded = endedNext;
-  assert.deepEqual(await page.evaluate(() => window.__soundtrackMediaErrors), []);
+  const afterLoop = await waitPlaying(page, 'tower');
+  assert.equal(afterLoop.id, beforeLoop.id);
+  assert.equal(afterLoop.src, beforeLoop.src);
+  assert.equal(await page.evaluate(() => JSON.stringify([...MC.Audio._shuffleBags.entries()]) === window.__soundtrackBag), true);
+  report.desktop.naturalLoop = { before: beforeLoop, after: afterLoop };
+
+  // The final dialogue keeps the boss song. Only the congratulations screen
+  // starts Lo Que Soy, and its real natural end automatically returns to Arcade.
+  await page.evaluate(() => MC.Audio.playMusic('boss'));
+  const beforeFinalText = await waitPlaying(page, 'boss');
+  await page.evaluate(() => MC.game._playEnding('C'));
+  assert.equal((await playback(page)).id, 'pista-03');
+  await page.evaluate(() => {
+    const dialogue = MC.game.dialogue;
+    for (let i = 0; i < 30 && dialogue.active; i++) dialogue.advance();
+  });
+  const victory = await waitPlaying(page, 'ending');
+  assert.equal(victory.id, 'pista-34');
+  await page.locator('#screen-victory').waitFor({ state: 'visible' });
+  await page.evaluate(() => {
+    window.__soundtrackVictoryEnded = [];
+    MC.Audio._media.addEventListener('ended', event => window.__soundtrackVictoryEnded.push({ trusted: event.isTrusted }), { once: true });
+    MC.Audio._media.playbackRate = 16;
+  });
+  await page.waitForFunction(() => MC.Audio.currentTrack === 'menu' && MC.Audio._externalTrack?.id === 'pista-37', undefined, { timeout: 25000 });
+  await page.evaluate(() => { MC.Audio._media.playbackRate = 1; });
+  const afterVictory = await waitPlaying(page, 'menu');
+  assert.equal(afterVictory.id, 'pista-37');
+  await page.locator('#screen-victory').waitFor({ state: 'hidden' });
+  assert.deepEqual(await page.evaluate(() => window.__soundtrackVictoryEnded), [{ trusted: true }]);
+  report.desktop.victory = { beforeFinalText, victory, after: afterVictory };
+
+  // Every canonical source is published in assets/audio. Any fallback error
+  // must still be confined to a source with an alternate and never synthesize
+  // generic music.
+  const recovery = await page.evaluate(() => ({
+    errors: window.__soundtrackMediaErrors,
+    alternatePrimaries: [...MC.Audio._tracks.values()].filter(entry => entry.sources.length > 1).map(entry => entry.sources[0]),
+    unavailable: MC.Audio.getMusicStatus().unavailableTracks,
+  }));
+  for (const error of recovery.errors) assert.ok(recovery.alternatePrimaries.includes(error.src), 'only a primary with a configured alternate may fail');
+  assert.equal(recovery.unavailable, 0, 'all songs recover through their available alternate paths');
+  report.desktop.sourceRecovery = recovery;
   await context.close();
 
   const mobile = await makePage({ mobile: true });
@@ -202,7 +298,7 @@ try {
 
   assert.deepEqual(errors, [], 'desktop and mobile have no script errors');
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
-  console.log('Soundtrack browser: 11 MP3s decoded; real desktop/mobile gesture, playback, independent volume, pause/resume, all five levels and boss verified. Native ended at 16x rotates to another real MP3. No ranking writes.');
+  console.log('Soundtrack browser: 37 MP3s decoded; Arcade menu continuity, real desktop/mobile playback, independent volume, pause/resume, dialogue continuity, death selection, five random levels, fixed Chuty vs Aczino boss and natural random loop verified. Lo Que Soy ends natively at 16x and returns to Arcade. No ranking writes.');
   console.log(JSON.stringify(report.tracks.map(track => ({ id: track.id, seconds: Number(track.seconds.toFixed(2)) }))));
 } finally {
   await browser.close();

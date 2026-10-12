@@ -92,7 +92,7 @@ try {
       await page.locator('#' + key + '-' + sample.mode).screenshot({ path: path.join(output, key + '-' + sample.mode + '.png') });
     }
   }
-  assert.equal(results.audioStatus.mode, 'procedural', 'empty audio manifest keeps functional synthesized music');
+  assert.equal(results.audioStatus.mode, 'unavailable', 'empty audio manifest stays silent without the old generic music');
   // Small generated WAV used only by the intercepted test route, never shipped as music.
   const sampleRate = 8000;
   const wave = Buffer.alloc(44 + sampleRate * 2);
@@ -125,12 +125,12 @@ try {
     const audio = window.audioForReview;
     audio.configureTracks({ tracks: [{ id: 'missing', src: location.origin + '/qa-missing.wav' }], playlists: { forest: ['missing'] } });
   });
-  await page.waitForFunction(() => window.audioForReview.getMusicStatus().mode === 'procedural');
+  await page.waitForFunction(() => window.audioForReview.getMusicStatus().mode === 'unavailable');
   await page.evaluate(() => window.audioForReview.stopMusic());
   for (const mode of ['night', 'clear', 'day']) await page.locator('#mode-' + mode).screenshot({ path: path.join(output, 'contact-' + mode + '.png') });
   assert.deepEqual(errors, [], 'no browser runtime errors');
   console.log(existingChecks);
-  console.log('All five levels and menu render in night, clear and day. Brightness, elapsed timer, online/local HUD, reduced effects and soundtrack fallback passed.');
+  console.log('All five levels and menu render in night, clear and day. Brightness, elapsed timer, online/local HUD, reduced effects and missing-track silence passed.');
   console.log('Screenshots saved to ' + output);
 } finally {
   await browser.close();

@@ -43,7 +43,8 @@ async function checkCanvas(page, label, { mobile = false, scale = 'auto' } = {})
         width: appRect.width - padding.left - padding.right,
         height: appRect.height - padding.top - padding.bottom,
       },
-      logical: { width: canvas.width, height: canvas.height },
+      logical: { width: MC.game.W, height: MC.game.H },
+      backing: { width: canvas.width, height: canvas.height },
       dpr: devicePixelRatio,
       smoothing: canvas.getContext('2d').imageSmoothingEnabled,
       imageRendering: getComputedStyle(canvas).imageRendering,
@@ -55,21 +56,16 @@ async function checkCanvas(page, label, { mobile = false, scale = 'auto' } = {})
   assert.deepEqual(result.logical, { width: 480, height: 270 }, label + ': game resolution stays unchanged');
   assert.equal(result.touch, mobile, label + ': expected input layout');
   assert.equal(result.smoothing, false, label + ': pixel art is not smoothed');
-  assert.equal(result.imageRendering, 'pixelated', label + ': crisp canvas scaling');
+  assert.equal(result.imageRendering, 'auto', label + ': native resolution typography');
+  assert.ok(result.backing.width >= 960 && result.backing.width <= 1920, label + ': bounded high resolution backing');
+  assert.equal(result.backing.height, result.backing.width * 270 / 480, label + ': backing aspect ratio');
   assert.equal(result.bodyOverflow, false, label + ': no page overflow');
   assert.ok(c.x >= a.left - 1 && c.y >= a.top - 1 && c.x + c.width <= a.right + 1 && c.y + c.height <= a.bottom + 1,
     label + ': canvas stays inside usable screen area ' + JSON.stringify(result));
   // Allow at most one output pixel of height rounding; do not stretch 16:9.
   assert.ok(Math.abs(c.height - c.width * 270 / 480) <= 1, label + ': aspect ratio preserved');
-  if (mobile || scale === 'auto') {
-    assert.ok(Math.max(c.width / a.width, c.height / a.height) >= .97,
-      label + ': canvas fills the limiting usable dimension ' + JSON.stringify(result));
-  } else {
-    const requested = Number(scale);
-    const fit = Math.min(a.width / 480, a.height / 270);
-    assert.ok(Math.abs(c.width - 480 * Math.min(requested, fit)) <= 1,
-      label + ': manual scale is capped to fit the screen');
-  }
+  assert.ok(Math.max(c.width / a.width, c.height / a.height) >= .97,
+    label + ': canvas fills the limiting usable dimension, including legacy scale preferences ' + JSON.stringify(result));
   measurements.push({ label, ...result });
   return result;
 }
@@ -141,15 +137,15 @@ async function checkMobileUI(page, label) {
       strokes.push({ x, y, width, height });
       return strokeRect.call(this, x, y, width, height);
     };
-    try { MC.game.dialogue.render(ctx, canvas.width, canvas.height); }
+    try { MC.game.dialogue.render(ctx, MC.game.W, MC.game.H); }
     finally { ctx.strokeRect = strokeRect; }
     const outer = strokes[0];
     if (!outer) throw new Error('Expected an active dialogue box');
     const project = rect => ({
-      x: bounds.x + rect.x * bounds.width / canvas.width,
-      y: bounds.y + rect.y * bounds.height / canvas.height,
-      width: rect.width * bounds.width / canvas.width,
-      height: rect.height * bounds.height / canvas.height,
+      x: bounds.x + rect.x * bounds.width / MC.game.W,
+      y: bounds.y + rect.y * bounds.height / MC.game.H,
+      width: rect.width * bounds.width / MC.game.W,
+      height: rect.height * bounds.height / MC.game.H,
     });
     const rectOf = selector => {
       const rect = document.querySelector(selector).getBoundingClientRect();
@@ -176,14 +172,15 @@ async function checkMobileUI(page, label) {
   assert.equal(result.toolsCollapsed, true, label + ': secondary tools are collapsed');
   assert.equal(overlaps(result.dialogue, result.movement), false, label + ': dialogue clears joystick ' + JSON.stringify(result));
   assert.equal(overlaps(result.dialogue, result.actions), false, label + ': dialogue clears action buttons ' + JSON.stringify(result));
-  for (const [name, hud] of Object.entries(result.hud)) {
+  if (result.choice) assert.equal(overlaps(result.pause, result.dialogue), false, label + ': pause clears the choice prompt ' + JSON.stringify(result));
+  else for (const [name, hud] of Object.entries(result.hud)) {
     assert.equal(overlaps(result.pause, hud), false, label + ': pause clears HUD ' + name + ' ' + JSON.stringify(result));
   }
   const { pause: p, usable: u } = result;
   assert.ok(p.x >= u.left && p.y >= u.top && p.x + p.width <= u.right && p.y + p.height <= u.bottom,
     label + ': pause stays within usable viewport ' + JSON.stringify(result));
-  assert.equal(p.width, 42, label + ': accessible pause target width');
-  assert.equal(p.height, 42, label + ': accessible pause target height');
+  assert.ok(p.width >= 44, label + ': accessible pause target width');
+  assert.ok(p.height >= 44, label + ': accessible pause target height');
   mobileMeasurements.push({ label, ...result });
 }
 
@@ -261,19 +258,19 @@ try {
           // effective padding to reproduce a landscape notch and home bar.
           await page.evaluate(() => {
             document.getElementById('app').style.padding = '4px 12px 21px 44px';
-            MC.menu.hooks.applyScale('auto');
+            dispatchEvent(new Event('resize'));
           });
           await checkCanvas(page, profile.name + '/asymmetric-safe-area', sizing);
           await checkMobileUI(page, profile.name + '/asymmetric-safe-area-dialogue');
           await page.screenshot({ path: path.join(output, profile.name + '-safe-area.png') });
           await page.evaluate(() => {
             document.getElementById('app').style.removeProperty('padding');
-            MC.menu.hooks.applyScale('auto');
+            dispatchEvent(new Event('resize'));
           });
           await checkCanvas(page, profile.name + '/safe-area-restored', sizing);
         }
         await page.evaluate(() => MC.menu.showOptions());
-        assert.equal(await page.locator('#opt-scale').isDisabled(), true, profile.name + ': mobile uses fitted scaling');
+        assert.equal(await page.locator('#opt-scale').count(), 0, profile.name + ': obsolete scaling option is removed');
       }
     } finally { await context.close(); }
   }
@@ -297,7 +294,7 @@ try {
   assert.deepEqual(errors, [], 'no browser runtime errors');
   await writeFile(path.join(output, 'measurements.json'), JSON.stringify(measurements, null, 2) + '\n');
   await writeFile(path.join(output, 'mobile-ui.json'), JSON.stringify(mobileMeasurements, null, 2) + '\n');
-  console.log(`${measurements.length} viewport checks passed: maximum automatic fit, desktop manual scales, device scaling, landscape controls and phone rotation.`);
+  console.log(`${measurements.length} viewport checks passed: maximum automatic fit, ignored legacy scale preferences, device scaling, landscape controls and phone rotation.`);
   console.log(`${mobileMeasurements.length} mobile UI checks passed: dialogue and choices clear controls, pause clears HUD, and USAR touch advances without held input.`);
   console.log('Screenshots and dimensions saved to ' + output);
 } finally {
