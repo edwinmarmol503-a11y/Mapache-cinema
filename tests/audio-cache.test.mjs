@@ -12,11 +12,15 @@ function fixture({ network, failRead = false, failWrite = false } = {}) {
   const stored = new Map();
   const requested = [];
   const installed = [];
+  const installRequests = [];
   const writes = [];
   const opened = [];
   const key = request => new URL(typeof request === 'string' ? request : request.url, scope).href;
   const cache = {
-    async addAll(assets) { installed.push(...assets); },
+    async addAll(assets) {
+      installRequests.push(...assets);
+      installed.push(...assets.map(request => './' + new URL(request.url).pathname.slice(new URL(scope).pathname.length)));
+    },
     async match(request) {
       if (failRead) throw new Error('storage unavailable');
       return stored.get(key(request))?.clone();
@@ -39,7 +43,12 @@ function fixture({ network, failRead = false, failWrite = false } = {}) {
     }); },
     URL, Headers, Request, Response,
   });
-  return { requested, stored, installed, writes, opened,
+  return { requested, stored, installed, installRequests, writes, opened,
+    message(data) {
+      let response;
+      listeners.get('message')({ data, ports: [{ postMessage: value => { response = value; } }] });
+      return response;
+    },
     install() {
       const waits = [];
       listeners.get('install')({ waitUntil: promise => waits.push(promise) });
@@ -59,12 +68,58 @@ test('installation caches the small manifest and game files, never all music tra
   const f = fixture();
   await f.install();
   assert.ok(f.installed.includes('./assets/audio/tracks.json'));
-  assert.ok(f.opened.includes('mapache-cinema-v4.0.0-musica-creditos'));
+  assert.ok(f.opened.includes('mapache-cinema-v4.0.1-arranque'));
+  assert.ok(f.installRequests.every(request => request.cache === 'reload'), 'a new build cannot inherit HTTP-cached modules');
   for (const module of ['gamepad', 'control-mode', 'developer-controls', 'display']) {
     assert.ok(f.installed.includes('./js/' + module + '.js'), module + ' is available offline');
   }
   assert.equal(f.installed.some(path => /\.(mp3|ogg|wav)$/i.test(path)), false);
   assert.equal(f.requested.length, 0);
+});
+
+test('the bootstrap can identify the controlling build before importing game modules', () => {
+  const f = fixture();
+  assert.equal(f.message({ type: 'GET_BUILD_VERSION' }).version, '4.0.1');
+  assert.equal(f.message({ type: 'unknown' }), undefined);
+});
+
+test('versioned bootstrap and styles reuse their canonical offline entries', async () => {
+  const f = fixture({ network: () => { throw new Error('offline'); } });
+  for (const asset of ['js/bootstrap.js', 'css/style.css', 'css/menu.css']) {
+    const canonical = new URL(asset, scope).href;
+    f.stored.set(canonical, new Response('installed-current-build'));
+    assert.equal(await (await f.dispatch(canonical + '?v=4.0.1').response).text(), 'installed-current-build');
+  }
+  assert.equal(f.requested.length, 0);
+});
+
+test('a future document bypasses the older canonical loader without rewriting its cache', async () => {
+  const f = fixture({ network: () => new Response('future-build') });
+  for (const asset of ['js/bootstrap.js', 'css/menu.css']) {
+    const canonical = new URL(asset, scope).href;
+    f.stored.set(canonical, new Response('installed-current-build'));
+    assert.equal(await (await f.dispatch(canonical + '?v=4.0.2').response).text(), 'future-build');
+    assert.equal(await f.stored.get(canonical).clone().text(), 'installed-current-build');
+  }
+  assert.equal(f.requested.length, 2);
+  assert.ok(f.requested.every(request => request.cache === 'reload'));
+  assert.equal(f.writes.length, 0);
+});
+
+test('cached runtime modules stay in one build until the service worker is upgraded', async () => {
+  const f = fixture({ network: () => new Response('next-build-on-server') });
+  const module = new URL('js/menu.js', scope).href;
+  f.stored.set(module, new Response('installed-current-build'));
+  assert.equal(await (await f.dispatch(module).response).text(), 'installed-current-build');
+  assert.equal(f.requested.length, 0, 'a background revalidation cannot replace half a module graph');
+});
+
+test('restricted Cache Storage does not block a fresh online runtime module', async () => {
+  const f = fixture({ failRead: true, failWrite: true, network: () => new Response('current-network-module') });
+  const event = f.dispatch(new URL('js/menu.js', scope).href);
+  assert.equal(await (await event.response).text(), 'current-network-module');
+  await Promise.all(event.waits);
+  assert.equal(f.requested[0].cache, 'reload');
 });
 
 test('the first ranged track request fetches one full stream and caches it for offline seeks', async () => {
