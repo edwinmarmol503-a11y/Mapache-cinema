@@ -4,12 +4,23 @@
 import { ITEM_DEFS } from './inventory.js';
 import { drawItemIcon } from './items.js';
 import { px, drawRiko, drawFarolero, drawLantern } from './sprites.js';
+import { Controls } from './control-mode.js';
+
+// Browser-rendered glyphs stay smooth on the higher-resolution canvas while
+// the scenery keeps its stepped pixel-art shapes.
+export const canvasFont = (size = 11, weight = 600) => `${weight} ${size}px "Segoe UI", Arial, sans-serif`;
 
 /* ---------------- HUD ---------------- */
 export function drawHUD(ctx, world) {
   const p = world.player;
   ctx.save();
   ctx.imageSmoothingEnabled = false;
+
+  // The control labels need the same contrast in daylight and on a bright TV.
+  ctx.fillStyle = 'rgba(5,10,20,0.84)';
+  ctx.fillRect(4, 4, Math.max(78, 8 + p.maxHp * 12), 51);
+  ctx.strokeStyle = '#354760';
+  ctx.strokeRect(4.5, 4.5, Math.max(78, 8 + p.maxHp * 12) - 1, 50);
 
   // hearts
   for (let i = 0; i < p.maxHp; i++) {
@@ -33,16 +44,16 @@ export function drawHUD(ctx, world) {
   if (sel) {
     drawItemIcon(ctx, sel, bx + 3, by + 3);
     const n = world.inventory.count(sel);
-    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.font = canvasFont(10);
     ctx.textAlign = 'right';
     outText(ctx, ITEM_DEFS[sel] && ITEM_DEFS[sel].consumable ? 'x' + n : '∞', bx + 15, by + 16, '#ffffff');
     ctx.textAlign = 'left';
   } else {
-    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.font = canvasFont(10);
     outText(ctx, '--', bx + 4, by + 10, '#9fb2cc');
   }
-  ctx.font = 'bold 9px "Courier New", monospace';
-  outText(ctx, 'Q/R', bx + 20, by + 12, '#c3d0e4');
+  ctx.font = canvasFont(10);
+  outText(ctx, Controls.getHint('cycleL') + '/' + Controls.getHint('cycleR'), bx + 20, by + 12, '#c3d0e4');
 
   // parry charges (perfect counter)
   const pc = p.parryCharges == null ? 0 : p.parryCharges;
@@ -57,19 +68,21 @@ export function drawHUD(ctx, world) {
   if (p.unlimitedParry) {
     diamond(bx, by + 20, '#9fe8ff', true);
     ctx.fillStyle = '#9fe8ff';
-    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.font = canvasFont(10);
     ctx.fillText('∞', bx + 9, by + 27);         // infinity
   } else {
     for (let i = 0; i < (p.maxParry || 3); i++) {
       diamond(bx + i * 9, by + 20, i < pc ? '#9fe8ff' : '#28323c', i < pc);
     }
   }
-  ctx.font = 'bold 9px "Courier New", monospace';
-  outText(ctx, 'L', bx + 29, by + 26, '#c3d0e4');
+  ctx.font = canvasFont(10);
+  outText(ctx, Controls.getHint('parry'), bx + 29, by + 26, '#c3d0e4');
 
   // memory counter
   const mem = (world.save.data && world.save.data.memories) || 0;
-  ctx.font = 'bold 9px "Courier New", monospace';
+  ctx.font = canvasFont(10);
+  ctx.fillStyle = 'rgba(5,10,20,0.84)';
+  ctx.fillRect(world.W - 41, 4, 37, 15);
   drawItemIcon(ctx, 'memory', world.W - 36, 6);
   outText(ctx, 'x' + mem, world.W - 23, 15, '#ffd66a');
 
@@ -87,9 +100,9 @@ export function drawHUD(ctx, world) {
   ctx.strokeStyle = world._levelTicket ? '#557b6b' : '#354760';
   ctx.strokeRect(timerX + 0.5, 5.5, 93, 26);
   ctx.textAlign = 'center';
-  ctx.font = 'bold 10px "Courier New", monospace';
+  ctx.font = canvasFont(12, 700);
   outText(ctx, minutes + ':' + seconds + '.' + hundredths, world.W / 2, 15, '#f0e6bb');
-  ctx.font = 'bold 7px "Courier New", monospace';
+  ctx.font = canvasFont(9);
   const onlineLabel = world._rankingStarting ? 'CONECTANDO...' : world._levelTicket ? 'ONLINE' : 'LOCAL';
   outText(ctx, 'N' + ((world.levelIndex || 0) + 1) + '  ' + onlineLabel, world.W / 2, 26,
     world._rankingStarting ? '#d7ca8e' : world._levelTicket ? '#9bdbb1' : '#acbfce');
@@ -97,14 +110,14 @@ export function drawHUD(ctx, world) {
 
   // "clear the zone" objectives (only on levels with an exit)
   if (world.exitRect && (world.enemiesTotal > 0 || world.lanternsTotal > 0)) {
-    const rw = 96, rx = world.W - rw - 6, ry = 20;
+    const rw = 102, rx = world.W - rw - 6, ry = 20;
     const done = world.cleared;
     ctx.fillStyle = 'rgba(4,8,18,0.92)';
     ctx.fillRect(rx, ry, rw, 30);
     ctx.strokeStyle = done ? '#6fbf73' : '#3b4c6b';
     ctx.strokeRect(rx + 0.5, ry + 0.5, rw - 1, 29);
     ctx.textAlign = 'left';
-    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.font = canvasFont(10);
 
     ctx.fillStyle = world.enemiesKilled >= world.enemiesTotal ? '#7fd98a' : '#ff8a6a';
     ctx.fillRect(rx + 5, ry + 6, 7, 7);
@@ -123,22 +136,24 @@ export function drawHUD(ctx, world) {
 
 /* deterministic pseudo-random in [0,1) */
 function h1(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+const wrap = (value, span) => ((value % span) + span) % span;
 
 /* current lightning-flash intensity 0..1 -- game.js reads this so a bolt lights
    up the dark levels (and Modo Claro) instead of being hidden by the shadow. */
 let _lightningFlash = 0;
 export function currentLightning() { return _lightningFlash; }
 
-/* crisp text with a full dark outline (8 directions) so it stays legible
-   over any background, even at the small sizes this HUD is drawn at */
+/* A single native glyph preserves counters and accents. A subtle shadow adds
+   contrast without the old eight-offset outline filling in small letters. */
 export function outText(ctx, str, x, y, fill, o) {
-  o = o || 'rgba(2,4,10,0.95)';
-  ctx.fillStyle = o;
-  ctx.fillText(str, x - 1, y - 1); ctx.fillText(str, x, y - 1); ctx.fillText(str, x + 1, y - 1);
-  ctx.fillText(str, x - 1, y);                                   ctx.fillText(str, x + 1, y);
-  ctx.fillText(str, x - 1, y + 1); ctx.fillText(str, x, y + 1); ctx.fillText(str, x + 1, y + 1);
+  ctx.save();
+  ctx.shadowColor = o || 'rgba(2,4,10,0.8)';
+  ctx.shadowBlur = 2;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0.5;
   ctx.fillStyle = fill;
   ctx.fillText(str, x, y);
+  ctx.restore();
 }
 
 /* Day uses its own material colors, keeping hazards and ledges easy to read. */
@@ -211,37 +226,34 @@ export function drawBackground(ctx, world, visualMode) {
 /* ---- random weather layer: rain / snow / leaves ---- */
 function weather(ctx, W, H, t, kind, cam, day = false) {
   if (kind === 'rain') {
-    ctx.strokeStyle = day ? 'rgba(54,112,148,0.26)' : 'rgba(170,195,240,0.20)';
-    ctx.lineWidth = 1;
-    for (let i = 0; i < 70; i++) {
-      const rx = (i * 71 + t * 620 + cam.x * 0.3) % (W + 40) - 20;
-      const ry = (i * 43 + t * 900) % (H + 40) - 20;
-      ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 11); ctx.stroke();
-    }
+    drawRain(ctx, W, H, t, cam.x, day, false);
   } else if (kind === 'snow') {
     ctx.fillStyle = 'rgba(235,244,255,0.85)';
     for (let i = 0; i < 80; i++) {
       const sway = Math.sin(t * 1.3 + i * 1.7) * 8;
-      const fx = ((i * 53 + cam.x * 0.25 + sway) % (W + 20)) - 10;
-      const fy = ((i * 37 + t * (14 + (i % 5) * 4)) % (H + 20)) - 10;
+      const fx = wrap(i * 53 - cam.x * 0.25 + sway, W + 20) - 10;
+      const fy = wrap(i * 37 + t * (14 + (i % 5) * 4), H + 20) - 10;
       const s = i % 4 === 0 ? 2 : 1;
       ctx.globalAlpha = 0.4 + 0.5 * h1(i);
-      ctx.fillRect(fx | 0, fy | 0, s, s);
+      ctx.fillRect(fx, fy, s, s);
     }
     ctx.globalAlpha = 1;
   } else if (kind === 'leaves') {
     for (let i = 0; i < 26; i++) {
-      const spin = t * 3 + i;
-      const fx = ((i * 91 + cam.x * 0.3 + Math.sin(t * 0.8 + i) * 26) % (W + 30)) - 15;
-      const fy = ((i * 61 + t * (18 + (i % 4) * 6)) % (H + 30)) - 15;
+      const spin = t * (1.2 + h1(i + 4)) + i;
+      const fx = wrap(i * 91 - cam.x * 0.3 + t * (7 + h1(i) * 14) + Math.sin(t * 0.8 + i) * 20, W + 40) - 20;
+      const fy = wrap(i * 61 + t * (11 + (i % 4) * 4), H + 40) - 20;
       const col = ['#c67a3a', '#8a9a44', '#b5573a', '#d9a441'][i % 4];
       ctx.save();
       ctx.translate(fx, fy);
       ctx.rotate(spin);
-      ctx.globalAlpha = 0.75;
+      ctx.globalAlpha = 0.52 + h1(i + 9) * 0.28;
+      ctx.scale(0.55 + Math.abs(Math.sin(spin * 0.7)) * 0.45, 1);
       ctx.fillStyle = col;
       ctx.fillRect(-2, -1, 4, 2);
       ctx.fillRect(-1, -2, 2, 4);
+      ctx.fillStyle = 'rgba(248,212,121,0.65)';
+      ctx.fillRect(-1, -1, 2, 1);
       ctx.restore();
     }
     ctx.globalAlpha = 1;
@@ -261,17 +273,18 @@ function worldStrip(camX, s, step, W, cb) {
 }
 
 function stars(ctx, W, H, cam, t, density, spread) {
+  ctx.save();
   worldStrip(cam.x, 0.1, 24, W, (i, sx) => {
     if (h1(i * 1.7) > 1 - density / 24) return;
     const y = h1(i * 3.3) * H * spread;
     const off = h1(i * 5.1) * 18;
     const x = sx + off;
-    const tw = Math.sin(i * 2.3 + t * 1.5);
-    if (tw > 0.05) {
-      ctx.fillStyle = tw > 0.7 ? 'rgba(230,240,255,0.95)' : 'rgba(190,210,245,0.55)';
-      ctx.fillRect(x | 0, y | 0, 1, 1);
-    }
+    const tw = 0.5 + 0.5 * Math.sin(i * 2.3 + t * 1.2);
+    ctx.globalAlpha = 0.22 + tw * 0.68;
+    ctx.fillStyle = '#d9e8ff';
+    ctx.fillRect(x, Math.round(y), 1, 1);
   });
+  ctx.restore();
 }
 
 /* ---- occasional lightning, tinted per level ---- */
@@ -352,7 +365,7 @@ function daylight(ctx, W, H, cam, t, sunX = 0.8) {
   ctx.fillStyle = '#fff9d5';
   ctx.fillRect(Math.round(sx - 6), Math.round(sy - 9), 9, 3);
   for (let i = 0; i < 5; i++) {
-    const x = Math.round(((i * 111 + t * (2 + i * 0.25) - cam.x * 0.04) % (W + 100) + W + 100) % (W + 100) - 60);
+    const x = wrap(i * 111 + t * (2 + i * 0.25) - cam.x * 0.04, W + 100) - 60;
     const y = Math.round(H * (0.09 + h1(i + 16) * 0.23) - cam.y * 0.01);
     ctx.fillStyle = 'rgba(247,253,255,0.78)';
     ctx.fillRect(x, y, 35 + (i % 3) * 7, 6);
@@ -373,14 +386,29 @@ function daylight(ctx, W, H, cam, t, sunX = 0.8) {
 }
 
 function rain(ctx, W, H, t, dense) {
-  ctx.strokeStyle = 'rgba(160,185,235,0.16)';
-  ctx.lineWidth = 1;
-  const n = dense ? 90 : 55;
-  for (let i = 0; i < n; i++) {
-    const rx = (i * 71 + t * 520) % (W + 40) - 20;
-    const ry = (i * 43 + t * 780) % (H + 40) - 20;
-    ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 3, ry + 10); ctx.stroke();
+  drawRain(ctx, W, H, t, 0, false, dense);
+}
+
+/* Two bounded batches keep rain smooth without hundreds of separate strokes.
+   Speeds and slants agree, so each drop visibly falls along its own trail. */
+function drawRain(ctx, W, H, t, camX, day, dense) {
+  ctx.save();
+  const n = dense ? 100 : 72;
+  const gust = Math.sin(t * 0.45) * 6;
+  for (let layer = 0; layer < 2; layer++) {
+    ctx.strokeStyle = day ? `rgba(54,112,148,${layer ? 0.24 : 0.12})` : `rgba(170,195,240,${layer ? 0.22 : 0.10})`;
+    ctx.lineWidth = layer ? 0.8 : 0.6;
+    ctx.beginPath();
+    for (let i = layer; i < n; i += 2) {
+      const speed = (layer ? 245 : 150) + h1(i) * 48;
+      const rx = wrap(i * 71 - t * (layer ? 53 : 30) - camX * (layer ? 0.3 : 0.15) + gust, W + 40) - 20;
+      const ry = wrap(i * 43 + t * speed, H + 40) - 20;
+      const length = layer ? 8 : 5;
+      ctx.moveTo(rx, ry); ctx.lineTo(rx - length * 0.2, ry + length);
+    }
+    ctx.stroke();
   }
+  ctx.restore();
 }
 
 /* ---- ROOFS: nocturnal city skyline, three depths ---- */
@@ -390,6 +418,7 @@ function bgRoofs(ctx, world, t, day = false, clear = false) {
   else {
     stars(ctx, W, H, cam, t, 48, 0.62);
     moon(ctx, W * 0.8 - cam.x * 0.03, H * 0.2 - cam.y * 0.02, 15, false);
+    driftingClouds(ctx, W, H, cam, t, clear);
   }
 
   // far skyline
@@ -415,21 +444,27 @@ function bgRoofs(ctx, world, t, day = false, clear = false) {
 }
 
 function drawCitLayer(ctx, W, H, cam, L, t) {
+  ctx.save();
   worldStrip(cam.x, L.s, L.step, W, (i, x) => {
     const r = h1(i * 2.71 + L.seed * 13.3);          // stable per building
     const bh = (H * L.base) * (0.45 + 0.6 * r);
     const by = Math.round(H - bh);
     const bw = L.step - 4 - Math.floor(r * 6);
-    x = Math.round(x);
     ctx.fillStyle = L.col;
     ctx.fillRect(x, by, bw, H - by);
+    ctx.fillStyle = 'rgba(194,218,243,0.08)';
+    ctx.fillRect(x, by, bw, 1);
+    ctx.fillRect(x, by + 1, 1, H - by - 1);
     // windows grid (hashed by building index + cell, so no flicker)
     let wc = 0;
     for (let wy = by + 5; wy < H - 6; wy += 7) {
       let wr = 0;
       for (let wx = x + 3; wx < x + bw - 2; wx += 6) {
         if (h1(i * 100 + wc * 11 + wr * 3.7) > 0.72) {
-          ctx.fillStyle = L.win; ctx.fillRect(wx | 0, wy | 0, 2, 3); ctx.fillStyle = L.col;
+          ctx.save();
+          ctx.globalAlpha *= 0.85 + 0.15 * Math.sin(t * 0.32 + i + wc * 3 + wr);
+          ctx.fillStyle = L.win; ctx.fillRect(wx, wy, 2, 3);
+          ctx.restore();
         }
         wr++;
       }
@@ -442,9 +477,37 @@ function drawCitLayer(ctx, W, H, cam, L, t) {
     } else if (L.props && r > 0.32) {
       ctx.strokeStyle = L.col; ctx.lineWidth = 1;     // antenna
       ctx.beginPath(); ctx.moveTo(x + bw / 2, by); ctx.lineTo(x + bw / 2, by - 10); ctx.stroke();
-      if (Math.sin(t * 3 + i) > 0.9) { ctx.fillStyle = 'rgba(255,90,90,0.5)'; ctx.fillRect(x + bw / 2 - 1, by - 12, 2, 2); }
+      ctx.fillStyle = `rgba(255,90,90,${0.1 + 0.4 * Math.pow((1 + Math.sin(t * 2 + i)) / 2, 4)})`;
+      ctx.fillRect(x + bw / 2 - 1, by - 12, 2, 2);
+    } else if (L.props && r < 0.18) {
+      ctx.fillStyle = L.col;
+      ctx.fillRect(x + 4, by - 7, 5, 7);
+      // Slow stepped wisps stay behind the playable roof.
+      ctx.fillStyle = 'rgba(173,190,211,0.08)';
+      ctx.save();
+      const smokeAlpha = ctx.globalAlpha;
+      for (let puff = 0; puff < 3; puff++) {
+        const p = wrap(t * 0.12 + puff / 3 + r, 1);
+        ctx.globalAlpha = smokeAlpha * (1 - p) * 0.65;
+        ctx.fillRect(x + 4 + p * 8, by - 8 - p * 20, 4 + p * 5, 3 + p * 2);
+      }
+      ctx.restore();
     }
   });
+  ctx.restore();
+}
+
+function driftingClouds(ctx, W, H, cam, t, clear) {
+  ctx.save();
+  ctx.fillStyle = clear ? 'rgba(139,174,214,0.10)' : 'rgba(101,133,187,0.07)';
+  for (let i = 0; i < 3; i++) {
+    const x = wrap(i * 191 + t * (2.5 + i) - cam.x * 0.025, W + 130) - 90;
+    const y = H * (0.14 + i * 0.075);
+    ctx.fillRect(x, y, 59, 6);
+    ctx.fillRect(x + 9, y - 4, 39, 5);
+    ctx.fillRect(x + 21, y - 7, 15, 4);
+  }
+  ctx.restore();
 }
 
 /* ---- FOREST: layered pines, mist, fireflies ---- */
@@ -740,10 +803,10 @@ function drawLevelScenery(ctx, world, day) {
       ctx.fillRect(x + 4, y - 25, 5, 3); ctx.fillRect(x + 14, y - 25, 5, 3);
     } else if (item.type === 'sign') {
       ctx.fillStyle = wood; ctx.fillRect(x + 12, y - 20, 3, 20);
-      const width = Math.max(28, (item.label || '').length * 5 + 8);
+      ctx.font = canvasFont(9); ctx.textAlign = 'center';
+      const width = Math.max(32, Math.ceil(ctx.measureText(item.label || '>>').width) + 10);
       ctx.fillStyle = day ? '#47746e' : '#203b41'; ctx.fillRect(x, y - 29, width, 13);
       ctx.strokeStyle = day ? '#c7d9bc' : '#658b7e'; ctx.strokeRect(x + 0.5, y - 28.5, width - 1, 12);
-      ctx.font = 'bold 7px "Courier New", monospace'; ctx.textAlign = 'center';
       ctx.fillStyle = day ? '#f8f0cd' : '#cddac0'; ctx.fillText(item.label || '>>', x + width / 2, y - 20);
     } else if (item.type === 'puddle') {
       const width = item.w || 32;
@@ -834,5 +897,56 @@ export function drawMenuScene(ctx, W, H, visualMode = 'night', reducedEffects = 
   vg.addColorStop(1, day ? 'rgba(38,65,79,0.16)' : visualMode === 'clear' ? 'rgba(2,3,10,0.25)' : 'rgba(2,3,10,0.55)');
   ctx.fillStyle = vg;
   ctx.fillRect(0, 0, W, H);
+}
+
+/* Victory credits use the rooftops as a continuously walking backdrop.
+   Time is supplied by the caller so the scene can stop with the final song. */
+export function drawCreditsScene(ctx, W, H, time, visualMode = 'night', reducedEffects = false) {
+  const t = Math.max(0, Number.isFinite(time) ? time : 0);
+  const day = visualMode === 'day', clear = visualMode === 'clear';
+  const scroll = t * 32;
+  const camera = { x: scroll, y: 0, renderX: scroll, renderY: 0 };
+  ctx.save();
+  const sky = ctx.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, day ? '#6dbce5' : clear ? '#193554' : '#0c1732');
+  sky.addColorStop(1, day ? '#f1e1b9' : clear ? '#3d6082' : '#1a2c58');
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+  if (day) daylight(ctx, W, H, camera, t);
+  else {
+    stars(ctx, W, H, camera, t, 42, 0.6);
+    moon(ctx, W * 0.82, H * 0.23, 20, false);
+    if (!reducedEffects) driftingClouds(ctx, W, H, camera, t, clear);
+  }
+  drawCitLayer(ctx, W, H, camera, { s: 0.12, base: 0.42, col: day ? '#93b7c0' : clear ? '#2d4866' : '#16274a', win: day ? '#d4e7db' : 'rgba(255,214,150,0.20)', step: 34, seed: 4 }, t);
+  drawCitLayer(ctx, W, H, camera, { s: 0.28, base: 0.59, col: day ? '#78949e' : clear ? '#223c56' : '#0f1c38', win: day ? '#b1d8da' : 'rgba(255,208,140,0.26)', step: 46, seed: 12, props: true }, t);
+
+  const roofY = Math.round(H * 0.78);
+  ctx.fillStyle = day ? '#806453' : clear ? '#253044' : '#152035';
+  ctx.fillRect(0, roofY, W, H - roofY);
+  ctx.fillStyle = day ? '#c29d78' : clear ? '#546079' : '#3a4964';
+  ctx.fillRect(0, roofY - 2, W, 3);
+  ctx.fillStyle = day ? '#ba9070' : clear ? '#364157' : '#26334c';
+  for (let y = roofY + 4, row = 0; y < H; y += 8, row++) {
+    ctx.fillRect(0, y, W, 1);
+    for (let x = -wrap(scroll, 24) - 24 + (row % 2 ? 12 : 0); x < W; x += 24) ctx.fillRect(x, y, 1, 8);
+  }
+  // Restored lanterns pass along the ledge while the city stays alive behind him.
+  for (let i = Math.floor(scroll / 170) - 1; i < Math.ceil((scroll + W) / 170) + 1; i++) {
+    const x = i * 170 - scroll + 110;
+    ctx.fillStyle = day ? '#657a78' : '#36465b';
+    ctx.fillRect(x, roofY - 18, 2, 17);
+    drawLantern(ctx, x + 1, roofY - 15, true, t);
+  }
+  const scale = Math.max(1.8, Math.min(2.8, H / 115));
+  const rx = W * 0.28;
+  ctx.fillStyle = 'rgba(2,6,15,0.28)';
+  ctx.beginPath(); ctx.ellipse(rx + 4 * scale, roofY + 1, 11 * scale, 2.3, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.translate(rx, roofY - 16 * scale);
+  ctx.scale(scale, scale);
+  // A small continuous bob complements the stepped, four-pose paw cycle.
+  ctx.translate(0, Math.sin(t * Math.PI * 6) * 0.35);
+  drawRiko(ctx, 0, 0, 10, 14, 1, 'walk', Math.floor(t * 12), false, false);
+  ctx.restore();
+  _lightningFlash = 0;
 }
 

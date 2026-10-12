@@ -6,7 +6,7 @@ export const DEFAULT_BINDINGS = {
   right:    ['KeyD', 'ArrowRight'],
   up:       ['KeyW', 'ArrowUp'],
   down:     ['KeyS', 'ArrowDown'],
-  jump:     ['Space'],
+  jump:     ['KeyW', 'ArrowUp'],
   attack:   ['KeyJ'],
   dodge:    ['ShiftLeft', 'ShiftRight'],
   parry:    ['KeyL'],
@@ -19,6 +19,10 @@ export const DEFAULT_BINDINGS = {
   cycleR:   ['KeyR'],
 };
 
+const GAMEPLAY_ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dodge', 'parry', 'interact', 'throw', 'cycleL', 'cycleR', 'confirm', 'cancel'];
+const DIRECTIONS = ['left', 'right', 'up', 'down'];
+export const BINDING_VERSION = 4;
+
 export const Input = {
   keys: new Set(),
   pressed: new Set(),
@@ -26,6 +30,7 @@ export const Input = {
   bindings: JSON.parse(JSON.stringify(DEFAULT_BINDINGS)),
   _capture: null, // callback while listening for a rebind
   _initialized: false,
+  _keyboardEnabled: true,
   _virtualHeld: new Map(),
   _virtualPressed: new Set(),
   _virtualReleased: new Set(),
@@ -44,12 +49,14 @@ export const Input = {
       // don't hijack typing in form controls (options sliders/selects)
       const ae = document.activeElement;
       if (ae && (/^(INPUT|SELECT|TEXTAREA)$/.test(ae.tagName) || ae.isContentEditable)) return;
+      if (!this._keyboardEnabled) return;
       if (this._isGameKey(e.code)) e.preventDefault();
       if (!this.keys.has(e.code)) this.pressed.add(e.code);
       this.keys.add(e.code);
     });
     window.addEventListener('keyup', (e) => {
       this.keys.delete(e.code);
+      if (!this._keyboardEnabled) return;
       this.released.add(e.code);
     });
     window.addEventListener('blur', () => this.reset());
@@ -64,12 +71,26 @@ export const Input = {
     return false;
   },
 
-  _keyboardDown(action) { const b = this.bindings[action]; return Array.isArray(b) && b.some((c) => this.keys.has(c)); },
+  _keyboardDown(action) { const b = this.bindings[action]; return this._keyboardEnabled && Array.isArray(b) && b.some((c) => this.keys.has(c)); },
   _virtualDown(action) { for (const actions of this._virtualHeld.values()) if (actions.has(action)) return true; return false; },
   down(action)        { return this._keyboardDown(action) || this._virtualDown(action); },
-  justPressed(action)  { const b = this.bindings[action]; return this._virtualPressed.has(action) || (Array.isArray(b) && b.some((c) => this.pressed.has(c))); },
-  justReleased(action) { const b = this.bindings[action]; return !this.down(action) && (this._virtualReleased.has(action) || (Array.isArray(b) && b.some((c) => this.released.has(c)))); },
-  anyPressed()         { return this.pressed.size > 0 || this._virtualPressed.size > 0; },
+  justPressed(action)  { const b = this.bindings[action]; return this._virtualPressed.has(action) || (this._keyboardEnabled && Array.isArray(b) && b.some((c) => this.pressed.has(c))); },
+  justReleased(action) { const b = this.bindings[action]; return !this.down(action) && (this._virtualReleased.has(action) || (this._keyboardEnabled && Array.isArray(b) && b.some((c) => this.released.has(c)))); },
+  anyPressed()         { return (this._keyboardEnabled && this.pressed.size > 0) || this._virtualPressed.size > 0; },
+
+  /** A fresh gameplay press advances one dialogue beat. Direction keys only
+   * navigate choices; their shared jump action must never choose an answer. */
+  advanceDialoguePressed(choices = false) {
+    const actions = choices ? GAMEPLAY_ACTIONS.filter((action) => !DIRECTIONS.includes(action)) : GAMEPLAY_ACTIONS;
+    for (const action of actions) {
+      if (action === 'jump' && choices && DIRECTIONS.some((direction) => this._virtualPressed.has(direction))) continue;
+      if (this._virtualPressed.has(action)) return true;
+    }
+    if (!this._keyboardEnabled) return false;
+    const excluded = new Set(this.bindings.pause || []);
+    if (choices) for (const action of DIRECTIONS) for (const code of this.bindings[action] || []) excluded.add(code);
+    return actions.some((action) => (this.bindings[action] || []).some((code) => this.pressed.has(code) && !excluded.has(code)));
+  },
 
   clearFrame() {
     this.pressed.clear(); this.released.clear();
@@ -93,6 +114,23 @@ export const Input = {
   },
   releaseVirtual(source) { this.setVirtualActions(source, []); },
 
+  /** Cancel a disappearing device's pending press without deleting another
+   * source's held input or normal release edge. */
+  cancelVirtual(source) {
+    const actions = [...(this._virtualHeld.get(source) || [])];
+    this.releaseVirtual(source);
+    for (const action of actions) if (!this.down(action)) this._virtualPressed.delete(action);
+  },
+
+  setKeyboardEnabled(enabled) {
+    enabled = enabled === true;
+    if (enabled === this._keyboardEnabled) return;
+    this._keyboardEnabled = enabled;
+    this.keys.clear();
+    this.pressed.clear();
+    this.released.clear();
+  },
+
   /** Clear held input when focus is lost; a held jump must not survive a pause. */
   reset() {
     this.pressed.clear();
@@ -105,6 +143,21 @@ export const Input = {
 
   setBinding(action, codes) { this.bindings[action] = codes.slice(); },
   resetBindings() { this.bindings = JSON.parse(JSON.stringify(DEFAULT_BINDINGS)); },
+
+  /** Keep customised keys while upgrading the previous default Space jump.
+   * A versioned migration runs once; explicit later Space rebindings survive. */
+  loadBindings(saved, version = 0) {
+    this.resetBindings();
+    if (saved && typeof saved === 'object') {
+      for (const action of Object.keys(DEFAULT_BINDINGS)) {
+        const codes = saved[action];
+        if (Array.isArray(codes) && codes.length && codes.every((code) => typeof code === 'string')) this.setBinding(action, codes);
+      }
+    }
+    const legacyJump = version < BINDING_VERSION && this.bindings.jump.length === 1 && this.bindings.jump[0] === 'Space';
+    if (legacyJump) this.setBinding('jump', DEFAULT_BINDINGS.jump);
+    return legacyJump;
+  },
 
   /** listen for the next key press and return its code via callback */
   captureNext(cb) { this._capture = cb; },

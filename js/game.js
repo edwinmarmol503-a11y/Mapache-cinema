@@ -16,8 +16,9 @@ import { LEVELS, TS, buildTileMap } from './levels.js';
 import { getDiff, NIGHTMARE_MERCY_DEATHS, nightmareMercyDiff } from './difficulty.js';
 import { resolveSolids } from './physics.js';
 import { rectsOverlap } from './collision.js';
-import { drawHUD, drawBackground, currentLightning, outText, DAY_TILE_PALETTES } from './ui.js';
-import { drawLantern, drawTrashcan } from './sprites.js';
+import { drawHUD, drawBackground, currentLightning, outText, canvasFont, DAY_TILE_PALETTES } from './ui.js';
+import { Controls } from './control-mode.js';
+import { drawLantern, drawTrashcan, drawRikoSoul } from './sprites.js';
 import { clamp, choice } from './utils.js';
 
 const STEP_FADE = 0.4;
@@ -65,8 +66,8 @@ export class Game {
   constructor(ctx, canvas, hooks) {
     this.ctx = ctx;
     this.canvas = canvas;
-    this.W = canvas.width;
-    this.H = canvas.height;
+    this.W = hooks.logicalWidth || 480;
+    this.H = hooks.logicalHeight || 270;
     this.hooks = hooks || {};
     this.audio = hooks.audio;
     this.save = hooks.save;
@@ -181,7 +182,7 @@ export class Game {
       this.save.update({ ...JSON.parse(JSON.stringify(this._levelStartSnapshot)), checkpoint: null, collected: [], levelProgress: {}, levelElapsedMs: 0 });
       this.inventory.load(this.save.data.items || {});
     }
-    this.loadLevel(this.levelIndex, false);
+    this.loadLevel(this.levelIndex, false, { changeMusic: false });
     this.state = 'playing'; this.fadeAlpha = 0;
     this._beginLevelRanking(this._levelFinish);
   }
@@ -205,6 +206,7 @@ export class Game {
     this.exitRect = null;
     this.introT = 0;
     this.dyingT = 0;
+    this._deathSoul = null;
     this.postT = 0;
     this.hitstopT = 0;
     this._swingId = -1;
@@ -335,7 +337,8 @@ export class Game {
     this.fadeAlpha = 0;
   }
 
-  loadLevel(index, useCheckpoint) {
+  loadLevel(index, useCheckpoint, { changeMusic = true } = {}) {
+    const retryingBoss = useCheckpoint && this.bossActive && index === this.levelIndex;
     const transition = this.transition;
     this.reset();
     this.transition = transition;
@@ -474,7 +477,7 @@ export class Game {
     if (L.exit) this.exitRect = { x: L.exit.tx * TS - 2, y: (L.exit.ty - 3) * TS, w: TS + 4, h: TS * 6 };
 
     this.camera.snapTo(this.player);
-    if (this.audio) this.audio.playMusic(L.music || 'roofs');
+    if (this.audio && changeMusic) this.audio.playMusic(retryingBoss ? 'boss' : L.music || 'roofs', { restart: true });
   }
 
   /* ---------------- helpers used by sub-systems ---------------- */
@@ -570,12 +573,13 @@ export class Game {
     this.particles.burst(this.player.cx, this.player.cy, 22, { color: '#8b93a3', speed: 80, life: 0.6 });
     this.state = 'dying';
     this.dyingT = 1.5;
-    this._onRealDeath();
+    this._onRealDeath(reason);
   }
 
   /** called exactly once per real (non-revived) death -- mocking call-out +
       counts toward the Pesadilla mercy nerf (see NIGHTMARE_MERCY_DEATHS) */
-  _onRealDeath() {
+  _onRealDeath(reason = 'enemy') {
+    if (reason !== 'fall') this._deathSoul = { x: this.player.cx, y: this.player.cy, facing: this.player.facing, elapsed: 0 };
     this._rankDeaths = (this._rankDeaths || 0) + 1;
     if (this.bossActive) {
       // a running score, only for the Farolero fight, that keeps climbing
@@ -664,7 +668,6 @@ export class Game {
   onBossDefeated() {
     this._finishLevelRanking();
     this.bossActive = false;
-    this.audio.stopMusic();
     this.state = 'postboss';
     this.postT = 3.2;
   }
@@ -718,7 +721,6 @@ export class Game {
         .catch(() => this.toast('Campaña guardada en este dispositivo'));
     }
     this.state = 'ending';
-    this.audio.playMusic('ending');
     this.dialogue.start(E[val], () => this.hooks.onVictory && this.hooks.onVictory(val));
   }
 
@@ -768,6 +770,7 @@ export class Game {
 
     if (this.state === 'intro') {
       this.introT -= dt;
+      if (Input.advanceDialoguePressed()) this.introT = 0;
       this.particles.update(dt);
       this.camera.follow(this.player, dt);
       if (this.introT <= 0) this.state = 'playing';
@@ -776,6 +779,7 @@ export class Game {
 
     if (this.state === 'dying') {
       this.dyingT -= dt;
+      if (this._deathSoul) this._deathSoul.elapsed += dt;
       this.player.update(dt, this);
       this.particles.update(dt);
       this.camera.follow(this.player, dt);
@@ -809,7 +813,7 @@ export class Game {
         if (Input.justPressed('up') || Input.justPressed('left')) { this.dialogue.move(-1); this.audio.sfx('menu'); }
         if (Input.justPressed('down') || Input.justPressed('right')) { this.dialogue.move(1); this.audio.sfx('menu'); }
       }
-      if (Input.justPressed('interact') || Input.justPressed('confirm')) this.dialogue.advance();
+      if (Input.advanceDialoguePressed(this.dialogue.isChoice)) this.dialogue.advance();
       this.particles.update(dt);
       return;
     }
@@ -819,7 +823,7 @@ export class Game {
     // dialogue blocks the world
     if (this.dialogue.active) {
       this.dialogue.update(dt);
-      if (Input.justPressed('interact') || Input.justPressed('confirm')) this.dialogue.advance();
+      if (Input.advanceDialoguePressed()) this.dialogue.advance();
       this.particles.update(dt);
       return;
     }
@@ -1050,6 +1054,15 @@ export class Game {
     // lighting
     this._renderLighting(ctx);
 
+    // Lift a little of the enemy's own color through the night shadow. The
+    // same sprite/frame is redrawn; movement, attacks and hitboxes are untouched.
+    if (this.visualMode === 'night') {
+      ctx.save();
+      ctx.globalAlpha = 0.33;
+      for (const e of this.enemies) if (!e.dead && this.camera.visible(e)) e.render(ctx, this.camera);
+      ctx.restore();
+    }
+
     // atmosphere: drifting motes / embers in FRONT of the scene (depth)
     if (!this.reducedEffects) this._renderForegroundAtmo(ctx);
 
@@ -1084,10 +1097,14 @@ export class Game {
       ctx.strokeRect(sx - 1, sy - 1, this.exitRect.w + 2, this.exitRect.h + 2);
       ctx.fillStyle = ok ? '#6fbf73' : '#d64b3a';
       ctx.textAlign = 'center';
-      ctx.font = '9px "Courier New", monospace';
+      ctx.font = canvasFont(11, 700);
       ctx.fillText(ok ? '>' : 'X', sx + this.exitRect.w / 2, sy + this.exitRect.h / 2);
       ctx.restore();
     }
+
+    // Grade the world before interface text so the vignette and scanlines do
+    // not dim letters, objective counts or dialogue.
+    this._renderGrade(ctx);
 
     // HUD
     if (['playing', 'dying', 'postboss'].includes(this.state)) drawHUD(ctx, this);
@@ -1096,12 +1113,13 @@ export class Game {
     if (this.skyMsgs && this.skyMsgs.length) {
       ctx.save();
       ctx.textAlign = 'center';
+      const calloutY = this.boss ? 94 : 58;
       this.skyMsgs.forEach((m, i) => {
         const k = clamp(m.t / m.life, 0, 1);
         const rise = (1 - k) * 10;
         ctx.globalAlpha = Math.min(1, k * 3);
-        ctx.font = 'bold 11px "Courier New", monospace';
-        outText(ctx, m.text, this.W / 2, 24 + i * 13 - rise, m.color);
+        ctx.font = canvasFont(12, 700);
+        outText(ctx, m.text, this.W / 2, calloutY + i * 16 - rise, m.color);
       });
       ctx.restore();
     }
@@ -1114,7 +1132,7 @@ export class Game {
       ctx.save();
       ctx.textAlign = 'center';
       ctx.globalAlpha = Math.min(1, k * 3);
-      ctx.font = 'bold 10px "Courier New", monospace';
+      ctx.font = canvasFont(11, 700);
       outText(ctx, '¡GUARDADO!', sx, sy, '#ffe07a');
       ctx.restore();
     }
@@ -1126,14 +1144,17 @@ export class Game {
       const anchorY = clamp(this.player.cy - 14, t.y, t.y + t.h);
       ctx.save();
       ctx.textAlign = 'center';
-      const sx = Math.round(anchorX - this.camera.renderX);
+      let sx = Math.round(anchorX - this.camera.renderX);
       const sy = Math.round(anchorY - this.camera.renderY - 12);
-      ctx.font = 'bold 9px "Courier New", monospace';
+      ctx.font = canvasFont(11);
+      const hint = Controls.getHint('interact') + ' · interactuar';
+      const promptW = Math.ceil(ctx.measureText(hint).width) + 12;
+      sx = clamp(sx, promptW / 2 + 4, this.W - promptW / 2 - 4);
       ctx.fillStyle = 'rgba(4,7,16,0.92)';
-      ctx.fillRect(sx - 32, sy - 9, 64, 15);
+      ctx.fillRect(sx - promptW / 2, sy - 10, promptW, 18);
       ctx.strokeStyle = '#f4c542';
-      ctx.strokeRect(sx - 32.5, sy - 9.5, 64, 15);
-      outText(ctx, 'E  interactuar', sx, sy + 1, '#ffe07a');
+      ctx.strokeRect(sx - promptW / 2 + 0.5, sy - 9.5, promptW - 1, 17);
+      outText(ctx, hint, sx, sy - 1, '#ffe07a');
       ctx.restore();
     }
 
@@ -1151,9 +1172,9 @@ export class Game {
       ctx.fillStyle = 'rgba(3,5,14,0.78)';
       ctx.fillRect(0, this.H / 2 - 26, this.W, 52);
       ctx.textAlign = 'center';
-      ctx.font = 'bold 18px "Courier New", monospace';
+      ctx.font = canvasFont(20, 700);
       outText(ctx, (this.levelDef.intro && this.levelDef.intro[0] && this.levelDef.intro[0].text) || this.levelDef.name.toUpperCase(), this.W / 2, this.H / 2 + 4, '#ffd357');
-      ctx.font = 'bold 9px "Courier New", monospace';
+      ctx.font = canvasFont(11);
       const dl = this.diff && this.diff.key !== 'normal' ? '   ·   ' + this.diff.label.toUpperCase() : '';
       outText(ctx, 'Nivel ' + (this.levelIndex + 1) + ' de ' + LEVELS.length + dl, this.W / 2, this.H / 2 + 18, '#c3d0e4');
       ctx.restore();
@@ -1168,13 +1189,14 @@ export class Game {
       ctx.globalAlpha = 1;
       ctx.textAlign = 'center';
       ctx.fillStyle = '#9fb2cc';
-      ctx.font = '10px "Courier New", monospace';
+      ctx.font = canvasFont(12);
       ctx.fillText('...', this.W / 2, this.H / 2);
       ctx.restore();
+      if (this._deathSoul) {
+        drawRikoSoul(ctx, this._deathSoul.x - this.camera.renderX, this._deathSoul.y - this.camera.renderY,
+          clamp(this._deathSoul.elapsed / 1.5, 0, 1), this._deathSoul.facing);
+      }
     }
-
-    // colour grade + vignette (cinematic finish)
-    this._renderGrade(ctx);
 
     // transition fade
     if (this.fadeAlpha > 0) {
@@ -1455,7 +1477,8 @@ export class Game {
   }
 
   _renderBossBar(ctx) {
-    const w = 168, x = (this.W - w) / 2, y = 12;
+    // Leave the elapsed clock visible above the boss's health and phase.
+    const w = 168, x = (this.W - w) / 2, y = 42;
     ctx.save();
     ctx.fillStyle = 'rgba(4,7,16,0.9)';
     ctx.fillRect(x - 3, y - 3, w + 6, 13);
@@ -1467,7 +1490,7 @@ export class Game {
     ctx.fillStyle = this.boss.vulnerable ? '#f4c542' : '#8fb8ff';
     ctx.fillRect(x, y, w * clamp(frac, 0, 1), 8);
     ctx.textAlign = 'center';
-    ctx.font = 'bold 9px "Courier New", monospace';
+    ctx.font = canvasFont(10);
     outText(ctx,
       'EL FAROLERO   ·   Fase ' + this.boss.phase +
       (this.boss.vulnerable ? '  ·  ¡AHORA! golpéalo o cae sobre él' : '  ·  espera a que baje'),

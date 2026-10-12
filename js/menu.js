@@ -2,13 +2,14 @@
    menu.js  -  DOM screen controller (main menu, options,
    credits). Pause menu lives in pause.js but shares styles.
    ============================================================ */
-import { Input, DEFAULT_BINDINGS } from './input.js';
+import { Input, DEFAULT_BINDINGS, BINDING_VERSION } from './input.js';
 import { Save } from './save.js';
 import { Audio } from './audio.js';
 import { DIFFS, DIFF_ORDER } from './difficulty.js';
 import { LEVELS } from './levels.js';
 import { Ranking } from './ranking.js';
-import { isTouchDevice } from './touch.js';
+import { Controls } from './control-mode.js';
+import { createDeveloperControls } from './developer-controls.js';
 
 const CONTROL_LABELS = {
   left: 'Izquierda', right: 'Derecha', jump: 'Saltar', attack: 'Atacar',
@@ -22,7 +23,7 @@ const CREDITS = [
   { role: 'Programming', who: 'Estudio Lumera' },
   { role: 'Pixel Art', who: 'Estudio Lumera  (placeholders procedurales)' },
   { role: 'Level Design', who: 'Estudio Lumera' },
-  { role: 'Audio', who: '11 pistas de fondo · efectos con Web Audio API' },
+  { role: 'Audio', who: '37 pistas de fondo · efectos con Web Audio API' },
   { role: 'Story', who: 'La ciudad que recordaba demasiado' },
   { sec: 'GRACIAS POR JUGAR' },
 ];
@@ -43,6 +44,9 @@ export class Menu {
     this._diffSel = 'normal';
     this._scoreDiff = 'normal';
     this._scoresRevision = 0;
+    this._gamepadScreen = null;
+    this._gamepadFocus = null;
+    this._originalHint = this.elMenu.querySelector('.hint')?.innerHTML;
 
     this._wireMenu();
     this._wireOptions();
@@ -62,6 +66,8 @@ export class Menu {
 
     // keyboard nav for the menu
     document.addEventListener('keydown', (e) => this._navKey(e));
+    Controls.subscribe(() => this._refreshInputPresentation());
+    this._refreshInputPresentation();
   }
 
   /* ---------------- MAIN MENU ---------------- */
@@ -136,7 +142,11 @@ export class Menu {
     this.elNick.classList.remove('hidden');
     const input = document.getElementById('nick-input');
     input.value = Save.loadOpts().nick || '';
-    setTimeout(() => { input.focus(); input.select(); }, 30);
+    setTimeout(() => {
+      if (this.elNick.classList.contains('hidden')) return;
+      if (Controls.getMode() === 'gamepad') this._focusWithGamepad(document.getElementById('nick-go'), this.elNick);
+      else { input.focus(); input.select(); }
+    }, 30);
   }
 
   /* ---------------- RÉCORDS ---------------- */
@@ -312,27 +322,23 @@ export class Menu {
   _wireOptions() {
     this.musicSlider = document.getElementById('opt-music');
     this.sfxSlider = document.getElementById('opt-sfx');
-    this.scaleSel = document.getElementById('opt-scale');
     const mv = document.getElementById('opt-music-val');
     const sv = document.getElementById('opt-sfx-val');
 
     const opts = Save.loadOpts();
     this.musicSlider.value = opts.music;
     this.sfxSlider.value = opts.sfx;
-    this.scaleSel.value = isTouchDevice ? 'auto' : opts.scale || 'auto';
-    this.scaleSel.disabled = isTouchDevice;
-    this.scaleSel.title = isTouchDevice ? 'En celular el juego se ajusta siempre a la pantalla.' : '';
     mv.textContent = opts.music;
     sv.textContent = opts.sfx;
-    if (opts.bindings) Input.bindings = opts.bindings;
+    Input.loadBindings(opts.bindings, opts.bindingVersion);
 
     const persist = () => {
       Save.saveOpts({
         ...Save.loadOpts(),
         music: +this.musicSlider.value,
         sfx: +this.sfxSlider.value,
-        scale: this.scaleSel.value,
         bindings: Input.bindings,
+        bindingVersion: BINDING_VERSION,
       });
     };
 
@@ -347,10 +353,6 @@ export class Menu {
       persist();
     });
     this.sfxSlider.addEventListener('change', () => Audio.sfx('menu'));
-    this.scaleSel.addEventListener('change', () => {
-      persist();
-      this.hooks.applyScale && this.hooks.applyScale(this.scaleSel.value);
-    });
 
     document.getElementById('opt-fullscreen').addEventListener('click', () => {
       const app = document.getElementById('app');
@@ -382,6 +384,7 @@ export class Menu {
       this._renderControls();
       Audio.sfx('cancel');
     });
+    document.getElementById('opt-reset-controls').dataset.keyboardOnly = 'true';
 
     this.elOptions.querySelector('[data-act="back"]').addEventListener('click', () => {
       Audio.sfx('cancel');
@@ -412,6 +415,9 @@ export class Menu {
       const name = document.createElement('span');
       name.textContent = CONTROL_LABELS[action];
       const btn = document.createElement('button');
+      btn.dataset.keyboardOnly = 'true';
+      btn.disabled = Controls.getMode() === 'gamepad';
+      btn.title = btn.disabled ? 'Selecciona Teclado en Código para reasignar teclas.' : '';
       btn.textContent = (Input.bindings[action] || []).map(prettyKey).join(' / ') || '—';
       btn.addEventListener('click', () => {
         if (btn.classList.contains('listening')) return;
@@ -452,6 +458,8 @@ export class Menu {
       else { d.innerHTML = '<span class="role">' + c.role + '</span> — <span class="who">' + c.who + '</span>'; }
       body.appendChild(d);
     }
+    this.developerControls?.destroy();
+    this.developerControls = createDeveloperControls(body);
   }
 
   showCredits(ending) {
@@ -492,6 +500,123 @@ export class Menu {
   }
 
   /* ---------------- keyboard nav ---------------- */
+  _refreshInputPresentation() {
+    const mode = Controls.getMode();
+    if (this._presentedMode === mode) return;
+    this._presentedMode = mode;
+    const hint = this.elMenu.querySelector('.hint');
+    if (hint) {
+      if (mode === 'gamepad') hint.textContent = 'Mando · Stick / cruceta: mover · ↑: saltar · ✕: confirmar · □: atacar · ○: esquivar / volver · △: interactuar · OPTIONS: pausa';
+      else if (mode === 'touch') hint.textContent = 'Táctil · Usa el joystick para moverte y los botones de acción en pantalla.';
+      else hint.innerHTML = this._originalHint || '';
+    }
+    let nickHint = document.getElementById('nick-control-hint');
+    if (!nickHint) {
+      nickHint = document.createElement('p'); nickHint.id = 'nick-control-hint'; nickHint.className = 'option-note';
+      this.elNick.querySelector('.nick-row').before(nickHint);
+    }
+    nickHint.textContent = mode === 'gamepad' ? 'Pulsa ✕ en EMPEZAR para usar tu apodo guardado o RIKO. No hace falta escribir para jugar.' : '';
+    nickHint.classList.toggle('hidden', mode !== 'gamepad');
+    const reset = document.getElementById('opt-reset-controls');
+    if (reset) reset.disabled = mode === 'gamepad';
+    if (!this.elOptions.classList.contains('hidden')) this._renderControls();
+    if (mode !== 'gamepad') this._clearGamepadFocus();
+  }
+
+  _activeGamepadScreen() {
+    return [this.elNick, this.elOptions, this.elCredits, this.elVictory, this.elLevels, this.elScores, this.elPause, this.elMenu]
+      .find((el) => el && !el.classList.contains('hidden') && getComputedStyle(el).display !== 'none') || null;
+  }
+
+  _gamepadTargets(screen) {
+    return [...screen.querySelectorAll('button, select, input, textarea, summary, a[href], [tabindex]')].filter((el) => {
+      if (el.disabled || el.type === 'hidden' || el.dataset.keyboardOnly === 'true' || el.tabIndex < 0) return false;
+      if (el.closest('.hidden, [hidden], [inert]')) return false;
+      const details = el.closest('details');
+      if (details && !details.open && el !== details.querySelector('summary')) return false;
+      const style = getComputedStyle(el);
+      return style.visibility !== 'hidden' && style.display !== 'none' && el.getClientRects().length > 0;
+    });
+  }
+
+  _clearGamepadFocus() {
+    this._gamepadFocus?.classList.remove('gamepad-focus');
+    this._gamepadFocus = null; this._gamepadScreen = null;
+  }
+
+  _focusWithGamepad(target, screen) {
+    this._gamepadFocus?.classList.remove('gamepad-focus');
+    this._gamepadFocus = target; this._gamepadScreen = screen;
+    target.classList.add('gamepad-focus');
+    target.focus({ preventScroll: true });
+    // Scroll only the panel, so large credits/options remain usable on a television.
+    const panel = target.closest('.panel');
+    if (panel) {
+      const box = panel.getBoundingClientRect(), rect = target.getBoundingClientRect();
+      if (rect.top < box.top + 14) panel.scrollTop += rect.top - box.top - 14;
+      else if (rect.bottom > box.bottom - 14) panel.scrollTop += rect.bottom - box.bottom + 14;
+    }
+    const nav = this._visibleNav();
+    if (nav.includes(target)) { this._selIndex = nav.indexOf(target); this._refreshMenuSel(); }
+  }
+
+  navigateWithGamepad(action) {
+    if (Controls.getMode() !== 'gamepad') return false;
+    // OPTIONS toggles gameplay pause in main.js, including options opened from pause.
+    if (action === 'pause') return false;
+    const screen = this._activeGamepadScreen();
+    if (!screen) { this._clearGamepadFocus(); return false; }
+    if (Input._capture) {
+      if (action === 'cancel') { const capture = Input._capture; Input._capture = null; capture('Escape'); }
+      return true;
+    }
+    const targets = this._gamepadTargets(screen);
+    if (!targets.length) return true;
+    let focused = this._gamepadFocus;
+    if (this._gamepadScreen !== screen || !targets.includes(focused)) {
+      focused = screen === this.elNick ? document.getElementById('nick-go') : targets.find((el) => el.classList.contains('sel')) || targets[0];
+      this._focusWithGamepad(focused, screen);
+    }
+    if (action === 'cancel') {
+      const back = screen.querySelector('[data-act="back"], #nick-cancel, #victory-menu, [data-act="resume"]');
+      if (back) back.click();
+      return true;
+    }
+    if (action === 'confirm') {
+      if (focused === document.getElementById('nick-input')) document.getElementById('nick-go').click();
+      else if (focused.matches('button, summary, a[href]')) focused.click();
+      else focused.focus();
+      return true;
+    }
+    if (!['up', 'down', 'left', 'right'].includes(action)) return true;
+    const direction = action === 'left' || action === 'up' ? -1 : 1;
+    if ((action === 'left' || action === 'right') && focused.tagName === 'SELECT') {
+      const options = [...focused.options].filter((option) => !option.disabled);
+      const current = options.findIndex((option) => option.value === focused.value);
+      const next = options[Math.max(0, Math.min(options.length - 1, current + direction))];
+      if (next && focused.value !== next.value) { focused.value = next.value; focused.dispatchEvent(new Event('change', { bubbles: true })); Audio.sfx('menu'); }
+      return true;
+    }
+    if ((action === 'left' || action === 'right') && focused.type === 'range') {
+      const min = Number(focused.min || 0), max = Number(focused.max || 100);
+      const step = Math.max(1, Number(focused.step) || 1) * 5;
+      const value = Math.max(min, Math.min(max, Number(focused.value) + step * direction));
+      if (value !== Number(focused.value)) { focused.value = value; focused.dispatchEvent(new Event('input', { bubbles: true })); focused.dispatchEvent(new Event('change', { bubbles: true })); }
+      return true;
+    }
+    const rect = focused.getBoundingClientRect(), x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+    const vertical = action === 'up' || action === 'down';
+    const candidates = targets.filter((el) => el !== focused).map((el) => {
+      const bounds = el.getBoundingClientRect(), dx = bounds.left + bounds.width / 2 - x, dy = bounds.top + bounds.height / 2 - y;
+      const primary = (vertical ? dy : dx) * direction, cross = Math.abs(vertical ? dx : dy);
+      return { el, primary, score: primary + cross * 2 };
+    }).filter((entry) => entry.primary > 3).sort((a, b) => a.score - b.score);
+    const index = targets.indexOf(focused);
+    const next = candidates[0]?.el || targets[(index + direction + targets.length) % targets.length];
+    this._focusWithGamepad(next, screen); Audio.sfx('menu');
+    return true;
+  }
+
   _visibleNav() {
     let container = null;
     if (!this.elMenu.classList.contains('hidden') && this.elMenu.style.display !== 'none') container = this.elMenu.querySelector('#menu-nav');
@@ -506,6 +631,7 @@ export class Menu {
   }
 
   _navKey(e) {
+    if (e.defaultPrevented || Input._capture || /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement?.tagName)) return;
     const nav = this._visibleNav();
     if (!nav.length) return;
     if (['ArrowDown', 'ArrowUp', 'Enter'].includes(e.code)) e.preventDefault();

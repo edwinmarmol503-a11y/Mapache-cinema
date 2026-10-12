@@ -33,6 +33,8 @@ export const Audio = {
   _mediaAttempt: 0,
   _activeSource: null,
   _sourceIndex: 0,
+  _trackEndListeners: new Set(),
+  _endedAttempt: -1,
 
   init(opts) {
     if (opts) {
@@ -59,7 +61,7 @@ export const Audio = {
 
   resume() {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
-    if (this._media && this.currentTrack && this._externalTrack && this._media.paused) {
+    if (this._media && this.currentTrack && this._externalTrack && this._media.paused && this._musicMode !== 'ended') {
       this._playMedia(this.currentTrack, this._playGeneration);
     }
   },
@@ -76,7 +78,7 @@ export const Audio = {
   configureTracks(manifest) {
     const entries = Array.isArray(manifest?.tracks) ? manifest.tracks : [];
     this._tracks = new Map();
-    for (const entry of entries.slice(0, 20)) {
+    for (const entry of entries.slice(0, 500)) {
       if (!entry || typeof entry.id !== 'string' || !entry.id.trim() || typeof entry.src !== 'string' || !entry.src.trim()) continue;
       const sources = [];
       for (const source of [entry.src, ...(Array.isArray(entry.alternateSrcs) ? entry.alternateSrcs : [])]) {
@@ -113,8 +115,24 @@ export const Audio = {
   },
 
   getMusicStatus() {
-    return { mode: this._musicMode, theme: this.currentTrack, title: this._externalTrack?.title || '',
+    const duration = this._media?.duration;
+    return { mode: this._musicMode, theme: this.currentTrack, id: this._externalTrack?.id || '', title: this._externalTrack?.title || '',
+      position: this._media?.currentTime || 0,
+      duration: Number.isFinite(duration) && duration > 0 ? duration : this._externalTrack?.durationSeconds || 0,
       src: this._activeSource || '', configuredTracks: this._tracks.size, unavailableTracks: this._failedTracks.size };
+  },
+
+  /** The victory screen subscribes once and closes when its own song finishes. */
+  subscribeTrackEnd(listener) {
+    if (typeof listener !== 'function') return () => {};
+    this._trackEndListeners.add(listener);
+    return () => this._trackEndListeners.delete(listener);
+  },
+
+  _samePlaylist(first, second) {
+    const a = this._playlists[first] || [];
+    const b = this._playlists[second] || [];
+    return a.length > 0 && a.length === b.length && a.every((id) => b.includes(id));
   },
 
   _nextTrack(theme, excluded = new Set()) {
@@ -269,6 +287,19 @@ export const Audio = {
 
   playMusic(track, { restart = false } = {}) {
     if (this.currentTrack === track && !restart) return;
+    const previous = this.currentTrack || this._pausedTrack;
+    // Dialogue and overlays can request a theme again. Even an equivalent
+    // level playlist keeps its song until an explicit death/level transition.
+    if (!restart && previous && this._externalTrack && this._media && this._samePlaylist(previous, track)) {
+      this.currentTrack = track;
+      this._pausedTrack = null;
+      this._bindMediaEvents(track, this._playGeneration);
+      if (this._media.paused && this._musicMode !== 'ended') {
+        this._musicMode = 'loading';
+        this._playMedia(track, this._playGeneration);
+      }
+      return;
+    }
     this._playGeneration++;
     const generation = this._playGeneration;
     this.currentTrack = track;
@@ -299,24 +330,16 @@ export const Audio = {
       this._ensureMedia();
       const media = this._media;
       const source = entry.sources[sourceIndex];
-      const attempt = this._mediaAttempt;
       this._externalTrack = entry;
       this._activeSource = source;
       this._sourceIndex = sourceIndex;
       this._musicMode = 'loading';
-      media.loop = entry.loop === true || this._playlists[theme].filter((id) => !this._failedTracks.has(id)).length === 1;
+      // Random songs repeat until death or passing a level. Only the victory
+      // credits have a natural end; their caller returns to the main menu.
+      media.loop = theme !== 'ending';
       media.src = source;
-      media.onerror = () => {
-        if (media.error && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) {
-          this._tryNextSource(theme, generation, entry, media, source, attempt);
-        }
-      };
-      media.onplaying = () => {
-        if (!media.paused && !media.ended && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) this._musicMode = 'external';
-      };
-      media.onended = () => {
-        if (media.ended && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) this.playMusic(theme, { restart: true });
-      };
+      this._endedAttempt = -1;
+      this._bindMediaEvents(theme, generation);
       this._mediaGain.gain.setValueAtTime(0, this.ctx.currentTime);
       this._mediaGain.gain.linearRampToValueAtTime(entry.gain, this.ctx.currentTime + 0.35);
       this._playMedia(theme, generation);
@@ -324,6 +347,36 @@ export const Audio = {
       this._failedTracks.add(entry.id);
       this._playNextAvailable(theme, generation);
     }
+  },
+
+  _bindMediaEvents(theme, generation) {
+    const media = this._media;
+    const entry = this._externalTrack;
+    const source = this._activeSource;
+    const attempt = this._mediaAttempt;
+    media.onerror = () => {
+      if (media.error && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) {
+        this._tryNextSource(theme, generation, entry, media, source, attempt);
+      }
+    };
+    media.onplaying = () => {
+      if (!media.paused && !media.ended && this._isCurrentMedia(theme, generation, entry, media, source, attempt)) this._musicMode = 'external';
+    };
+    media.onended = () => {
+      if (!media.ended || !this._isCurrentMedia(theme, generation, entry, media, source, attempt)) return;
+      if (theme !== 'ending') {
+        // Some television browsers emit ended even with loop enabled.
+        // Restart this same source rather than consuming the shuffle bag.
+        media.currentTime = 0;
+        this._playMedia(theme, generation);
+        return;
+      }
+      if (this._endedAttempt === attempt) return;
+      this._endedAttempt = attempt;
+      this._musicMode = 'ended';
+      const event = { theme, id: entry.id, title: entry.title || '' };
+      for (const listener of [...this._trackEndListeners]) listener(event);
+    };
   },
 
   // Used after reconnecting or replacing files; there is no automatic retry loop.

@@ -10,12 +10,16 @@ import { choice } from './utils.js';
 /* a friendly little nudge floating above every ground item -- purely cosmetic */
 const ITEM_HINTS = ['¡TÓMAME!', 'TE AYUDARÉ', '¡AQUÍ!', 'ÚSAME BIEN', 'SOY ÚTIL', '¡PARA TI!', 'LLÉVAME'];
 function _outMini(ctx, s, x, y, fill) {
-  ctx.fillStyle = 'rgba(2,4,10,0.95)';
-  ctx.fillText(s, x - 1, y - 1); ctx.fillText(s, x, y - 1); ctx.fillText(s, x + 1, y - 1);
-  ctx.fillText(s, x - 1, y);                                 ctx.fillText(s, x + 1, y);
-  ctx.fillText(s, x - 1, y + 1); ctx.fillText(s, x, y + 1); ctx.fillText(s, x + 1, y + 1);
+  ctx.save();
+  const width = Math.ceil(ctx.measureText(s).width) + 6;
+  ctx.fillStyle = 'rgba(4,7,16,0.86)';
+  ctx.fillRect(x - width / 2, y - 6, width, 12);
+  ctx.shadowColor = 'rgba(2,4,10,0.8)';
+  ctx.shadowBlur = 2;
+  ctx.shadowOffsetY = 0.5;
   ctx.fillStyle = fill;
   ctx.fillText(s, x, y);
+  ctx.restore();
 }
 
 /* ---------------- Pickup (collectible item on the ground) --------------- */
@@ -81,7 +85,7 @@ export class Pickup {
     // a friendly little floating hint above the item
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.font = 'bold 7px "Courier New", monospace';
+    ctx.font = '600 9px "Segoe UI", Arial, sans-serif';
     _outMini(ctx, this.hint, cx, sy - 6, '#ffe07a');
     ctx.restore();
   }

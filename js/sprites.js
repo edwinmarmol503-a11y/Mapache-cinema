@@ -1,10 +1,17 @@
 /* ============================================================
-   sprites.js  -  procedural placeholder pixel-art drawers.
+   sprites.js  -  procedural pixel-art drawers.
    Each function draws into ctx at screen coords. Replace with
    real sprite sheets later without touching gameplay code
    (see assets/README.txt).
    ============================================================ */
 export function px(ctx, x, y, w, h, c) { ctx.fillStyle = c; ctx.fillRect(x | 0, y | 0, w | 0, h | 0); }
+
+// Fine accents use half a world pixel on the high-resolution canvas. The
+// familiar stepped silhouettes and their collision sizes remain unchanged.
+function detail(ctx, x, y, w, h, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, w, h);
+}
 
 /**
  * The checkpoint: a battered trash can (Riko is a raccoon -- of course he
@@ -61,11 +68,14 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
     ctx.save();
     ctx.translate(x + w / 2, y + h / 2);
     ctx.rotate((Math.PI / 2) * f);
-    px(ctx, -w / 2 - 1, -h / 2 + 1, w + 2, h - 2, OUT);
-    px(ctx, -w / 2, -h / 2 + 2, w, h - 4, fur);
-    px(ctx, -w / 2, -h / 2 + 2, w, 3, dark);
-    px(ctx, -1, -h / 2 + 3, 1, 1, '#20242e');   // x_x
-    px(ctx, 2, -h / 2 + 3, 1, 1, '#20242e');
+    // Keep the actual tail, backpack and mask on the fallen body.
+    // The idle drawer is reused in a rotated frame; it never re-enters death.
+    drawRiko(ctx, -w / 2, -h / 2, w, h, 1, 'idle', 18, false, false);
+    for (const eyeX of [2 - w / 2, w / 2 - 4]) {
+      px(ctx, eyeX, 1 - h / 2, 2, 2, '#2b3140');
+      px(ctx, eyeX, 1 - h / 2, 1, 1, '#b6bccb');
+      px(ctx, eyeX + 1, 2 - h / 2, 1, 1, '#b6bccb');
+    }
     ctx.restore();
     return;
   }
@@ -166,14 +176,57 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   ctx.restore();
 }
 
+/** A brief, recognisable raccoon soul rises from the defeated body.
+ * x/y are the centre of the body; progress is its lifetime in [0, 1].
+ * Rendering has no collision or gameplay state and restores the context.
+ */
+export function drawRikoSoul(ctx, x, y, progress, facing = 1) {
+  if (!Number.isFinite(progress) || progress <= 0 || progress >= 1) return;
+  const p = Math.max(0, Math.min(1, progress));
+  const fadeIn = Math.min(1, p / 0.12);
+  const fadeOut = 1 - Math.max(0, (p - 0.58) / 0.42);
+  const rise = 44 * (p * (2 - p));
+  const sway = Math.sin(p * Math.PI * 3) * (1 + p * 3);
+  ctx.save();
+  ctx.translate(x + sway, y - rise);
+  ctx.scale(facing < 0 ? -1 : 1, 1);
+  ctx.globalAlpha *= fadeIn * fadeOut * 0.88;
+
+  // Soft light surrounds a stepped silhouette, preserving the pixel style.
+  const glow = ctx.createRadialGradient(0, -3, 1, 0, -3, 14);
+  glow.addColorStop(0, 'rgba(168,230,255,0.36)');
+  glow.addColorStop(1, 'rgba(168,230,255,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(-14, -17, 28, 28);
+
+  // A striped tail and ears identify the apparition as Riko.
+  px(ctx, -10, -2, 4, 8, '#b7dcf5');
+  px(ctx, -9, 0, 3, 2, '#79abc9');
+  px(ctx, -8, 4, 3, 2, '#79abc9');
+  px(ctx, -5, -8, 3, 3, '#edf8ff');
+  px(ctx, 2, -8, 3, 3, '#edf8ff');
+  px(ctx, -5, -5, 10, 10, '#dbf1ff');
+  px(ctx, -6, -3, 12, 7, '#dbf1ff');
+  px(ctx, -4, 4, 8, 4, '#dbf1ff');
+  const flutter = Math.sin(p * Math.PI * 8) > 0;
+  px(ctx, -5, 7, 3, flutter ? 3 : 2, '#dbf1ff');
+  px(ctx, 1, 7, 3, flutter ? 2 : 3, '#dbf1ff');
+  px(ctx, -5, -3, 10, 3, '#6595b6');
+  px(ctx, -3, -2, 2, 2, '#f8fcff');
+  px(ctx, 2, -2, 2, 2, '#f8fcff');
+  px(ctx, -1, 1, 3, 2, '#9dc5dc');
+  px(ctx, 0, 1, 1, 1, '#426783');
+  ctx.restore();
+}
+
 /* -------- SOMBRA -------- */
 export function drawSombra(ctx, x, y, w, h, facing, frame, flash) {
   const f = facing >= 0 ? 1 : -1;
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, 1); ctx.translate(-w / 2, -h / 2);
   const OUT = flash ? '#ffe0e0' : '#150c26';
-  const body = flash ? '#ffffff' : '#2a1f44';
-  const hi = flash ? '#ffe0e0' : '#3d2d63';
+  const body = flash ? '#ffffff' : '#47315e';
+  const hi = flash ? '#ffe0e0' : '#624780';
   const wob = Math.sin(frame * 0.35) * 1.4;
 
   // trailing smoke wisps
@@ -185,7 +238,8 @@ export function drawSombra(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 1, 1 + wob, w - 2, h - 1, OUT);
   px(ctx, 2, 2 + wob, w - 4, h - 3, body);
   px(ctx, 3, 3 + wob, w - 6, h - 6, hi);
-  px(ctx, 3, 3 + wob, w - 6, 1, '#5a4390');       // top rim highlight
+  px(ctx, 3, 3 + wob, w - 6, 1, flash ? '#ffffff' : '#8e69b0');
+  detail(ctx, 2, 4 + wob, 0.5, h - 7, flash ? '#ffffff' : '#a67ac4');
   // pointed ears
   px(ctx, 1, -1 + wob, 2, 3, OUT); px(ctx, 1, 0 + wob, 2, 2, body);
   px(ctx, w - 3, -1 + wob, 2, 3, OUT); px(ctx, w - 3, 0 + wob, 2, 2, body);
@@ -198,6 +252,9 @@ export function drawSombra(ctx, x, y, w, h, facing, frame, flash) {
   ctx.restore();
   px(ctx, 3, 3 + wob, 2, 2, '#dff0ff'); px(ctx, w - 5, 3 + wob, 2, 2, '#dff0ff');
   px(ctx, 3, 3 + wob, 1, 1, '#8fb8ff'); px(ctx, w - 5, 3 + wob, 1, 1, '#8fb8ff');
+  detail(ctx, 4, 4 + wob, 0.5, 1, '#233457');
+  detail(ctx, w - 4, 4 + wob, 0.5, 1, '#233457');
+  detail(ctx, w / 2 - 1.5, 7 + wob, 3, 0.5, flash ? '#ffffff' : '#c2a2dd');
   ctx.restore();
 }
 
@@ -207,8 +264,8 @@ export function drawCuervo(ctx, x, y, w, h, facing, frame, flash) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, 1); ctx.translate(-w / 2, -h / 2);
   const OUT = flash ? '#ffe0e0' : '#0e1420';
-  const body = flash ? '#ffffff' : '#1c2434';
-  const hi = flash ? '#ffe0e0' : '#333e5c';
+  const body = flash ? '#ffffff' : '#32405a';
+  const hi = flash ? '#ffe0e0' : '#526887';
   const flap = Math.sin(frame * 0.6);
 
   // tail fan
@@ -223,18 +280,23 @@ export function drawCuervo(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 3, 3, w - 5, h - 5, OUT);
   px(ctx, 4, 4, w - 7, h - 7, body);
   px(ctx, 5, 5, w - 9, 3, hi);
-  px(ctx, 5, 5, w - 9, 1, '#4a5878');             // sheen along the back
+  px(ctx, 5, 5, w - 9, 1, flash ? '#ffffff' : '#8aabc4');
   px(ctx, w - 4, 2, 4, 4, OUT);
   px(ctx, w - 3, 3, 3, 3, body);
   px(ctx, w, 4, 2, 1, '#d9a441');                 // beak
   px(ctx, w + 1, 5, 1, 1, '#b5822f');
   px(ctx, w - 3, 3, 1, 1, '#ff6a6a');             // eye
+  detail(ctx, w - 3, 2.5, 2, 0.5, flash ? '#ffffff' : '#91a8c5');
+  detail(ctx, w - 2.5, 3, 0.5, 0.5, '#fff0c2');
 
   // wings
   const up = flap > 0;
   px(ctx, -1, up ? 0 : 4, 6, 3, OUT);
   px(ctx, 0, up ? 1 : 5, 5, 2, hi);
   px(ctx, 1, up ? -1 : 6, 3, 2, body);
+  detail(ctx, 0, up ? 1 : 5, 4, 0.5, flash ? '#ffffff' : '#9cbbd2');
+  detail(ctx, 1, up ? 2 : 6, 0.5, 1.5, flash ? '#ffffff' : '#1c293b');
+  detail(ctx, 3, up ? 2 : 6, 0.5, 1.5, flash ? '#ffffff' : '#1c293b');
   ctx.restore();
 }
 
@@ -244,9 +306,9 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, 1); ctx.translate(-w / 2, -h / 2);
   const OUT = flash ? '#ffe0e0' : '#150b1a';
-  const body = flash ? '#ffffff' : '#3b2b4a';
-  const hi = flash ? '#ffe0e0' : '#4e3a63';
-  const plate = flash ? '#ffe0e0' : '#5a4070';
+  const body = flash ? '#ffffff' : '#593a67';
+  const hi = flash ? '#ffe0e0' : '#79538a';
+  const plate = flash ? '#ffe0e0' : '#956ba6';
   const chew = Math.floor(frame / 4) % 2;
 
   // legs
@@ -257,12 +319,14 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 0, 3, w, h - 3, OUT);
   px(ctx, 1, 4, w - 1, h - 5, body);
   px(ctx, 2, 5, w - 3, 3, hi);
-  px(ctx, 2, 5, w - 3, 1, '#6a4f83');              // spine highlight
+  px(ctx, 2, 5, w - 3, 1, flash ? '#ffffff' : '#b58ac4');
+  detail(ctx, 1, 7, 0.5, h - 9, flash ? '#ffffff' : '#9967a4');
+  detail(ctx, 4, h - 5, 3, 0.5, flash ? '#ffffff' : '#3a214c');
   // back plates
   for (let i = 0; i < 4; i++) {
     px(ctx, 2 + i * 4, 1, 3, 3, OUT);
     px(ctx, 3 + i * 4, 2, 2, 2, plate);
-    px(ctx, 3 + i * 4, 2, 1, 1, '#7a5c96');        // plate glint
+    detail(ctx, 3 + i * 4, 2, 1.5, 0.5, flash ? '#ffffff' : '#d0a4dc');
   }
   // maw
   const open = chew ? 7 : 5;
@@ -277,6 +341,7 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
   if (chew) px(ctx, w - 8, 4 + open + 1, 1, 2, '#8fd6ff');   // a drop of drool when the jaw opens wide
   px(ctx, w - 5, 3, 2, 2, '#ff5a5a');              // eye
   px(ctx, w - 5, 3, 1, 1, '#ffb0a0');              // eye glint
+  detail(ctx, w - 8, 5, 7, 0.5, flash ? '#ffffff' : '#b07b9e');
   ctx.restore();
 }
 
@@ -286,9 +351,9 @@ export function drawGuardian(ctx, x, y, w, h, facing, frame, flash, charging) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, 1); ctx.translate(-w / 2, -h / 2);
   const OUT = flash ? '#ffe0e0' : '#1b1f26';
-  const metal = flash ? '#ffffff' : '#606775';
-  const metalD = flash ? '#ffe0e0' : '#3d434e';
-  const rivet = flash ? '#ffffff' : '#8b93a0';
+  const metal = flash ? '#ffffff' : '#7a899a';
+  const metalD = flash ? '#ffe0e0' : '#47566a';
+  const rivet = flash ? '#ffffff' : '#c6d6e2';
   const lamp = charging ? '#ff7a3c' : '#f4c542';
   const bob = Math.floor(frame / 6) % 2;
 
@@ -306,8 +371,11 @@ export function drawGuardian(ctx, x, y, w, h, facing, frame, flash, charging) {
   px(ctx, w - 7, 1 + bob, 2, 2, charging ? '#ff5a5a' : '#8fb8ff');
   px(ctx, 1, 4, w - 2, h - 7, OUT);
   px(ctx, 2, 5, w - 4, h - 9, metal);
-  px(ctx, 2, 5, w - 4, 1, '#8f97a6');              // shoulder-line highlight
+  px(ctx, 2, 5, w - 4, 1, flash ? '#ffffff' : '#beceda');
   px(ctx, 3, 6, w - 6, h - 12, metalD);
+  detail(ctx, 2, 6, 0.5, h - 11, flash ? '#ffffff' : '#a9bdce');
+  detail(ctx, w - 3, 6, 0.5, h - 11, flash ? '#ffffff' : '#334357');
+  detail(ctx, 4, 1 + bob, w - 8, 0.5, flash ? '#ffffff' : '#8babc3');
   // rivets
   px(ctx, 3, 6, 1, 1, rivet); px(ctx, w - 4, 6, 1, 1, rivet);
   px(ctx, 3, h - 6, 1, 1, rivet); px(ctx, w - 4, h - 6, 1, 1, rivet);
@@ -350,6 +418,8 @@ export function drawFarolero(ctx, x, y, w, h, facing, frame, phase, flash, vulne
   px(ctx, cx - 6, float, 12, 9, OUT);
   px(ctx, cx - 5, 1 + float, 10, 8, robe);
   px(ctx, cx - 5, 1 + float, 10, 2, robeD);
+  detail(ctx, cx - 5, 1 + float, 10, 0.5, flash ? '#ffffff' : '#6b7aab');
+  detail(ctx, cx - 6, 8 + float, 0.5, h - 19, flash ? '#ffffff' : '#6771a0');
   // eyes under the hood
   const eye = vulnerable ? '#ffb060' : '#8fb8ff';
   px(ctx, cx - 4, 4 + float, 2, 2, eye);

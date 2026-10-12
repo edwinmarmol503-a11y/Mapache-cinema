@@ -208,7 +208,7 @@ export class Player {
     if (this.onGround) { this.coyote = 0.1; this.usedDouble = false; }
     else this.coyote -= dt;
     if (this.airJumpFlash > 0) this.airJumpFlash -= dt;
-    if (Input.justPressed('jump')) this.jumpBuffer = 0.12;
+    if (Input.justPressed('jump') && !Input.down('parry')) this.jumpBuffer = 0.12;
     else this.jumpBuffer -= dt;
     this.dropThrough = Input.down('down');
 

@@ -95,7 +95,7 @@ export class Door extends PuzzleEl {
   constructor(o, ts) {
     super(o, ts);
     this.tall = o.tall || 2;
-    this.w = ts; this.h = this.tall * ts;
+    this.w = ts * (o.width || 1); this.h = this.tall * ts;
     this.y = o.ty * ts;
     this.locked = !!o.locked;
     this.needs = o.needs || 'llave';
@@ -249,7 +249,12 @@ export class Magnet extends PuzzleEl {
     this.used = false;
     this.pulse = 0;
   }
-  update(dt) { this.pulse += dt; }
+  update(dt, world) {
+    this.pulse += dt;
+    // Re-emit restored one-time state: doors also require the magnet signal
+    // after continuing a saved game or respawning at a checkpoint.
+    if (this.id && world) world.signals[this.id] = this.used;
+  }
   canInteract(world) { return !this.used && world.inventory.has('iman'); }
   interact(world) {
     if (!this.canInteract(world)) return;

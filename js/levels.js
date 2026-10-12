@@ -134,7 +134,7 @@ export const LEVELS = [
       { tx: 0, ty: 0, w: 7, h: 20, dialogue: [
         { speaker: 'Riko', text: 'Lumera. Mi ciudad. Cada luz, un recuerdo encendido.' },
         { speaker: 'Riko', text: 'Toqué una esfera en un contenedor… y ahora se apagan una a una.' },
-        { text: 'Mueve con A/D o Flechas. Salta con Espacio. En el aire, salta otra vez: doble salto (más corto).' },
+        { text: 'Mueve con A/D o Flechas. Salta con W o Flecha arriba; en móvil y mando, mueve hacia arriba. Repite en el aire para el doble salto.' },
       ] },
       { tx: 34, ty: 8, w: 3, h: 12, dialogue: [
         { text: 'Ataca con J. Esquiva con Shift. Cae sobre un enemigo para pisarle la cabeza (le quita 1 vida, a ti nada).' },
@@ -259,7 +259,9 @@ export const LEVELS = [
       { type: 'crate', tag: 'box1', metal: true, tx: 19, ty: 14 },
       { type: 'button', id: 'bx1', tx: 24, ty: 16, momentary: false },
       { type: 'magnet', id: 'm1', tx: 28, ty: 16, crate: 'box1', snapTx: 24, snapTy: 16 },
-      { type: 'door', id: 'd_s1', tx: 32, ty: 15, tall: 2, requires: ['bx1'] },
+      // The sealed sluice reaches from the floor to the top of the corridor.
+      // Standing on the plate alone cannot replace using the magnet.
+      { type: 'door', id: 'd_s1', tx: 32, ty: 0, width: 2, tall: 17, requires: ['m1', 'bx1'] },
 
       /* B) an ever-running ferry -- the ONLY way across the 17-tile gap.
          It rests overlapping the left edge (just walk on) and carries you to
