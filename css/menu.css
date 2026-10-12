@@ -314,12 +314,62 @@ html[data-visual="day"] .menu-content { background: radial-gradient(ellipse at c
 .credits-body .who  { color: var(--c-ink); }
 .credits-body .sec  { margin-top: 14px; color: var(--c-blue); letter-spacing: 3px; border-bottom: 1px solid #1c2a48; }
 
+/* The developer panel lives in Credits; its access code is never printed here. */
+.developer-controls {
+  margin-top: 22px;
+  padding: 14px;
+  border: 1px solid #334766;
+  border-radius: 6px;
+  background: #0b1528;
+  font-size: 14px;
+  line-height: 1.6;
+}
+.developer-controls summary { cursor: pointer; color: var(--c-gold); font-weight: 700; }
+.developer-controls label { display: block; margin: 12px 0 6px; color: var(--c-ink); }
+.developer-code-row { display: flex; gap: 8px; align-items: stretch; }
+.developer-controls input, .developer-controls select {
+  width: 100%; min-width: 0; min-height: 42px;
+  padding: 8px 10px; font: inherit;
+  color: var(--c-ink); background: #060d1a;
+  border: 1px solid #3a5074; border-radius: 4px;
+}
+.developer-code-row input { flex: 1; }
+.developer-code-row button { flex: 0 0 auto; }
+.developer-controls .option-note { font-size: 13px; line-height: 1.65; letter-spacing: 0; }
+.developer-pad-status { color: #f2cb81; overflow-wrap: anywhere; }
+.developer-pad-status.connected { color: #97e5af; }
+.developer-pad-guide { margin: 14px 0; font-size: 13px; }
+.developer-pad-guide div { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 5px 0; border-bottom: 1px solid #243552; }
+.developer-pad-guide dt { color: var(--c-gold); }
+.developer-pad-guide dd { color: var(--c-ink); margin: 0; }
+.developer-controls .hidden { display: none; }
+
+/* Focus remains visible while navigating every DOM screen with a controller. */
+.screen .gamepad-focus {
+  outline: 3px solid var(--c-gold);
+  outline-offset: 4px;
+  box-shadow: 0 0 16px rgba(244,197,66,0.25);
+}
+#screen-menu .menu-nav button.gamepad-focus { color: var(--c-gold); }
+.screen button:focus-visible, .screen summary:focus-visible, .screen select:focus-visible,
+.screen input:focus-visible, .screen a:focus-visible {
+  outline: 3px solid var(--c-gold); outline-offset: 3px;
+}
+.screen button:disabled { cursor: not-allowed; }
+@media (max-width: 420px) {
+  .developer-controls { padding: 10px; }
+  .developer-code-row { flex-wrap: wrap; }
+  .developer-code-row input { flex-basis: 100%; }
+  .developer-code-row button { width: 100%; }
+  .developer-pad-guide div { grid-template-columns: 1fr; gap: 0; }
+}
+
 #btn-install.hidden { display: none; }
 #btn-install { border-color: var(--c-gold); color: var(--c-gold); }
 #btn-install:hover { box-shadow: 0 0 14px rgba(244,197,66,0.35); }
 
 /* ---- victory screen: a small constellation of Lumera lanterns behind the ending ---- */
-#screen-victory { background: #000; z-index: 25; overflow: hidden; }
+#screen-victory { background: linear-gradient(180deg, rgba(3,7,18,.4), transparent 65%); z-index: 25; overflow: hidden; }
 .victory-box { position: relative; z-index: 1; text-align: center; padding: 20px; animation: victory-in 0.6s ease-out; }
 .victory-lanterns { position: absolute; inset: 0; pointer-events: none; }
 .victory-lantern {
@@ -350,11 +400,16 @@ html[data-visual="day"] .menu-content { background: radial-gradient(ellipse at c
   52% { opacity: 0.7; filter: brightness(0.78); }
 }
 #victory-title {
-  font-size: 40px; letter-spacing: 6px; color: var(--c-gold);
-  text-shadow: 0 0 24px rgba(244,197,66,0.6), 0 0 60px rgba(244,197,66,0.3);
+  font-size: clamp(28px, 6vw, 78px); letter-spacing: clamp(2px, .5vw, 6px); color: var(--c-gold);
+  text-shadow: 0 2px 6px #02040b, 0 0 24px rgba(244,197,66,0.6);
   margin-bottom: 14px;
 }
-#victory-sub { color: var(--c-dim); font-size: 13px; letter-spacing: 1px; margin-bottom: 26px; max-width: 480px; }
+#victory-sub { color: #e7f1ff; text-shadow: 0 2px 4px #02040b; font-size: clamp(13px, 1.5vw, 18px); letter-spacing: 1px; margin: 0 auto 26px; max-width: 620px; line-height: 1.6; }
+.ending-mark { position: absolute; top: max(38px, calc(env(safe-area-inset-top) + 20px)); font-weight: 800; font-size: clamp(18px, 3vw, 32px); color: #f6dfa0; letter-spacing: 3px; text-shadow: 0 2px 4px #02040b; }
+.ending-mark-left { left: max(42px, calc(env(safe-area-inset-left) + 22px)); }
+.ending-mark-right { right: max(42px, calc(env(safe-area-inset-right) + 22px)); }
+#victory-menu { position: absolute; left: max(42px, calc(env(safe-area-inset-left) + 22px)); bottom: max(38px, calc(env(safe-area-inset-bottom) + 20px)); width: auto; min-height: 44px; max-width: calc(100% - 84px); padding: 12px 18px; margin: 0; background: rgba(5,12,25,.85); }
+#screen-victory .victory-box { max-width: calc(100% - 40px); }
 @keyframes victory-in {
   from { opacity: 0; transform: scale(0.92); }
   to   { opacity: 1; transform: none; }

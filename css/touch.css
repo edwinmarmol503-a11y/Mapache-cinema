@@ -158,7 +158,7 @@
 }
 .tc-joystick.active .tc-stick-thumb { border-color: var(--c-gold, #f4c542); }
 .tc-stick-guide { position: absolute; color: rgba(183,210,237,.55); font-size: 10px; pointer-events: none; }
-.tc-stick-up { top: 8px; left: 59px; }
+.tc-stick-up { top: 8px; left: 35px; width: 62px; text-align: center; font-size: 9px; letter-spacing: .5px; }
 .tc-stick-down { bottom: 8px; left: 59px; }
 .tc-stick-left { left: 10px; top: 57px; }
 .tc-stick-right { right: 10px; top: 57px; }
@@ -167,48 +167,55 @@
 .tc-dpad { position: absolute; inset: 0; display: none; pointer-events: none; }
 #touch-layer[data-mode="dpad"] .tc-joystick { display: none; }
 #touch-layer[data-mode="dpad"] .tc-dpad { display: block; }
-.tc-dpad .tc-btn { width: 46px; height: 46px; font-size: 18px; }
-.tc-d-up    { left: 43px; top: 0; }
-.tc-d-down  { left: 43px; top: 86px; }
-.tc-d-left  { left: 0; top: 43px; }
-.tc-d-right { left: 86px; top: 43px; }
+.tc-dpad .tc-btn { width: 44px; height: 44px; font-size: 18px; }
+.tc-d-up    { left: 44px; top: 0; }
+.tc-d-down  { left: 44px; top: 88px; }
+.tc-d-left  { left: 0; top: 44px; }
+.tc-d-right { left: 88px; top: 44px; }
 
-/* ---- four main actions; extra tools open above the cluster ---- */
+/* Three frequent actions sit in a short thumb arc. Jump lives on Up in
+   the movement control, leaving room for larger, comfortable action targets. */
 .tc-actions {
   position: absolute;
   right: max(16px, calc(env(safe-area-inset-right) + 10px));
   bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
-  width: 202px;
-  height: 148px;
+  width: 168px;
+  height: 142px;
   pointer-events: none;
 }
 .tc-actions .tc-btn { font-size: 11px; }
-.tc-a-jump { left: 128px; top: 74px; width: 72px; height: 72px; border-color: rgba(130,218,138,.80); }
-.tc-a-atk { left: 66px; top: 10px; width: 64px; height: 64px; border-color: rgba(241,126,101,.80); }
-.tc-a-dodge { left: 16px; top: 88px; width: 56px; height: 56px; }
-.tc-a-interact { left: 0; top: 24px; width: 48px; height: 48px; border-color: rgba(77,202,186,.72); }
-.tc-a-more { left: 152px; top: 19px; width: 46px; height: 46px; font-size: 10px; color: var(--c-dim, #9fb2cc); border-style: dashed; }
+.tc-a-atk { left: 94px; top: 70px; width: 70px; height: 70px; border-color: rgba(241,126,101,.80); }
+.tc-a-dodge { left: 20px; top: 80px; width: 60px; height: 60px; }
+.tc-a-interact { left: 28px; top: 10px; width: 58px; height: 58px; border-color: rgba(77,202,186,.72); }
+.tc-a-more { left: 108px; top: 12px; width: 44px; height: 44px; font-size: 10px; color: var(--c-dim, #9fb2cc); border-style: dashed; }
 .tc-a-more.expanded { color: var(--c-gold, #f4c542); border-color: var(--c-gold, #f4c542); }
 .tc-secondary {
   position: absolute;
-  left: 0;
-  bottom: 158px;
-  width: 202px;
+  left: -20px;
+  bottom: 148px;
+  width: 188px;
   display: flex;
   gap: 4px;
   padding: 4px 0;
   pointer-events: none;
 }
 .tc-secondary[hidden] { display: none; }
-.tc-secondary .tc-btn { position: static; flex: 0 0 47px; width: 47px; height: 47px; font-size: 10px; }
+.tc-secondary .tc-btn { position: static; flex: 0 0 44px; width: 44px; height: 44px; font-size: 10px; }
 .tc-s-parry { border-color: rgba(244,197,66,.78); }
 .tc-pause {
   top: max(8px, calc(env(safe-area-inset-top) + 4px));
   left: var(--touch-pause-left, 64%);
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   font-size: 18px;
   border-color: rgba(159,178,204,.55);
+}
+
+/* Choices hide the HUD. Keep pause beside the centred choice panel, so a
+   long prompt can use the upper part of a small phone without covering it. */
+.touch-mode.choosing .tc-pause {
+  left: auto;
+  right: var(--touch-pause-right, 8px);
 }
 
 .touch-mode #toast-layer { top: 50%; bottom: auto; max-width: calc(100% - 24px); }
@@ -216,12 +223,11 @@
 /* Mirror the control groups without mirroring text or moving the pause button. */
 #touch-layer[data-layout="left"] .tc-movement { left: auto; right: max(18px, calc(env(safe-area-inset-right) + 12px)); }
 #touch-layer[data-layout="left"] .tc-actions { right: auto; left: max(16px, calc(env(safe-area-inset-left) + 10px)); }
-#touch-layer[data-layout="left"] .tc-a-jump { left: 2px; }
-#touch-layer[data-layout="left"] .tc-a-atk { left: 72px; }
-#touch-layer[data-layout="left"] .tc-a-dodge { left: 130px; }
-#touch-layer[data-layout="left"] .tc-a-interact { left: 154px; }
-#touch-layer[data-layout="left"] .tc-a-more { left: 4px; }
-#touch-layer[data-layout="left"] .tc-secondary { flex-direction: row-reverse; }
+#touch-layer[data-layout="left"] .tc-a-atk { left: 4px; }
+#touch-layer[data-layout="left"] .tc-a-dodge { left: 88px; }
+#touch-layer[data-layout="left"] .tc-a-interact { left: 82px; }
+#touch-layer[data-layout="left"] .tc-a-more { left: 16px; }
+#touch-layer[data-layout="left"] .tc-secondary { left: 0; flex-direction: row-reverse; }
 .tc-options { border-top: 1px solid #1c2a48; margin-top: 12px; padding-top: 12px; }
 .tc-options h3 { color: var(--c-gold, #f4c542); font-size: 12px; letter-spacing: 2px; }
 .tc-options .opt-row { grid-template-columns: 1fr minmax(130px, 1fr); }
@@ -229,10 +235,11 @@
 .tc-options p { color: var(--c-dim, #9fb2cc); font-size: 11px; line-height: 1.5; margin: 8px 0; }
 
 @media (max-height: 360px) and (orientation: landscape) {
-  .tc-movement { transform: scale(.88); transform-origin: bottom left; }
-  .tc-actions { transform: scale(.90); transform-origin: bottom right; }
-  #touch-layer[data-layout="left"] .tc-movement { transform-origin: bottom right; }
-  #touch-layer[data-layout="left"] .tc-actions { transform-origin: bottom left; }
+  /* Keep hit areas at 44px or larger instead of scaling buttons below that
+     size on the phones where precision is already hardest. */
+  .tc-movement,
+  .tc-actions { bottom: max(10px, calc(env(safe-area-inset-bottom) + 6px)); }
+  .tc-secondary { bottom: 142px; }
 }
 
 /* ---- landscape-only nudge ---- */

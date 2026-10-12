@@ -22,9 +22,10 @@ html, body {
   width: 100%; height: 100%;
   background: #000;
   overflow: hidden;
-  font-family: "Courier New", "Consolas", monospace;
+  font-family: "Segoe UI", Arial, sans-serif;
   color: var(--c-ink);
-  -webkit-font-smoothing: none;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 #app {
@@ -66,7 +67,7 @@ html, body {
     radial-gradient(circle 6px at calc(100% - 13px) 13px, #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
     radial-gradient(circle 6px at 13px calc(100% - 13px), #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
     radial-gradient(circle 6px at calc(100% - 13px) calc(100% - 13px), #d3c094 22%, #30200e 36%, #100b06 62%, transparent 68%),
-    repeating-linear-gradient(4deg, rgba(255,255,255,.035) 0 1px, rgba(0,0,0,.045) 1px 4px, transparent 4px 9px);
+    repeating-linear-gradient(4deg, rgba(255,255,255,.01) 0 1px, rgba(0,0,0,.01) 1px 4px, transparent 4px 9px);
   background-clip: padding-box;
 }
 #app::after {
@@ -99,8 +100,7 @@ html, body {
 #gs {
   display: block;
   flex: none;
-  image-rendering: crisp-edges;
-  image-rendering: pixelated;
+  image-rendering: auto;
   background: #050810;
   border-radius: 3px;
   box-shadow:
@@ -200,3 +200,6 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   outline-offset: 4px;
 }
 button:disabled { cursor: not-allowed; }
+
+/* Keep the original title treatment; smaller interface copy uses native type. */
+.title, .subtitle, .version { font-family: "Courier New", "Consolas", monospace; }
