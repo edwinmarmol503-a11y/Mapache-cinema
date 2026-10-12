@@ -17,11 +17,7 @@ import { GamepadController } from './gamepad.js';
 import { LOGICAL_WIDTH, LOGICAL_HEIGHT, resizeBacking } from './display.js';
 
 /* ---------------- PWA: offline cache + installability ---------------- */
-if ('serviceWorker' in navigator) {
-  const registerOffline = () => navigator.serviceWorker.register('./sw.js').catch(() => {});
-  if (document.readyState === 'complete') registerOffline();
-  else window.addEventListener('load', registerOffline, { once: true });
-}
+// bootstrap.js prepares a consistent offline cache before importing the game.
 let _installPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
