@@ -16,7 +16,7 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión local 4.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 4.0.1:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -27,6 +27,11 @@ También funciona con la escala de Windows al 125% o 150%. En celular se ajusta
 siempre al espacio disponible en horizontal, respetando las zonas seguras de
 la pantalla; los menús también pueden usarse en vertical. El tamaño siempre
 se ajusta automáticamente; la antigua opción de escala se ha retirado.
+
+Al abrir una actualización, el cargador prepara primero la nueva caché y después
+inicia el juego. Así se evita mezclar módulos antiguos con una pantalla nueva.
+Las partidas y opciones guardadas se conservan; una copia ya instalada sigue
+funcionando sin conexión y una partida activa nunca se recarga automáticamente.
 
 El servidor de desarrollo (`pnpm start`, Node.js 24+, puerto 4173) incluye una
 base SQLite de prueba en `.local/ranking.sqlite`.
@@ -237,7 +242,7 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
-La versión 4.0.0 conserva letras nativas con mayor contraste, siluetas de enemigos
+La versión 4.0.1 conserva letras nativas con mayor contraste, siluetas de enemigos
 más visibles y controles de exposición. Agrega lluvia y hojas más suaves,
 una barrera del imán que no se puede saltar, el alma de Riko al morir y créditos
 con tejados en movimiento, EKD, FELICIDADES y 3E. Las pruebas de mandos utilizan

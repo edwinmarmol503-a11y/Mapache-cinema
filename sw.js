@@ -3,7 +3,8 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const CACHE_NAME = 'mapache-cinema-v4.0.0-musica-creditos';
+const RELEASE_VERSION = '4.0.1';
+const CACHE_NAME = 'mapache-cinema-v4.0.1-arranque';
 // GitHub web uploads may retain the three soundtrack batch directories.
 // Both layouts stay inside this game's scope and use the same lazy cache.
 const AUDIO_DIRECTORIES = [
@@ -62,9 +63,16 @@ const ASSETS = [
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open(CACHE_NAME)
-      .then((cache) => cache.addAll(ASSETS))
+      .then((cache) => cache.addAll(ASSETS.map(asset =>
+        new Request(new URL(asset, self.registration.scope), { cache: 'reload' }))))
       .then(() => self.skipWaiting())
   );
+});
+
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'GET_BUILD_VERSION') {
+    event.ports?.[0]?.postMessage({ version: RELEASE_VERSION });
+  }
 });
 
 self.addEventListener('activate', (e) => {
@@ -99,7 +107,7 @@ async function serveAudio(event) {
     }
     return response;
   } catch {
-    // The music player switches to its generated soundtrack on a media error.
+    // Missing soundtrack files stay silent; effects remain available.
     return Response.error();
   }
 }
@@ -147,23 +155,49 @@ self.addEventListener('fetch', (e) => {
   }
   const known = ASSETS.some(p => new URL(p, self.registration.scope).pathname === url.pathname);
   if (!known) return;
+  const requestedVersion = url.searchParams.get('v');
+  if (requestedVersion && requestedVersion !== RELEASE_VERSION) {
+    // A future document must receive its future loader/styles, never this
+    // worker's canonical copy. That loader can then upgrade the worker itself.
+    e.respondWith(fetch(new Request(e.request, { cache: 'reload' })).catch(() => Response.error()));
+    return;
+  }
+  // Versioned HTML links bypass older workers, then map to this build's
+  // canonical precache so the installed game also starts without a network.
+  const canonical = new URL(url);
+  canonical.search = '';
+  canonical.hash = '';
   if (e.request.mode === 'navigate' || url.pathname.endsWith('/tracks.json')) {
     e.respondWith(fetch(e.request).then(async res => {
-      if (res.ok && res.type !== 'opaque') { const cache = await caches.open(CACHE_NAME); await cache.put(e.request, res.clone()); }
+      if (res.ok && res.type !== 'opaque') {
+        try { const cache = await caches.open(CACHE_NAME); await cache.put(canonical.href, res.clone()); }
+        catch { /* Storage restrictions cannot discard a usable network page. */ }
+      }
       return res;
-    }).catch(async () => (await caches.match(e.request)) || (await caches.match('./index.html')) || Response.error()));
+    }).catch(async () => {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        return (await cache.match(canonical.href)) ||
+          (await cache.match(new URL('./index.html', self.registration.scope).href)) || Response.error();
+      } catch { return Response.error(); }
+    }));
     return;
   }
   e.respondWith(
-    caches.match(e.request).then((cached) => {
-      const fetchPromise = fetch(e.request).then((res) => {
-        if (res && res.ok) {
-          const copy = res.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(e.request, copy));
+    (async () => {
+      let cache;
+      try {
+        cache = await caches.open(CACHE_NAME);
+        const cached = await cache.match(canonical.href);
+        if (cached) return cached;
+      } catch { /* Continue online when a browser restricts Cache Storage. */ }
+      try {
+        const response = await fetch(new Request(e.request, { cache: 'reload' }));
+        if (cache && response.ok && response.type !== 'opaque') {
+          e.waitUntil(cache.put(canonical.href, response.clone()).catch(() => {}));
         }
-        return res;
-      }).catch(() => cached || Response.error());
-      return cached || fetchPromise;
-    })
+        return response;
+      } catch { return Response.error(); }
+    })()
   );
 });
