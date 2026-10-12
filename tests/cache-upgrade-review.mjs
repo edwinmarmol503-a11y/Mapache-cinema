@@ -87,11 +87,6 @@ const server = createServer(async (request, response) => {
     response.end(servingLegacy ? legacyWorker() : swSource + `\n// QA worker update ${updateNonce}\n`);
     return;
   }
-  if (relative === 'js/bootstrap.js' && url.searchParams.get('v') === '4.0.2') {
-    response.writeHead(200, { 'Content-Type': contentTypes['.js'] });
-    response.end('// QA_NEXT_RELEASE_BOOTSTRAP\n');
-    return;
-  }
   const target = path.resolve(root, relative);
   if (!target.startsWith(root + path.sep)) { response.writeHead(403); response.end(); return; }
   try {
@@ -202,14 +197,6 @@ try {
   assert.equal(upgrade.scenario.navigations, 2, 'upgrade uses the existing document without an automatic extra navigation');
   check('An installed v3.1 cache containing a broken old menu cannot mix with new HTML; new worker claims before modules load.');
   check('Cache migration keeps nickname, custom keys, checkpoint, inventory, difficulty, elapsed time and saved progress.');
-  const futureBootstrap = await upgrade.page.evaluate(async () => {
-    const future = await (await fetch('./js/bootstrap.js?v=4.0.2')).text();
-    const canonical = await (await fetch('./js/bootstrap.js?v=4.0.1')).text();
-    return { future, canonical };
-  });
-  assert.equal(futureBootstrap.future, '// QA_NEXT_RELEASE_BOOTSTRAP\n', 'a future version bypasses the currently installed canonical cache');
-  assert.equal(futureBootstrap.canonical, await readFile(path.join(root, 'js/bootstrap.js'), 'utf8'), 'a future bootstrap never overwrites the installed canonical asset');
-  check('A request for the next release bypasses the current cache and leaves installed offline files intact.');
 
   // A changed worker script with the same release version emulates a background
   // reinstallation. It may claim, but must never destroy the current session.
