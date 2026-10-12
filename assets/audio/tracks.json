@@ -1,124 +1,343 @@
 {
-  "version": 3,
+  "version": 4,
   "tracks": [
     {
       "id": "pista-01",
-      "title": "Pista 01",
-      "src": "../../01-AUDIOS-1-A-4/assets/audio/pista-01.mp3",
-      "gain": 0.65,
+      "title": "Pleito",
+      "artist": "Alcazone",
+      "src": "pista-01.mp3",
       "alternateSrcs": [
-        "pista-01.mp3"
-      ]
+        "../../01-AUDIOS-1-A-4/assets/audio/pista-01.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 136.0
     },
     {
       "id": "pista-02",
-      "title": "Pista 02",
-      "src": "../../01-AUDIOS-1-A-4/assets/audio/pista-02.mp3",
-      "gain": 0.65,
+      "title": "Leyendas Urbanas",
+      "artist": "Nerso & Verse",
+      "src": "pista-02.mp3",
       "alternateSrcs": [
-        "pista-02.mp3"
-      ]
+        "../../01-AUDIOS-1-A-4/assets/audio/pista-02.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 179.0
     },
     {
       "id": "pista-03",
-      "title": "Pista 03",
-      "src": "../../01-AUDIOS-1-A-4/assets/audio/pista-03.mp3",
-      "gain": 0.65,
+      "title": "BAGHIRA: STRADIVARI | CHUTY VS ACZINO | RED BULL INTERNACIONAL 2023 | INSTRUMENTAL RÉPLICA",
+      "artist": "MC'GS",
+      "src": "pista-03.mp3",
       "alternateSrcs": [
-        "pista-03.mp3"
-      ]
+        "../../01-AUDIOS-1-A-4/assets/audio/pista-03.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 209.0
     },
     {
       "id": "pista-04",
-      "title": "Pista 04",
-      "src": "../../01-AUDIOS-1-A-4/assets/audio/pista-04.mp3",
-      "gain": 0.65,
+      "title": "BNET vs VALLES-T | BEAT 3: TURQUESA de ALCAZONE",
+      "artist": "Red Bull Batalla",
+      "src": "pista-04.mp3",
       "alternateSrcs": [
-        "pista-04.mp3"
-      ]
+        "../../01-AUDIOS-1-A-4/assets/audio/pista-04.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 205.0
     },
     {
       "id": "pista-05",
-      "title": "Pista 05",
-      "src": "../../02-AUDIOS-5-A-8/assets/audio/pista-05.mp3",
-      "gain": 0.65,
+      "title": "Instrumental primer minuto libre (sangre)_Trueno vs Dani",
+      "artist": "Leon Angel26",
+      "src": "pista-05.mp3",
       "alternateSrcs": [
-        "pista-05.mp3"
-      ]
+        "../../02-AUDIOS-5-A-8/assets/audio/pista-05.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 271.0
     },
     {
       "id": "pista-06",
-      "title": "Pista 06",
-      "src": "../../02-AUDIOS-5-A-8/assets/audio/pista-06.mp3",
-      "gain": 0.65,
+      "title": "Drámatico",
+      "artist": "Alcazone",
+      "src": "pista-06.mp3",
       "alternateSrcs": [
-        "pista-06.mp3"
-      ]
+        "../../02-AUDIOS-5-A-8/assets/audio/pista-06.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 161.0
     },
     {
       "id": "pista-07",
-      "title": "Pista 07",
-      "src": "../../02-AUDIOS-5-A-8/assets/audio/pista-07.mp3",
-      "gain": 0.65,
+      "title": "Leyenda",
+      "artist": "Alcazone",
+      "src": "pista-07.mp3",
       "alternateSrcs": [
-        "pista-07.mp3"
-      ]
+        "../../02-AUDIOS-5-A-8/assets/audio/pista-07.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 222.0
     },
     {
       "id": "pista-08",
-      "title": "Pista 08",
-      "src": "../../02-AUDIOS-5-A-8/assets/audio/pista-08.mp3",
-      "gain": 0.65,
+      "title": "BEAT  JONY BELTRÁN vs CACHA   SANGRE 1   FMS INTERNACIONAL   ALCAZONE (12)",
+      "artist": "ALVARO DANIEL",
+      "src": "pista-08.mp3",
       "alternateSrcs": [
-        "pista-08.mp3"
-      ]
+        "../../02-AUDIOS-5-A-8/assets/audio/pista-08.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 180.0
     },
     {
       "id": "pista-09",
-      "title": "Pista 09",
-      "src": "../../03-AUDIOS-9-A-11/assets/audio/pista-09.mp3",
-      "gain": 0.65,
+      "title": "INSTRUMENTAL Trueno vs Cacha {PERSONAJES} + cortes",
+      "artist": "watch mpv",
+      "src": "pista-09.mp3",
       "alternateSrcs": [
-        "pista-09.mp3"
-      ]
+        "../../03-AUDIOS-9-A-11/assets/audio/pista-09.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 315.0
     },
     {
       "id": "pista-10",
-      "title": "Pista 10",
-      "src": "../../03-AUDIOS-9-A-11/assets/audio/pista-10.mp3",
-      "gain": 0.65,
+      "title": "Instrumental SUB vs CACHA   Minuto de SANGRE   FMS ARGENTINA 2019",
+      "artist": "TRIPLEFEMUR",
+      "src": "pista-10.mp3",
       "alternateSrcs": [
-        "pista-10.mp3"
-      ]
+        "../../03-AUDIOS-9-A-11/assets/audio/pista-10.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 239.0
     },
     {
       "id": "pista-11",
-      "title": "Pista 11",
-      "src": "../../03-AUDIOS-9-A-11/assets/audio/pista-11.mp3",
-      "gain": 0.65,
+      "title": "Condor Pasa",
+      "artist": "DJ Dmandado",
+      "src": "pista-11.mp3",
       "alternateSrcs": [
-        "pista-11.mp3"
-      ]
+        "../../03-AUDIOS-9-A-11/assets/audio/pista-11.mp3"
+      ],
+      "gain": 0.65,
+      "durationSeconds": 233.0
+    },
+    {
+      "id": "pista-12",
+      "title": "Selva Colombiana",
+      "artist": "Azerbeats",
+      "src": "pista-12.mp3",
+      "gain": 0.65,
+      "durationSeconds": 165.0
+    },
+    {
+      "id": "pista-13",
+      "title": "\"SOUND OF GUETTO\" CHUTY VS WOS INSTRUMENTALES OFICIALES GOD LEVEL FEST (PERU) REPLICA",
+      "artist": "Jbeat",
+      "src": "pista-13.mp3",
+      "gain": 0.65,
+      "durationSeconds": 223.0
+    },
+    {
+      "id": "pista-14",
+      "title": "Salmo 1",
+      "artist": "DJ Dmandado",
+      "src": "pista-14.mp3",
+      "gain": 0.65,
+      "durationSeconds": 123.0
+    },
+    {
+      "id": "pista-15",
+      "title": "Beat | Papo vs Replik | 1 Minuto Sangre | FMS Arg 2018",
+      "artist": "CeBa Beats",
+      "src": "pista-15.mp3",
+      "gain": 0.65,
+      "durationSeconds": 168.0
+    },
+    {
+      "id": "pista-16",
+      "title": "Impune",
+      "artist": "Alcazone",
+      "src": "pista-16.mp3",
+      "gain": 0.65,
+      "durationSeconds": 240.0
+    },
+    {
+      "id": "pista-17",
+      "title": "Dicen  - AlcaZone |  Causa & Consecuencia",
+      "artist": "AlcaZone",
+      "src": "pista-17.mp3",
+      "gain": 0.65,
+      "durationSeconds": 129.0
+    },
+    {
+      "id": "pista-18",
+      "title": "Zurna",
+      "artist": "Red Bull Batalla, Baghira",
+      "src": "pista-18.mp3",
+      "gain": 0.65,
+      "durationSeconds": 141.0
+    },
+    {
+      "id": "pista-19",
+      "title": "Llamador de freestylers",
+      "artist": "Alcazone",
+      "src": "pista-19.mp3",
+      "gain": 0.65,
+      "durationSeconds": 177.0
+    },
+    {
+      "id": "pista-20",
+      "title": "Salten - AlcaZone |  Causa & Consecuencia",
+      "artist": "AlcaZone",
+      "src": "pista-20.mp3",
+      "gain": 0.65,
+      "durationSeconds": 201.0
+    },
+    {
+      "id": "pista-21",
+      "title": "Azúcar - AlcaZone |  Causa & Consecuencia",
+      "artist": "AlcaZone",
+      "src": "pista-21.mp3",
+      "gain": 0.65,
+      "durationSeconds": 167.0
+    },
+    {
+      "id": "pista-22",
+      "title": "Tik Tok",
+      "artist": "Nerso & Verse",
+      "src": "pista-22.mp3",
+      "gain": 0.65,
+      "durationSeconds": 158.0
+    },
+    {
+      "id": "pista-23",
+      "title": "Escuela",
+      "artist": "Alcazone",
+      "src": "pista-23.mp3",
+      "gain": 0.65,
+      "durationSeconds": 124.0
+    },
+    {
+      "id": "pista-24",
+      "title": "FRANCO vs YARTZI | BEAT 1: VENDETTA de ALCAZONE",
+      "artist": "Red Bull Batalla",
+      "src": "pista-24.mp3",
+      "gain": 0.65,
+      "durationSeconds": 223.0
+    },
+    {
+      "id": "pista-25",
+      "title": "Instrumental 2 / Lokillo vs Marithea Red Bull",
+      "artist": "David Estrella",
+      "src": "pista-25.mp3",
+      "gain": 0.65,
+      "durationSeconds": 168.0
+    },
+    {
+      "id": "pista-26",
+      "title": "Muerte",
+      "artist": "Alcazone",
+      "src": "pista-26.mp3",
+      "gain": 0.65,
+      "durationSeconds": 189.0
+    },
+    {
+      "id": "pista-27",
+      "title": "\"Wos vs Papo\" - 1er minuto libre Remake Instrumental [FMS Argentina Jornada 9] Temporada - 2018/2019",
+      "artist": "Urban Roosters Fake Beats",
+      "src": "pista-27.mp3",
+      "gain": 0.65,
+      "durationSeconds": 237.0
+    },
+    {
+      "id": "pista-28",
+      "title": "Portal",
+      "artist": "Beatmosferah",
+      "src": "pista-28.mp3",
+      "gain": 0.65,
+      "durationSeconds": 356.0
+    },
+    {
+      "id": "pista-29",
+      "title": "Memory Card",
+      "artist": "DJ Dmandado",
+      "src": "pista-29.mp3",
+      "gain": 0.65,
+      "durationSeconds": 289.0
+    },
+    {
+      "id": "pista-30",
+      "title": "\"ORIENTAL\" TEAM ARGENTINA VS TEAM VENEZUELA INSTRUMENTALES GOD LEVEL 2019 (CHILE)2DA Ronda",
+      "artist": "Jbeat",
+      "src": "pista-30.mp3",
+      "gain": 0.65,
+      "durationSeconds": 289.0
+    },
+    {
+      "id": "pista-31",
+      "title": "Sub vs Stuart---Instrumental/ FMS argentina",
+      "artist": "Beats Tips",
+      "src": "pista-31.mp3",
+      "gain": 0.65,
+      "durationSeconds": 232.0
+    },
+    {
+      "id": "pista-32",
+      "title": "Lealtad",
+      "artist": "Alcazone",
+      "src": "pista-32.mp3",
+      "gain": 0.65,
+      "durationSeconds": 211.0
+    },
+    {
+      "id": "pista-33",
+      "title": "Instrumental | Replik vs Papo | Temática: Artistas | FMS Argentina 2019",
+      "artist": "NxtiveBeats",
+      "src": "pista-33.mp3",
+      "gain": 0.65,
+      "durationSeconds": 192.0
+    },
+    {
+      "id": "pista-34",
+      "title": "Lo Que Soy",
+      "artist": "Los Vaguens",
+      "src": "pista-34.mp3",
+      "gain": 0.65,
+      "durationSeconds": 161.0
+    },
+    {
+      "id": "pista-35",
+      "title": "Dólar",
+      "artist": "Alcazone",
+      "src": "pista-35.mp3",
+      "gain": 0.65,
+      "durationSeconds": 159.0
+    },
+    {
+      "id": "pista-36",
+      "title": "ACZINO vs WOS | BEAT 2: RESTOS de ALCAZONE",
+      "artist": "Red Bull Batalla",
+      "src": "pista-36.mp3",
+      "gain": 0.65,
+      "durationSeconds": 257.0
+    },
+    {
+      "id": "pista-37",
+      "title": "ZornBeats - Arcade || ACZINO vs JACK - Instrumental FMS",
+      "artist": "ZornBeats",
+      "src": "pista-37.mp3",
+      "gain": 0.65,
+      "durationSeconds": 318.0
     }
   ],
   "playlists": {
     "menu": [
-      "pista-01",
-      "pista-02",
-      "pista-03",
-      "pista-04",
-      "pista-05",
-      "pista-06",
-      "pista-07",
-      "pista-08",
-      "pista-09",
-      "pista-10",
-      "pista-11"
+      "pista-37"
     ],
     "roofs": [
       "pista-01",
       "pista-02",
-      "pista-03",
       "pista-04",
       "pista-05",
       "pista-06",
@@ -126,12 +345,35 @@
       "pista-08",
       "pista-09",
       "pista-10",
-      "pista-11"
+      "pista-11",
+      "pista-12",
+      "pista-13",
+      "pista-14",
+      "pista-15",
+      "pista-16",
+      "pista-17",
+      "pista-18",
+      "pista-19",
+      "pista-20",
+      "pista-21",
+      "pista-22",
+      "pista-23",
+      "pista-24",
+      "pista-25",
+      "pista-26",
+      "pista-27",
+      "pista-28",
+      "pista-29",
+      "pista-30",
+      "pista-31",
+      "pista-32",
+      "pista-33",
+      "pista-35",
+      "pista-36"
     ],
     "forest": [
       "pista-01",
       "pista-02",
-      "pista-03",
       "pista-04",
       "pista-05",
       "pista-06",
@@ -139,12 +381,35 @@
       "pista-08",
       "pista-09",
       "pista-10",
-      "pista-11"
+      "pista-11",
+      "pista-12",
+      "pista-13",
+      "pista-14",
+      "pista-15",
+      "pista-16",
+      "pista-17",
+      "pista-18",
+      "pista-19",
+      "pista-20",
+      "pista-21",
+      "pista-22",
+      "pista-23",
+      "pista-24",
+      "pista-25",
+      "pista-26",
+      "pista-27",
+      "pista-28",
+      "pista-29",
+      "pista-30",
+      "pista-31",
+      "pista-32",
+      "pista-33",
+      "pista-35",
+      "pista-36"
     ],
     "sewers": [
       "pista-01",
       "pista-02",
-      "pista-03",
       "pista-04",
       "pista-05",
       "pista-06",
@@ -152,12 +417,35 @@
       "pista-08",
       "pista-09",
       "pista-10",
-      "pista-11"
+      "pista-11",
+      "pista-12",
+      "pista-13",
+      "pista-14",
+      "pista-15",
+      "pista-16",
+      "pista-17",
+      "pista-18",
+      "pista-19",
+      "pista-20",
+      "pista-21",
+      "pista-22",
+      "pista-23",
+      "pista-24",
+      "pista-25",
+      "pista-26",
+      "pista-27",
+      "pista-28",
+      "pista-29",
+      "pista-30",
+      "pista-31",
+      "pista-32",
+      "pista-33",
+      "pista-35",
+      "pista-36"
     ],
     "district": [
       "pista-01",
       "pista-02",
-      "pista-03",
       "pista-04",
       "pista-05",
       "pista-06",
@@ -165,12 +453,35 @@
       "pista-08",
       "pista-09",
       "pista-10",
-      "pista-11"
+      "pista-11",
+      "pista-12",
+      "pista-13",
+      "pista-14",
+      "pista-15",
+      "pista-16",
+      "pista-17",
+      "pista-18",
+      "pista-19",
+      "pista-20",
+      "pista-21",
+      "pista-22",
+      "pista-23",
+      "pista-24",
+      "pista-25",
+      "pista-26",
+      "pista-27",
+      "pista-28",
+      "pista-29",
+      "pista-30",
+      "pista-31",
+      "pista-32",
+      "pista-33",
+      "pista-35",
+      "pista-36"
     ],
     "tower": [
       "pista-01",
       "pista-02",
-      "pista-03",
       "pista-04",
       "pista-05",
       "pista-06",
@@ -178,33 +489,37 @@
       "pista-08",
       "pista-09",
       "pista-10",
-      "pista-11"
+      "pista-11",
+      "pista-12",
+      "pista-13",
+      "pista-14",
+      "pista-15",
+      "pista-16",
+      "pista-17",
+      "pista-18",
+      "pista-19",
+      "pista-20",
+      "pista-21",
+      "pista-22",
+      "pista-23",
+      "pista-24",
+      "pista-25",
+      "pista-26",
+      "pista-27",
+      "pista-28",
+      "pista-29",
+      "pista-30",
+      "pista-31",
+      "pista-32",
+      "pista-33",
+      "pista-35",
+      "pista-36"
     ],
     "boss": [
-      "pista-01",
-      "pista-02",
-      "pista-03",
-      "pista-04",
-      "pista-05",
-      "pista-06",
-      "pista-07",
-      "pista-08",
-      "pista-09",
-      "pista-10",
-      "pista-11"
+      "pista-03"
     ],
     "ending": [
-      "pista-01",
-      "pista-02",
-      "pista-03",
-      "pista-04",
-      "pista-05",
-      "pista-06",
-      "pista-07",
-      "pista-08",
-      "pista-09",
-      "pista-10",
-      "pista-11"
+      "pista-34"
     ]
   }
 }
