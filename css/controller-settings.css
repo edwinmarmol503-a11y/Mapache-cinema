@@ -1,0 +1,20 @@
+.panel.controller-configuring { width: min(860px, 92vw); }
+.controller-configuring .opt-row { font-size: 16px; grid-template-columns: 180px 1fr 48px; }
+.controller-configuring .option-note { font-size: 14px; }
+.controller-settings { margin-top: 20px; }
+.controller-settings.hidden, .controller-settings .hidden,
+#control-list.hidden, #opt-reset-controls.hidden, #victory-pad-hint.hidden { display: none; }
+.controller-settings h3 { color: var(--c-blue); font-size: 21px; margin: 0 0 12px; }
+.controller-settings .option-note { font-size: 15px; line-height: 1.65; letter-spacing: 0; }
+.controller-settings .controller-bind-status { min-height: 2.2em; color: var(--c-gold); font-size: 16px; }
+.controller-bind-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 20px; }
+.controller-bind-list .ctl { margin: 0; min-height: 46px; gap: 8px; }
+.controller-bind-list .ctl span { min-width: 0; font-size: 17px; }
+.controller-bind-list button { min-width: 112px; min-height: 44px; padding: 6px 10px; font-size: 18px; }
+.controller-bind-list .listening { color: var(--c-gold); border-color: var(--c-gold); }
+.controller-settings-footer { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+.controller-settings-footer button { min-height: 44px; font-size: 16px; }
+@media (max-width: 720px) {
+  .controller-bind-list { grid-template-columns: 1fr; }
+  .controller-configuring .opt-row { grid-template-columns: minmax(100px, 1fr) minmax(0, 1.5fr) 36px; font-size: 14px; }
+}

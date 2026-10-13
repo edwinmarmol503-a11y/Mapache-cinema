@@ -1,0 +1,31 @@
+/* A quiet, full-screen beat between the soul animation and a fresh retry. */
+html #app.death-screen { background: #000; }
+#app.death-screen::before, #app.death-screen::after,
+#app.death-screen #touch-layer, #app.death-screen .tv-hardware,
+#app.death-screen #toast-layer { display: none; }
+#app.death-screen #gs { border-color: transparent; box-shadow: none; }
+#screen-death {
+  inset: 0; z-index: 70; background: #000; color: #fff;
+  flex-direction: column; justify-content: center; gap: clamp(12px, 3vh, 28px);
+  text-align: center; padding: max(20px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right));
+  overflow: auto;
+}
+.death-eyebrow { color: #a5adbc; font-size: clamp(11px, 1.3vw, 16px); letter-spacing: 3px; }
+#death-phrase {
+  color: #ff7979; font-size: clamp(28px, 5.4vw, 72px); line-height: 1.2;
+  max-width: min(1050px, 100%); overflow-wrap: anywhere;
+  text-shadow: 0 0 28px rgba(255,90,90,.25); font-weight: 800;
+}
+#death-context { color: #ffdc8b; font-size: clamp(12px, 1.7vw, 22px); }
+#death-context:empty { display: none; }
+#death-prompt {
+  min-height: 44px; max-width: 100%; padding: 12px 20px;
+  background: #080a0e; color: #d6ddeb; border: 1px solid #384253;
+  font: inherit; font-size: clamp(12px, 1.35vw, 17px); cursor: pointer; line-height: 1.5;
+}
+#death-prompt:hover, #death-prompt:focus-visible { border-color: #ffdc8b; color: #ffdc8b; }
+@media (max-height: 420px) {
+  #screen-death { gap: 12px; padding: 16px 22px; }
+  #death-phrase { font-size: clamp(24px, 5vw, 38px); }
+  .death-eyebrow { font-size: 10px; letter-spacing: 1px; }
+}
