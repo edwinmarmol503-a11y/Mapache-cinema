@@ -12,11 +12,13 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Mapache Cinema" />
-<link rel="stylesheet" href="css/style.css?v=4.0.1" />
-<link rel="stylesheet" href="css/menu.css?v=4.0.1" />
-<link rel="stylesheet" href="css/game.css?v=4.0.1" />
-<link rel="stylesheet" href="css/ui.css?v=4.0.1" />
-<link rel="stylesheet" href="css/touch.css?v=4.0.1" />
+<link rel="stylesheet" href="css/style.css?v=5.0.0" />
+<link rel="stylesheet" href="css/menu.css?v=5.0.0" />
+<link rel="stylesheet" href="css/game.css?v=5.0.0" />
+<link rel="stylesheet" href="css/ui.css?v=5.0.0" />
+<link rel="stylesheet" href="css/touch.css?v=5.0.0" />
+<link rel="stylesheet" href="css/controller-settings.css?v=5.0.0" />
+<link rel="stylesheet" href="css/death.css?v=5.0.0" />
 </head>
 <body>
 <div id="app">
@@ -44,7 +46,7 @@
         Atacar: <b>J</b> &nbsp;·&nbsp; Esquivar: <b>Shift</b> &nbsp;·&nbsp; Parada: <b>L</b> (con <b>↑</b>/<b>↓</b> arriba/abajo) &nbsp;·&nbsp;
         Interactuar: <b>E</b> &nbsp;·&nbsp; Lanzar: <b>K</b> &nbsp;·&nbsp; Pausa: <b>Esc</b>
       </p>
-      <p class="version">v4.0.1 · LUMERA · AVENTURA PIXEL ART</p>
+      <p class="version">v5.0.0 · LUMERA · AVENTURA PIXEL ART</p>
     </div>
   </div>
 
@@ -87,9 +89,9 @@
         <span></span>
       </div>
       <p class="option-note">El apodo aparece en la clasificación. Tu identidad se conserva en este navegador; todavía no se vincula a una cuenta.</p>
-      <details class="audio-note"><summary>Banda sonora · 37 pistas</summary><p>ARCADE acompaña el menú; CHUTY VS ACZINO, al jefe; LO QUE SOY, a los créditos finales. Las otras 34 pistas se eligen al entrar en un nivel o después de morir. Los diálogos y las opciones mantienen la canción.</p></details>
+      <details class="audio-note"><summary>Banda sonora · 37 canciones y 4 clips</summary><p>ARCADE acompaña el menú; CHUTY VS ACZINO, al jefe; LO QUE SOY, a los créditos finales. Las otras 34 canciones avanzan en orden al cambiar de nivel o después de morir. Los diálogos y las opciones mantienen la canción. Las tres BURLA se alternan durante la pantalla negra; REAPARICIÓN suena al volver a jugar.</p></details>
       <div class="opt-controls">
-        <h3>Controles (clic para reasignar)</h3>
+        <h3>Controles</h3>
         <div id="control-list"></div>
         <button id="opt-reset-controls" class="mini">Restaurar controles</button>
       </div>
@@ -165,7 +167,14 @@
       <h1 id="victory-title">FELICIDADES</h1>
       <p id="victory-sub">Terminaste Mapache Cinema: La Última Noche.</p>
     </div>
-    <button id="victory-menu" class="back">VOLVER AL MENÚ</button>
+    <button id="victory-menu" class="back">VOLVER AL MENÚ<span id="victory-pad-hint" class="hidden"></span></button>
+  </div>
+
+  <div id="screen-death" class="screen hidden" role="status" aria-live="polite" aria-atomic="true">
+    <p class="death-eyebrow">RIKO NECESITA OTRA OPORTUNIDAD</p>
+    <h1 id="death-phrase"></h1>
+    <p id="death-context"></p>
+    <button id="death-prompt" type="button">PULSA CUALQUIER TECLA PARA REAPARECER</button>
   </div>
 
   <!-- ===== CREDITOS ===== -->
@@ -197,6 +206,6 @@
     <span class="tv-power"></span>
   </div>
 </div>
-<script type="module" src="js/bootstrap.js?v=4.0.1"></script>
+<script type="module" src="js/bootstrap.js?v=5.0.0"></script>
 </body>
 </html>

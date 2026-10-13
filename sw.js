@@ -3,8 +3,8 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const RELEASE_VERSION = '4.0.1';
-const CACHE_NAME = 'mapache-cinema-v4.0.1-arranque';
+const RELEASE_VERSION = '5.0.0';
+const CACHE_NAME = 'mapache-cinema-v5.0.0-mando-reaparicion';
 // GitHub web uploads may retain the three soundtrack batch directories.
 // Both layouts stay inside this game's scope and use the same lazy cache.
 const AUDIO_DIRECTORIES = [
@@ -22,6 +22,8 @@ const ASSETS = [
   './css/game.css',
   './css/ui.css',
   './css/touch.css',
+  './css/controller-settings.css',
+  './css/death.css',
   './js/main.js',
   './js/bootstrap.js',
   './js/config.js',
@@ -30,6 +32,8 @@ const ASSETS = [
   './js/gamepad.js',
   './js/control-mode.js',
   './js/developer-controls.js',
+  './js/controller-bindings.js',
+  './js/controller-settings.js',
   './js/display.js',
   './js/touch.js',
   './js/audio.js',

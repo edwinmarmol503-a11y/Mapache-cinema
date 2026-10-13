@@ -16,13 +16,13 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión local 4.0.1:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 5.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
 
-La opción **Ajustar a pantalla** amplía el escenario hasta el mayor tamaño
-posible dentro del marco, manteniendo su proporción 16:9 y el pixel art.
+El escenario se ajusta automáticamente al mayor tamaño posible dentro del
+marco, manteniendo su proporción 16:9 y el pixel art.
 También funciona con la escala de Windows al 125% o 150%. En celular se ajusta
 siempre al espacio disponible en horizontal, respetando las zonas seguras de
 la pantalla; los menús también pueden usarse en vertical. El tamaño siempre
@@ -100,10 +100,17 @@ su propia luz (círculo reducido) y siempre se dibuja por encima de la penumbra.
 
 ```
 index.html
-css/   style.css · menu.css · game.css · ui.css
-js/    main.js          bootstrap + game loop (requestAnimationFrame, fixed step)
+css/   style.css · menu.css · game.css · ui.css · touch.css
+       controller-settings.css · death.css
+js/    bootstrap.js     actualización coherente de caché antes de importar el juego
+       main.js          game loop (requestAnimationFrame, fixed step)
        input.js         input centralizado + rebinding
-       audio.js         MP3 aleatorios y efectos con Web Audio API
+       gamepad.js       mando estándar: lectura, navegación y desconexión segura
+       controller-bindings.js  botones del mando, captura e intercambio de acciones
+       controller-settings.js  editor de botones operable desde el televisor
+       control-mode.js         teclado/táctil automáticos; mando mediante Código
+       developer-controls.js  acceso al mando desde Créditos
+       audio.js         canciones en orden y clips de muerte/reaparición
        save.js          localStorage (progreso + opciones)
        particles.js     sistema de partículas con pooling
        camera.js        cámara 2D (follow suave, límites, shake, zoom)
@@ -130,7 +137,7 @@ assets/  carpetas para sprites/audio definitivos (ver assets/README.txt)
 
 1. **Los Tejados** — tutorial: mover, saltar, interactuar, objeto, puzzle botón-puerta, combate.
 2. **El Bosque Azul** — oscuridad, bombillas, exploración. Se descubre: *las luces contienen recuerdos.*
-3. **Las Alcantarillas** — enfocado en puzzles: caja + imán, palanca + plataforma, secuencia de botones.
+3. **Las Alcantarillas** — enfocado en puzzles: caja + imán, plataforma y secuencia de botones. Las barreras del imán y de la secuencia llegan del techo al suelo; deben resolverse y no se pueden saltar.
 4. **El Distrito Abandonado** — lluvia, calles vacías. Se revela la motivación del Farolero.
 5. **La Torre del Farolero** — ascenso vertical + arena del jefe.
 
@@ -172,18 +179,40 @@ Para borrar el progreso desde la consola del navegador:
 MC.Save.clear()
 ```
 
-## Placeholders
+## Arte, música y reaparición
 
 Todo el arte es procedural (formas dibujadas en canvas). Para sustituirlo por
 sprite-sheets reales, reemplaza las funciones de `js/sprites.js` cargando
 imágenes desde `assets/` — la lógica de juego no cambia. Los efectos se sintetizan
-con `Web Audio API`. Hay 37 pistas MP3: **ARCADE** en el menú,
+con `Web Audio API`. Hay **37 canciones MP3 y cuatro clips cortos**: **ARCADE** en el menú,
 **CHUTY VS ACZINO** durante el jefe y **LO QUE SOY** en los créditos finales.
-Las otras 34 comparten una bolsa aleatoria sin repetición hasta agotarla.
-Se elige otra al entrar en un nivel o reaparecer después de morir; los textos,
+Las otras **34 suenan en orden**, desde pista-01 y pista-02, después pista-04
+hasta pista-33, pista-35 y pista-36. Al terminar la lista vuelve a la primera.
+Todas las zonas y dificultades comparten el recorrido; el siguiente ID se
+conserva en este navegador. Se elige otra al entrar en un nivel o reaparecer
+después de morir; los textos,
 opciones, créditos informativos, pausa y reinicio manual conservan canción y
-posición. Si una canción aleatoria termina se repite la misma. Los créditos
-de victoria vuelven al menú cuando LO QUE SOY acaba de forma natural.
+posición. Si una canción de nivel termina se repite la misma.
+
+Al morir se conserva la animación del cuerpo y el alma de Riko. Después el
+fondo queda negro al menos **0.5 segundos** y suena una de tres grabaciones de
+burla, alternadas en orden. Para escucharlas completas, la pantalla permanece
+negra hasta que termina la grabación. Luego aparece la frase de muerte en
+pantalla completa, en silencio, y espera una **pulsación nueva de cualquier
+botón o tecla**, o un toque. Mantener el botón que causó la muerte no reanuda
+solo. Riko vuelve al checkpoint inmediatamente al confirmar y se puede jugar
+mientras suena **REAPARICION**; al terminar ese clip empieza la siguiente canción
+de nivel. Una nueva muerte, salida al menú o transición cancela los sonidos y
+continuaciones pendientes. Los cuatro clips usan **Volumen efectos**.
+
+Los créditos finales conservan a Riko caminando sobre tejados y añaden globos
+aerostáticos, fuegos artificiales y luces del cielo. **FELICIDADES** tiene brillo
+dorado y destellos; **EKD** aparece a la izquierda y **3E** a la derecha. El botón
+**Volver al menú** queda abajo a la derecha; en mando también funciona el botón
+asignado a **Atacar**. Si no se pulsa, se vuelve al menú al terminar LO QUE SOY.
+Los efectos reducidos y la preferencia de movimiento reducido detienen los
+adornos animados del cielo y el brillo del título.
+
 Opciones controla música y efectos por separado. Los originales de `AUDIOS/`
 permanecen intactos; una copia antigua duplicada se omite. Consulta
 `assets/audio/README.md` e `INVENTARIO.md` para títulos y huellas de los archivos.
@@ -242,12 +271,12 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
-La versión 4.0.1 conserva letras nativas con mayor contraste, siluetas de enemigos
-más visibles y controles de exposición. Agrega lluvia y hojas más suaves,
-una barrera del imán que no se puede saltar, el alma de Riko al morir y créditos
-con tejados en movimiento, EKD, FELICIDADES y 3E. Las pruebas de mandos utilizan
-dispositivos simulados; la televisión y el DualShock físico requieren una prueba
-en el equipo del evento.
+La versión 5.0.0 conserva las letras nativas, lluvia, hojas y mejoras previas.
+Añade botones de mando editables, salto mediante botón, lista musical en orden,
+cuatro clips de muerte/reaparición, frases a pantalla completa, barrera de
+secuencia obligatoria y un final de celebración. Las pruebas automáticas de
+mandos utilizan dispositivos simulados; la comodidad de cada configuración
+y la compatibilidad física deben comprobarse en el equipo del evento.
 
 `pnpm test` prueba clasificación con SQLite real, identidad entre dispositivos,
 concurrencia, reintentos, reinicios, partidas continuadas, inventario y multitouch.
@@ -255,17 +284,23 @@ concurrencia, reintentos, reinicios, partidas continuadas, inventario y multitou
 Los revisores `tests/release-review.mjs` y `tests/world-review.mjs` usan Playwright
 (instalado aparte o mediante la variable `PLAYWRIGHT_MODULE`) para la prueba de
 dos navegadores, PWA sin conexión y ambientes. Las capturas quedan en `test-results/`.
+`tests/cache-upgrade-review.mjs` verifica en Chromium que una caché antigua no
+mezcla módulos con el HTML nuevo, conserva la partida y funciona sin conexión.
+`tests/sequence-gate.test.mjs` comprueba la secuencia, intentos de salto/esquiva
+en las cuatro dificultades y la restauración de puzzles guardados.
 
 ## Controles para la exposición
 
-Créditos contiene el apartado **Código**. Después de introducir el código del
-desarrollador aparecen las opciones **Táctil**, **Teclado** y **Mando**. El acceso
-solo dura en la página abierta: recargar o pulsar **Cerrar acceso de desarrollador**
+Créditos contiene el apartado **Código**. El código simplificado del desarrollador
+habilita directamente **Mando** y permite configurar sus botones. Ya no muestra
+las opciones Táctil y Teclado dentro de este acceso. El acceso solo dura en la
+página abierta: recargar o pulsar **Cerrar acceso de desarrollador**
 restaura los controles normales del dispositivo. Las preferencias, los récords
 y las partidas guardadas no se borran al cambiar la forma de jugar.
 
-El código se conserva fuera de los archivos públicos, en
-`.local/developer-controls/access.json`. El cliente contiene únicamente su
+El código actual y las instrucciones privadas se conservan fuera de los archivos
+públicos, en `.local/developer-controls/access.json` y
+`.local/developer-controls/LEEME-PRIVADO.txt`. El cliente contiene únicamente su
 verificador SHA-256 con sal. Este bloqueo de interfaz sirve para la exposición;
 no equivale a autenticación de cuenta o a permisos comprobados en un servidor.
 No incluyas la carpeta `.local` al subir el juego a GitHub.
@@ -279,14 +314,25 @@ pulsa y suelta un botón y deja el stick centrado.
 | Acción | DualShock 4 con distribución estándar |
 | --- | --- |
 | Mover / navegar | Stick izquierdo o cruceta |
-| Saltar | Arriba en el stick o cruceta |
+| Saltar | ✕ (botón configurable; arriba en el stick no salta) |
 | Confirmar menús | ✕ |
 | Atacar | □ |
 | Esquivar / volver | ○ |
-| Interactuar / avanzar diálogo | △ |
+| Interactuar | △ |
+| Avanzar diálogo | Una pulsación nueva de cualquier acción |
 | Parada / lanzar | L1 / R1 |
 | Cambiar objeto | L2 / R2 |
 | Pausar / reanudar | OPTIONS |
+| Volver al menú tras completar el juego | Botón asignado a Atacar (□ de fábrica) |
+
+En **Opciones → Botones del mando**, elige una acción con ✕, centra el stick y
+suelta los botones; después pulsa el botón que quieras asignar. Si ese botón
+ya tenía otra acción, se intercambian para que ambas sigan disponibles. Un
+OPTIONS corto puede asignarse; mantener OPTIONS cancela la captura. **Restaurar
+botones del mando** recupera la distribución original. Las asignaciones se
+guardan en el navegador y las etiquetas del HUD se actualizan con cada cambio.
+El stick sirve para moverse y apuntar; el salto usa su botón asignado. En los
+menús ✕ y ○ conservan confirmar/volver para poder editar cualquier distribución.
 
 Los menús, niveles y opciones se pueden recorrer con el mando. Izquierda y
 derecha ajustan selectores y volumen. Puedes empezar con el apodo guardado o
