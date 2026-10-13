@@ -1,14 +1,13 @@
 import { Input } from './input.js';
+import { PadBindings } from './controller-bindings.js';
 
 // Only a salted verifier ships with the game. The access code is kept in .local/.
 // This is a local exhibition switch, not server-side account authentication.
 const ACCESS_SALT = '2546f8c4ba93b76fc054983293201057';
-const ACCESS_DIGEST = 'a7e3af96d3affe970ef3e063065394c417c35b66d3441a8893a8bce764a820db';
-const MODES = ['keyboard', 'touch', 'gamepad'];
-const PAD_HINTS = { left: 'Stick / ◀', right: 'Stick / ▶', up: '▲', down: '▼', jump: '▲', attack: '□', dodge: '○', parry: 'L1', interact: '△', throw: 'R1', pause: 'OPTIONS', confirm: '✕', cancel: '○', cycleL: 'L2', cycleR: 'R2' };
+const ACCESS_DIGEST = '53e3ad5d6870ecc6b96b9d01f33398271da8752ce5ef16d6aeadac1749bce948';
 const TOUCH_HINTS = { jump: 'Joystick ▲', attack: 'ATQ', dodge: 'ESQ', parry: 'BLOQ', interact: 'USAR', throw: 'LANZA', pause: 'Ⅱ', confirm: 'USAR', cancel: 'VOLVER', cycleL: '◀', cycleR: '▶' };
 
-export function createControls({ salt = ACCESS_SALT, digest = ACCESS_DIGEST, cryptoProvider = globalThis.crypto } = {}) {
+export function createControls({ salt = ACCESS_SALT, digest = ACCESS_DIGEST, cryptoProvider = globalThis.crypto, padBindings = PadBindings } = {}) {
   let mode = 'keyboard';
   let defaultMode = 'keyboard';
   let unlocked = false;
@@ -18,6 +17,7 @@ export function createControls({ salt = ACCESS_SALT, digest = ACCESS_DIGEST, cry
   const listeners = new Set();
   const state = () => ({ mode, unlocked, gamepad: { ...pad } });
   const emit = () => { for (const listener of listeners) listener(state()); };
+  padBindings.subscribe(() => emit());
   return {
     initialize({ defaultMode: next = 'keyboard' } = {}) {
       defaultMode = next === 'touch' ? 'touch' : 'keyboard';
@@ -40,14 +40,15 @@ export function createControls({ salt = ACCESS_SALT, digest = ACCESS_DIGEST, cry
         const candidate = [...new Uint8Array(bytes)].map(byte => byte.toString(16).padStart(2, '0')).join('');
         if (attempt !== revision || candidate !== digest) return false;
         unlocked = true;
+        mode = 'gamepad';
         emit();
         return true;
       } catch { return false; }
       finally { checking = false; }
     },
-    lock() { revision++; unlocked = false; mode = defaultMode; emit(); },
+    lock() { revision++; unlocked = false; mode = defaultMode; padBindings.cancelCapture(); emit(); },
     setMode(next) {
-      if (!unlocked || !MODES.includes(next)) return false;
+      if (!unlocked || next !== 'gamepad') return false;
       mode = next;
       emit();
       return true;
@@ -60,7 +61,10 @@ export function createControls({ salt = ACCESS_SALT, digest = ACCESS_DIGEST, cry
       emit();
     },
     getHint(action) {
-      if (mode === 'gamepad') return PAD_HINTS[action] || action;
+      if (mode === 'gamepad') {
+        if (action === 'left' || action === 'right') return 'Stick / ' + padBindings.getHint(action);
+        return padBindings.getHint(action);
+      }
       if (mode === 'touch') return TOUCH_HINTS[action] || 'Joystick';
       const code = Input.bindings[action]?.[0] || '';
       return ({ Space: 'ESPACIO', Escape: 'ESC', Enter: 'ENTER', ShiftLeft: 'SHIFT', ShiftRight: 'SHIFT', ArrowLeft: '◀', ArrowRight: '▶', ArrowUp: '▲', ArrowDown: '▼' })[code] || code.replace(/^Key|^Digit/, '') || action;

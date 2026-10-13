@@ -168,6 +168,7 @@ export class Game {
   }
 
   suspendRun() {
+    this.cancelDeathPresentation();
     if (this.save.data && !this._levelScored) {
       this.save.update({ items: this.inventory.serialize(), levelElapsedMs: this._levelClockCarry + Math.max(0, performance.now() - this._levelClockStart) });
     }
@@ -188,6 +189,7 @@ export class Game {
   }
 
   reset() {
+    this.cancelDeathPresentation();
     this.map = null;
     this.player = null;
     this.enemies = [];
@@ -207,6 +209,10 @@ export class Game {
     this.introT = 0;
     this.dyingT = 0;
     this._deathSoul = null;
+    this._deathPhrase = '';
+    this._deathContext = '';
+    this._deathBlackT = 0;
+    this._deathCueDone = false;
     this.postT = 0;
     this.hitstopT = 0;
     this._swingId = -1;
@@ -579,7 +585,20 @@ export class Game {
   /** called exactly once per real (non-revived) death -- mocking call-out +
       counts toward the Pesadilla mercy nerf (see NIGHTMARE_MERCY_DEATHS) */
   _onRealDeath(reason = 'enemy') {
-    if (reason !== 'fall') this._deathSoul = { x: this.player.cx, y: this.player.cy, facing: this.player.facing, elapsed: 0 };
+    this._deathGeneration = (this._deathGeneration || 0) + 1;
+    this._deathMusicTheme = this.bossActive ? 'boss' : this.levelDef.music || 'roofs';
+    this._deathPhrase = this._bagPick('death', DEATH_PHRASES);
+    this._deathContext = '';
+    this.audio.stopMusic?.();
+    this.audio.cancelTransientCue?.();
+    this._respawnSoundPending = false;
+    Input.reset();
+    this.hooks.onDeath?.();
+    this._deathSoul = {
+      x: reason === 'fall' ? clamp(this.player.cx, this.camera.renderX + 15, this.camera.renderX + this.W - 15) : this.player.cx,
+      y: reason === 'fall' ? Math.min(this.player.cy, this.camera.renderY + this.H - 24) : this.player.cy,
+      facing: this.player.facing, elapsed: 0,
+    };
     this._rankDeaths = (this._rankDeaths || 0) + 1;
     if (this.bossActive) {
       // a running score, only for the Farolero fight, that keeps climbing
@@ -587,13 +606,61 @@ export class Game {
       // other level progress)
       const n = (this.progress('bossDeaths') || 0) + 1;
       this.markProgress('bossDeaths', n);
-      this.skyMessage('EL FAROLERO ' + n + '  —  RIKO 0', '#ff6a6a');
-    } else {
-      this.announceDeath();
+      this._deathContext = 'EL FAROLERO ' + n + '  —  RIKO 0';
     }
     if (this.diff && this.diff.key === 'nightmare' && this.save.addNightmareDeath) {
       this.save.addNightmareDeath();
     }
+  }
+
+  cancelDeathPresentation() {
+    this._deathGeneration = (this._deathGeneration || 0) + 1;
+    this._respawnSoundPending = false;
+    this._respawnReservation = null;
+    this._deathCueDone = true;
+    this.audio?.cancelTransientCue?.();
+  }
+
+  _playDeathCue(name) {
+    try { return Promise.resolve(this.audio?.playTransitionCue?.(name)).catch(() => null); }
+    catch { return Promise.resolve(null); }
+  }
+
+  _startDeathBlack() {
+    this.state = 'death-black';
+    this._deathBlackT = 0;
+    this._deathCueDone = false;
+    Input.clearFrame();
+    const generation = this._deathGeneration;
+    this._playDeathCue('death').then(() => {
+      if (generation === this._deathGeneration && this.state === 'death-black') this._deathCueDone = true;
+    });
+  }
+
+  /** Fresh input restores the checkpoint immediately. The respawn clip plays
+   * first; reserving its next song now ensures each death advances once even
+   * if another death or a level change interrupts that clip. */
+  requestRespawn() {
+    if (this.state !== 'death-phrase') return false;
+    const theme = this._deathMusicTheme;
+    this.loadLevel(this.levelIndex, true, { changeMusic: false });
+    this.state = 'playing';
+    this.fadeAlpha = 0;
+    Input.reset();
+    this.hooks.onRespawn?.();
+    this._respawnSoundPending = true;
+    this._respawnMusicTheme = theme;
+    this._respawnReservation = this.audio.reserveMusic?.(theme) || null;
+    const generation = this._deathGeneration;
+    this._playDeathCue('respawn').then(() => {
+      if (generation !== this._deathGeneration || !this._respawnSoundPending) return;
+      this._respawnSoundPending = false;
+      const reservation = this._respawnReservation;
+      this._respawnReservation = null;
+      if (reservation && this.audio.playReservedMusic) this.audio.playReservedMusic(reservation);
+      else this.audio.playMusic(this._respawnMusicTheme, { restart: true });
+    });
+    return true;
   }
 
   _activateCheckpoint(cp) {
@@ -647,7 +714,10 @@ export class Game {
     this.boss.arena = this.bossArena;
     this.bossActive = true;
     this._farolWas = {};
-    this.audio.playMusic('boss');
+    if (this._respawnSoundPending) {
+      this._respawnMusicTheme = 'boss';
+      this._respawnReservation = this.audio.reserveMusic?.('boss') || null;
+    } else this.audio.playMusic('boss');
     this.toast('EL FAROLERO');
   }
 
@@ -784,11 +854,22 @@ export class Game {
       this.particles.update(dt);
       this.camera.follow(this.player, dt);
       if (this.dyingT <= 0) {
-        this.startTransition(() => {
-          this.loadLevel(this.levelIndex, true);
-          this.state = 'playing';
-        });
+        this._startDeathBlack();
       }
+      return;
+    }
+
+    if (this.state === 'death-black') {
+      this._deathBlackT += dt;
+      if (this._deathBlackT >= 0.5 && this._deathCueDone) {
+        this.state = 'death-phrase';
+        Input.clearFrame();
+      }
+      return;
+    }
+
+    if (this.state === 'death-phrase') {
+      if (Controls.getMode() !== 'gamepad' && Input.anyPressed()) this.requestRespawn();
       return;
     }
 
@@ -1006,6 +1087,11 @@ export class Game {
     const ctx = this.ctx;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, this.W, this.H);
+    if (this.state === 'death-black' || this.state === 'death-phrase') {
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, this.W, this.H);
+      return;
+    }
 
     drawBackground(ctx, this);
 

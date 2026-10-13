@@ -4,6 +4,7 @@
    ============================================================ */
 export const MUSIC_MANIFEST_URL = new URL('../assets/audio/tracks.json', import.meta.url).href;
 const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending'];
+const ORDER_STORAGE_KEY = 'mapache_cinema_music_order_v1';
 const volume = (v, fallback) => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 
 export const Audio = {
@@ -18,7 +19,8 @@ export const Audio = {
   _muted: false,
   _tracks: new Map(),
   _playlists: {},
-  _shuffleBags: new Map(),
+  _playlistOrders: new Map(),
+  _playlistCursors: new Map(),
   _lastExternalTrack: null,
   _failedTracks: new Set(),
   _attemptedTracks: new Set(),
@@ -35,6 +37,11 @@ export const Audio = {
   _sourceIndex: 0,
   _trackEndListeners: new Set(),
   _endedAttempt: -1,
+  _cues: {},
+  _cuePlayers: new Map(),
+  _cueState: null,
+  _deathCueIndex: 0,
+  _musicReservations: new WeakSet(),
 
   init(opts) {
     if (opts) {
@@ -96,11 +103,36 @@ export const Audio = {
       const ids = manifest?.playlists?.[theme];
       this._playlists[theme] = Array.isArray(ids) ? [...new Set(ids.filter((id) => this._tracks.has(id)))] : [];
     }
-    this._shuffleBags = new Map();
+    this._playlistOrders = new Map();
+    let saved = {};
+    try { saved = JSON.parse(window.localStorage?.getItem(ORDER_STORAGE_KEY) || '{}') || {}; } catch { /* Private browsing still has an in-memory sequence. */ }
+    this._playlistCursors = new Map();
+    for (const theme of MUSIC_THEMES) {
+      const ids = this._playlists[theme];
+      if (ids.length < 2) continue; // Fixed scene songs never advance the level sequence.
+      const key = JSON.stringify([...ids].sort());
+      if (this._playlistOrders.has(key)) continue;
+      this._playlistOrders.set(key, [...ids]);
+      const index = ids.indexOf(saved[key]);
+      this._playlistCursors.set(key, index < 0 ? 0 : index);
+    }
+    this._cues = {};
+    for (const name of ['death', 'respawn']) {
+      const ids = manifest?.cues?.[name];
+      this._cues[name] = Array.isArray(ids) ? [...new Set(ids.filter(id => this._tracks.has(id)))] : [];
+    }
+    this._deathCueIndex = 0;
+    this._primeCues();
     this._failedTracks = new Set();
     this._attemptedTracks = new Set();
     if (!this._tracks.has(this._lastExternalTrack)) this._lastExternalTrack = null;
-    if (this.currentTrack) this.playMusic(this.currentTrack, { restart: true });
+    if (this.currentTrack) {
+      const retained = this._tracks.get(this._externalTrack?.id);
+      if (retained && this._media && retained.sources.includes(this._activeSource)) {
+        this._externalTrack = retained;
+        this._bindMediaEvents(this.currentTrack, this._playGeneration);
+      } else this.playMusic(this.currentTrack, { restart: true });
+    }
     return this._tracks.size;
   },
 
@@ -119,7 +151,8 @@ export const Audio = {
     return { mode: this._musicMode, theme: this.currentTrack, id: this._externalTrack?.id || '', title: this._externalTrack?.title || '',
       position: this._media?.currentTime || 0,
       duration: Number.isFinite(duration) && duration > 0 ? duration : this._externalTrack?.durationSeconds || 0,
-      src: this._activeSource || '', configuredTracks: this._tracks.size, unavailableTracks: this._failedTracks.size };
+      src: this._activeSource || '', configuredTracks: this._tracks.size, unavailableTracks: this._failedTracks.size,
+      cue: this._cueState?.name || '', cueId: this._cueState?.entry.id || '', cuePosition: this.getCueStatus().position };
   },
 
   /** The victory screen subscribes once and closes when its own song finishes. */
@@ -137,37 +170,172 @@ export const Audio = {
 
   _nextTrack(theme, excluded = new Set()) {
     const playlist = this._playlists[theme] || [];
-    const ids = playlist.filter((id) => !this._failedTracks.has(id) && !excluded.has(id));
-    if (!ids.length) return null;
-    // Themes using the same collection share a bag, so changing levels cannot
-    // keep choosing the first song or discard tracks that have not played yet.
+    if (!playlist.length) return null;
+    if (playlist.length === 1) {
+      const id = playlist[0];
+      return this._failedTracks.has(id) || excluded.has(id) ? null : this._tracks.get(id);
+    }
+    // All level themes share one manifest-ordered cursor. Death and level
+    // transitions consume exactly one selection; overlays and looping do not.
     const key = JSON.stringify([...playlist].sort());
-    let bag = (this._shuffleBags.get(key) || []).filter((id) => ids.includes(id));
-    if (!bag?.length) {
-      bag = [...ids];
-      for (let i = bag.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [bag[i], bag[j]] = [bag[j], bag[i]];
-      }
+    const order = this._playlistOrders.get(key) || playlist;
+    let index = this._playlistCursors.get(key) || 0;
+    for (let attempts = 0; attempts < order.length; attempts++) {
+      const id = order[index];
+      index = (index + 1) % order.length;
+      this._playlistCursors.set(key, index);
+      this._savePlaylistCursor(key, order[index]);
+      if (this._failedTracks.has(id) || excluded.has(id)) continue;
+      this._lastExternalTrack = id;
+      return this._tracks.get(id);
     }
-    this._shuffleBags.set(key, bag);
-    // Also avoid the last song after reshuffling or switching to another pool.
-    if (bag[0] === this._lastExternalTrack) {
-      if (bag.length > 1) {
-        const alternative = bag.findIndex((id) => id !== this._lastExternalTrack);
-        [bag[0], bag[alternative]] = [bag[alternative], bag[0]];
-      } else if (ids.length > 1) {
-        // Another, overlapping pool may have just played the final bag entry.
-        // Defer it until the next draw instead of repeating it immediately.
-        const alternatives = ids.filter((id) => id !== this._lastExternalTrack);
-        const id = alternatives[Math.floor(Math.random() * alternatives.length)];
-        this._lastExternalTrack = id;
-        return this._tracks.get(id);
-      }
+    return null;
+  },
+
+  _savePlaylistCursor(key, nextId) {
+    try {
+      const storage = window.localStorage;
+      if (!storage) return;
+      const saved = JSON.parse(storage.getItem(ORDER_STORAGE_KEY) || '{}') || {};
+      saved[key] = nextId;
+      storage.setItem(ORDER_STORAGE_KEY, JSON.stringify(saved));
+    } catch { /* Storage restrictions never interrupt playback. */ }
+  },
+
+  _primeCues() {
+    if (!this.ctx) return;
+    const ids = new Set(Object.values(this._cues).flat());
+    for (const [id, player] of this._cuePlayers) {
+      if (!ids.has(id) || player.src !== this._tracks.get(id)?.src) this._cuePlayers.delete(id);
     }
-    const id = bag.shift();
-    this._lastExternalTrack = id;
-    return this._tracks.get(id);
+    // Four short recordings are decoded once. Replaying a fresh buffer source
+    // avoids the inaccurate MP3 duration / seek behavior of television media.
+    for (const id of ids) this._getCuePlayer(this._tracks.get(id));
+  },
+
+  _getCuePlayer(entry) {
+    const existing = this._cuePlayers.get(entry.id);
+    if (existing && !existing.failed) return existing;
+    const player = { src: entry.src, buffer: null, failed: false, promise: null };
+    this._cuePlayers.set(entry.id, player);
+    const fetchAudio = fetch.bind(globalThis);
+    player.promise = Promise.resolve().then(() => fetchAudio(entry.src, { cache: 'force-cache' }))
+      .then(response => { if (!response.ok) throw new Error('Cue unavailable'); return response.arrayBuffer(); })
+      .then(bytes => this.ctx.decodeAudioData(bytes))
+      .then(buffer => { player.buffer = buffer; return buffer; })
+      .catch(() => { player.failed = true; return null; });
+    return player;
+  },
+
+  /** Short death / respawn recordings use the effects volume, never the level queue. */
+  playTransitionCue(name, { maxDuration } = {}) {
+    this.cancelTransientCue();
+    const ids = this._cues[name] || [];
+    let id = ids[0];
+    if (name === 'death' && ids.length) {
+      id = ids[this._deathCueIndex % ids.length];
+      this._deathCueIndex = (this._deathCueIndex + 1) % ids.length;
+    }
+    const entry = this._tracks.get(id);
+    if (!entry || !this.ctx) return Promise.resolve({ name, id: id || '', status: 'unavailable' });
+    const player = this._getCuePlayer(entry);
+    return new Promise(resolve => {
+      const cap = Number.isFinite(maxDuration) && maxDuration > 0 ? Math.min(45, maxDuration) : null;
+      const state = { name, entry, player, resolve, paused: false, phase: 'loading', cap,
+        remainingMs: cap ? cap * 1000 : 4000, timer: null, timerStartedAt: 0,
+        source: null, gain: null, offset: 0, startedAt: 0 };
+      this._cueState = state;
+      this._scheduleCueTimer(state);
+      if (player.buffer) this._startCueBuffer(state);
+      else player.promise.then(buffer => {
+        if (this._cueState !== state || state.paused) return;
+        if (buffer) this._startCueBuffer(state);
+        else this._finishCue(state, 'unavailable');
+      });
+    });
+  },
+
+  _startCueBuffer(state) {
+    if (this._cueState !== state || state.paused || state.source) return;
+    const buffer = state.player.buffer;
+    if (!buffer) { if (state.player.failed) this._finishCue(state, 'unavailable'); return; }
+    if (state.offset >= buffer.duration) { this._finishCue(state, 'ended'); return; }
+    try {
+      const source = this.ctx.createBufferSource();
+      const gain = this.ctx.createGain();
+      source.buffer = buffer;
+      source.loop = false;
+      source.connect(gain);
+      gain.gain.value = state.entry.gain;
+      gain.connect(this.sfxGain);
+      state.source = source;
+      state.gain = gain;
+      state.startedAt = this.ctx.currentTime;
+      state.phase = 'playing';
+      source.onended = () => {
+        if (this._cueState === state && state.source === source && !state.paused) this._finishCue(state, 'ended');
+      };
+      if (!state.cap) state.remainingMs = Math.min(45000, Math.max(500, (buffer.duration - state.offset) * 1000 + 1500));
+      this._scheduleCueTimer(state);
+      source.start(0, state.offset);
+    } catch { this._finishCue(state, 'unavailable'); }
+  },
+
+  _scheduleCueTimer(state) {
+    clearTimeout(state.timer);
+    if (this._cueState !== state || state.paused) return;
+    state.timerStartedAt = Date.now();
+    state.timer = setTimeout(() => this._finishCue(state, 'timed-out'), state.remainingMs);
+  },
+
+  _stopCueSource(state) {
+    if (state.source) {
+      state.source.onended = null;
+      try { state.source.stop(); } catch { /* A naturally finished node may already be stopped. */ }
+      state.source.disconnect?.();
+      state.source = null;
+    }
+    state.gain?.disconnect?.();
+    state.gain = null;
+  },
+
+  _finishCue(state, status) {
+    if (this._cueState !== state) return;
+    this._cueState = null;
+    clearTimeout(state.timer);
+    this._stopCueSource(state);
+    state.resolve({ name: state.name, id: state.entry.id, title: state.entry.title || '', status });
+  },
+
+  cancelTransientCue() {
+    if (this._cueState) this._finishCue(this._cueState, 'cancelled');
+  },
+
+  pauseTransientCue() {
+    const state = this._cueState;
+    if (!state || state.paused) return;
+    if (state.source) state.offset = Math.min(state.player.buffer.duration, state.offset + Math.max(0, this.ctx.currentTime - state.startedAt));
+    state.paused = true;
+    state.remainingMs = Math.max(1, state.remainingMs - (Date.now() - state.timerStartedAt));
+    clearTimeout(state.timer);
+    this._stopCueSource(state);
+  },
+
+  resumeTransientCue() {
+    const state = this._cueState;
+    if (!state || !state.paused) return;
+    state.paused = false;
+    if (state.player.buffer || state.player.failed) this._startCueBuffer(state);
+    else this._scheduleCueTimer(state);
+  },
+
+  getCueStatus() {
+    const state = this._cueState;
+    if (!state) return { name: '', id: '', title: '', mode: 'stopped', position: 0, duration: 0 };
+    const duration = state.player.buffer?.duration || state.entry.durationSeconds || 0;
+    const position = state.offset + (state.source ? Math.max(0, this.ctx.currentTime - state.startedAt) : 0);
+    return { name: state.name, id: state.entry.id, title: state.entry.title || '',
+      mode: state.paused ? 'paused' : state.phase, position: Math.min(duration, position), duration };
   },
 
   _ensureMedia() {
@@ -287,6 +455,7 @@ export const Audio = {
 
   playMusic(track, { restart = false } = {}) {
     if (this.currentTrack === track && !restart) return;
+    this.cancelTransientCue();
     const previous = this.currentTrack || this._pausedTrack;
     // Dialogue and overlays can request a theme again. Even an equivalent
     // level playlist keeps its song until an explicit death/level transition.
@@ -308,6 +477,33 @@ export const Audio = {
     this._attemptedTracks = new Set();
     if (!this.ctx) { this._musicMode = 'unavailable'; return; }
     this._playNextAvailable(track, generation);
+  },
+
+  /** Consume the next song once while REAPARICION plays over resumed gameplay. */
+  reserveMusic(theme) {
+    if (!MUSIC_THEMES.includes(theme)) return null;
+    const entry = this._nextTrack(theme);
+    if (!entry) return null;
+    const reservation = Object.freeze({ theme, id: entry.id, generation: this._playGeneration });
+    this._musicReservations.add(reservation);
+    return reservation;
+  },
+
+  playReservedMusic(reservation) {
+    if (!reservation || !this._musicReservations.has(reservation)) return false;
+    this._musicReservations.delete(reservation);
+    if (reservation.generation !== this._playGeneration) return false;
+    const entry = this._tracks.get(reservation.id);
+    if (!entry || !this._playlists[reservation.theme]?.includes(entry.id)) return false;
+    this.cancelTransientCue();
+    const generation = ++this._playGeneration;
+    this.currentTrack = reservation.theme;
+    this._pausedTrack = null;
+    this._stopMedia();
+    this._attemptedTracks = new Set([entry.id]);
+    if (!this.ctx) { this._musicMode = 'unavailable'; return true; }
+    this._startMediaSource(reservation.theme, generation, entry, 0);
+    return true;
   },
 
   _playNextAvailable(theme, generation) {
@@ -334,7 +530,7 @@ export const Audio = {
       this._activeSource = source;
       this._sourceIndex = sourceIndex;
       this._musicMode = 'loading';
-      // Random songs repeat until death or passing a level. Only the victory
+      // Level songs repeat until death or passing a level. Only the victory
       // credits have a natural end; their caller returns to the main menu.
       media.loop = theme !== 'ending';
       media.src = source;
@@ -366,7 +562,7 @@ export const Audio = {
       if (!media.ended || !this._isCurrentMedia(theme, generation, entry, media, source, attempt)) return;
       if (theme !== 'ending') {
         // Some television browsers emit ended even with loop enabled.
-        // Restart this same source rather than consuming the shuffle bag.
+        // Restart this same source rather than advancing the ordered queue.
         media.currentTime = 0;
         this._playMedia(theme, generation);
         return;
@@ -386,6 +582,7 @@ export const Audio = {
   },
 
   stopMusic() {
+    this.cancelTransientCue();
     this._playGeneration++;
     this.currentTrack = null;
     this._pausedTrack = null;
@@ -394,6 +591,7 @@ export const Audio = {
   },
 
   pauseMusic() {
+    this.pauseTransientCue();
     if (!this.currentTrack) return;
     this._pausedTrack = this.currentTrack;
     this.currentTrack = null;
@@ -402,6 +600,7 @@ export const Audio = {
     if (this._media) this._media.pause();
   },
   resumeMusic() {
+    this.resumeTransientCue();
     this.resume();
     if (!this._pausedTrack) return;
     const track = this._pausedTrack;

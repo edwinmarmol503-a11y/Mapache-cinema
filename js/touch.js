@@ -45,6 +45,7 @@ function releaseAll() {
   for (const release of [...activePointers.values()]) release();
   activePointers.clear();
 }
+export { releaseAll as releaseTouchInputs };
 
 function releaseGroup(container) {
   for (const [id, release] of [...activePointers]) {

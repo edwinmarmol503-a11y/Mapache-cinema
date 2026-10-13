@@ -10,6 +10,7 @@ import { LEVELS } from './levels.js';
 import { Ranking } from './ranking.js';
 import { Controls } from './control-mode.js';
 import { createDeveloperControls } from './developer-controls.js';
+import { createControllerSettings } from './controller-settings.js';
 
 const CONTROL_LABELS = {
   left: 'Izquierda', right: 'Derecha', jump: 'Saltar', attack: 'Atacar',
@@ -23,7 +24,7 @@ const CREDITS = [
   { role: 'Programming', who: 'Estudio Lumera' },
   { role: 'Pixel Art', who: 'Estudio Lumera  (placeholders procedurales)' },
   { role: 'Level Design', who: 'Estudio Lumera' },
-  { role: 'Audio', who: '37 pistas de fondo · efectos con Web Audio API' },
+  { role: 'Audio', who: '37 canciones · 4 clips de muerte y reaparición · efectos con Web Audio API' },
   { role: 'Story', who: 'La ciudad que recordaba demasiado' },
   { sec: 'GRACIAS POR JUGAR' },
 ];
@@ -392,6 +393,7 @@ export class Menu {
     });
 
     this._persistOpts = persist;
+    this.controllerSettings = createControllerSettings(document.getElementById('control-list'));
   }
 
   showOptions() {
@@ -409,6 +411,11 @@ export class Menu {
   _renderControls() {
     const list = document.getElementById('control-list');
     list.innerHTML = '';
+    const controller = Controls.getMode() === 'gamepad';
+    list.classList.toggle('hidden', controller);
+    document.getElementById('opt-reset-controls').classList.toggle('hidden', controller);
+    this.controllerSettings?.refresh();
+    if (controller) return;
     for (const action of Object.keys(CONTROL_LABELS)) {
       const row = document.createElement('div');
       row.className = 'ctl';
@@ -417,7 +424,7 @@ export class Menu {
       const btn = document.createElement('button');
       btn.dataset.keyboardOnly = 'true';
       btn.disabled = Controls.getMode() === 'gamepad';
-      btn.title = btn.disabled ? 'Selecciona Teclado en Código para reasignar teclas.' : '';
+      btn.title = '';
       btn.textContent = (Input.bindings[action] || []).map(prettyKey).join(' / ') || '—';
       btn.addEventListener('click', () => {
         if (btn.classList.contains('listening')) return;
@@ -459,7 +466,7 @@ export class Menu {
       body.appendChild(d);
     }
     this.developerControls?.destroy();
-    this.developerControls = createDeveloperControls(body);
+    this.developerControls = createDeveloperControls(body, { onConfigure: () => { this.optionsReturn = 'menu'; this.showOptions(); } });
   }
 
   showCredits(ending) {
@@ -502,11 +509,13 @@ export class Menu {
   /* ---------------- keyboard nav ---------------- */
   _refreshInputPresentation() {
     const mode = Controls.getMode();
-    if (this._presentedMode === mode) return;
+    const signature = mode + ':' + ['jump', 'attack', 'dodge', 'interact', 'pause'].map(action => Controls.getHint(action)).join('|');
+    if (this._presentedSignature === signature) return;
+    this._presentedSignature = signature;
     this._presentedMode = mode;
     const hint = this.elMenu.querySelector('.hint');
     if (hint) {
-      if (mode === 'gamepad') hint.textContent = 'Mando · Stick / cruceta: mover · ↑: saltar · ✕: confirmar · □: atacar · ○: esquivar / volver · △: interactuar · OPTIONS: pausa';
+      if (mode === 'gamepad') hint.textContent = 'Mando · Stick / cruceta: mover · ' + Controls.getHint('jump') + ': saltar · ' + Controls.getHint('attack') + ': atacar · ' + Controls.getHint('interact') + ': usar · ✕: confirmar · ○: volver';
       else if (mode === 'touch') hint.textContent = 'Táctil · Usa el joystick para moverte y los botones de acción en pantalla.';
       else hint.innerHTML = this._originalHint || '';
     }

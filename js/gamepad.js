@@ -3,19 +3,15 @@
    Bluetooth pairing belongs to the device/browser, not the game.
    ============================================================ */
 import { Input } from './input.js';
+import { PadBindings } from './controller-bindings.js';
 
 const SOURCE = 'gamepad:player';
 const AXIS_PRESS = 0.32;
 const AXIS_RELEASE = 0.20;
 const REPEAT_DELAY = 360;
 const REPEAT_INTERVAL = 110;
-const BUTTON_ACTIONS = [
-  ['confirm'], ['dodge', 'cancel'], ['attack'], ['interact'],
-  ['parry'], ['throw'], ['cycleL'], ['cycleR'], [], ['pause'], [], [],
-  ['up'], ['down'], ['left'], ['right'],
-];
-const NAV_ACTIONS = ['up', 'down', 'left', 'right', 'confirm', 'cancel', 'pause'];
-const NAV_GAME_ACTIONS = { up: ['up', 'jump'], confirm: ['confirm'], cancel: ['cancel', 'dodge'] };
+const NAV_ACTIONS = ['attack', 'up', 'down', 'left', 'right', 'confirm', 'cancel', 'pause'];
+const FIXED_MENU_BUTTONS = { up: 12, down: 13, left: 14, right: 15, confirm: 0, cancel: 1 };
 
 const clock = () => typeof performance !== 'undefined' ? performance.now() : Date.now();
 const canRead = () => typeof navigator !== 'undefined' && typeof navigator.getGamepads === 'function';
@@ -42,8 +38,9 @@ function pressed(button, wasPressed) {
  * No controller state is requested until setEnabled(true) is authorised.
  */
 export class GamepadController {
-  constructor({ input = Input, onNavigate = () => false, onDisconnect = () => {}, onActivity = () => {} } = {}) {
+  constructor({ input = Input, bindings = PadBindings, onNavigate = () => false, onDisconnect = () => {}, onActivity = () => {} } = {}) {
     this.input = input;
+    this.bindings = bindings;
     this.onNavigate = onNavigate;
     this.onDisconnect = onDisconnect;
     this.onActivity = onActivity;
@@ -54,10 +51,14 @@ export class GamepadController {
     this._padInfo = null;
     this._neutralRequired = true;
     this._previous = new Set();
+    this._navPrevious = new Set();
     this._buttons = [];
     this._axes = [0, 0];
     this._repeat = new Map();
-    this._consumed = new Set();
+    this._consumedButtons = new Set();
+    this._consumedAxes = new Set();
+    this._bindingRevision = bindings.getRevision();
+    this._anyButtonPressed = false;
     this._error = '';
     this._listeners = [];
   }
@@ -100,10 +101,13 @@ export class GamepadController {
     else this.input.releaseVirtual(SOURCE);
     this._neutralRequired = true;
     this._previous.clear();
+    this._navPrevious.clear();
     this._buttons = [];
     this._axes = [0, 0];
     this._repeat.clear();
-    this._consumed.clear();
+    this._consumedButtons.clear();
+    this._consumedAxes.clear();
+    this._anyButtonPressed = false;
   }
 
   destroy() {
@@ -118,6 +122,7 @@ export class GamepadController {
     this.suspend();
     this._padKey = null;
     this._padInfo = null;
+    this.bindings.cancelCapture('disconnected');
     if (previous?.mapping === 'standard') this.onDisconnect(previous);
   }
 
@@ -142,7 +147,12 @@ export class GamepadController {
     };
   }
 
+  /** Fresh physical presses, including SHARE/L3/R3/PS, for a death-screen
+   * continuation. Capture, reconnect and held buttons never count. */
+  getAnyButtonPressed() { return this._anyButtonPressed; }
+
   poll(now = clock()) {
+    this._anyButtonPressed = false;
     if (!this.enabled) return;
     if (!this._focused || hidden()) { this.suspend(); return; }
     if (!canRead()) { if (this._padInfo) this._disconnect(); return; }
@@ -171,12 +181,21 @@ export class GamepadController {
     this._padInfo = { index: pad.index, id: pad.id, mapping: pad.mapping };
     if (pad.mapping !== 'standard') { this.suspend(); return; }
 
+    const revision = this.bindings.getRevision();
+    if (revision !== this._bindingRevision) { this._bindingRevision = revision; this.suspend(); }
+
     const next = new Set();
-    const buttons = BUTTON_ACTIONS.map((actions, i) => {
+    const buttons = Array.from({ length: Math.min(32, pad.buttons?.length || 0) }, (_, i) => {
       const held = pressed(pad.buttons?.[i], this._buttons[i]);
-      if (held) for (const action of actions) next.add(action);
       return held;
     });
+    const rawFresh = buttons.some((held, index) => held && !this._buttons[index]);
+    const mapping = this.bindings.getBindings();
+    for (const [action, index] of Object.entries(mapping)) if (buttons[index]) next.add(action);
+    // Menu confirmation and back always remain recoverable, independent of
+    // how the player arranges gameplay jump, attack or dodge.
+    if (buttons[0]) next.add('confirm');
+    if (buttons[1]) next.add('cancel');
     const x = axisDirection(pad.axes?.[0], this._axes[0]);
     const y = axisDirection(pad.axes?.[1], this._axes[1]);
     if (x < 0) next.add('left');
@@ -187,33 +206,57 @@ export class GamepadController {
     for (const [a, b] of [['left', 'right'], ['up', 'down']]) {
       if (next.has(a) && next.has(b)) { next.delete(a); next.delete(b); }
     }
-    if (next.has('up')) next.add('jump');
+    const navigation = new Set();
+    const navButtons = { ...FIXED_MENU_BUTTONS, attack: mapping.attack, pause: mapping.pause };
+    for (const [action, index] of Object.entries(navButtons)) if (buttons[index]) navigation.add(action);
+    if (x < 0) navigation.add('left');
+    if (x > 0) navigation.add('right');
+    if (y < 0) navigation.add('up');
+    if (y > 0) navigation.add('down');
+    for (const [a, b] of [['left', 'right'], ['up', 'down']]) {
+      if (navigation.has(a) && navigation.has(b)) { navigation.delete(a); navigation.delete(b); }
+    }
     this._buttons = buttons;
     this._axes = [x, y];
+    const axesCentered = [pad.axes?.[0], pad.axes?.[1]].every((value) => !Number.isFinite(value) || Math.abs(value) < AXIS_RELEASE);
+    if (this.bindings.feedCapture(buttons, axesCentered, now)) { this.suspend(); return; }
     if (this._neutralRequired) {
-      const axesCentered = [pad.axes?.[0], pad.axes?.[1]].every((value) => !Number.isFinite(value) || Math.abs(value) < AXIS_RELEASE);
       if (!buttons.some(Boolean) && axesCentered) this._neutralRequired = false;
       return;
     }
 
-    const newlyPressed = [...next].some((action) => !this._previous.has(action));
+    this._anyButtonPressed = rawFresh;
+
+    const newlyPressed = rawFresh || [...next].some((action) => !this._previous.has(action));
     if (newlyPressed) this.onActivity();
-    for (const action of this._consumed) if (!next.has(action)) this._consumed.delete(action);
+    for (const index of this._consumedButtons) if (!buttons[index]) this._consumedButtons.delete(index);
+    for (const action of this._consumedAxes) {
+      const held = (action === 'left' && x < 0) || (action === 'right' && x > 0) || (action === 'up' && y < 0) || (action === 'down' && y > 0);
+      if (!held) this._consumedAxes.delete(action);
+    }
     const time = Number.isFinite(now) ? now : clock();
     for (const action of NAV_ACTIONS) {
-      if (!next.has(action)) { this._repeat.delete(action); continue; }
+      if (!navigation.has(action)) { this._repeat.delete(action); continue; }
       const directional = action === 'up' || action === 'down' || action === 'left' || action === 'right';
-      const fresh = !this._previous.has(action);
+      const fresh = !this._navPrevious.has(action);
       const due = directional && this._repeat.has(action) && time >= this._repeat.get(action);
       if (!fresh && !due) continue;
       if (directional) this._repeat.set(action, time + (fresh ? REPEAT_DELAY : REPEAT_INTERVAL));
       if (this.onNavigate(action) === true) {
-        for (const blocked of NAV_GAME_ACTIONS[action] || [action]) this._consumed.add(blocked);
+        const button = navButtons[action];
+        if (buttons[button]) this._consumedButtons.add(button);
+        if (directional) this._consumedAxes.add(action);
       }
       // Navigation can switch input modes or suspend on a screen transition.
       if (!this.enabled || this._neutralRequired) return;
     }
-    this.input.setVirtualActions(SOURCE, [...next].filter((action) => !this._consumed.has(action)));
+    this.input.setVirtualActions(SOURCE, [...next].filter((action) => {
+      const button = action === 'confirm' ? 0 : action === 'cancel' ? 1 : mapping[action];
+      const viaButton = buttons[button] && !this._consumedButtons.has(button);
+      const viaAxis = !this._consumedAxes.has(action) && ((action === 'left' && x < 0) || (action === 'right' && x > 0) || (action === 'up' && y < 0) || (action === 'down' && y > 0));
+      return viaButton || viaAxis;
+    }));
     this._previous = next;
+    this._navPrevious = navigation;
   }
 }

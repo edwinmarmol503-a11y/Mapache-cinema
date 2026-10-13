@@ -10,7 +10,7 @@ import { Game } from './game.js';
 import { Menu } from './menu.js';
 import { Pause } from './pause.js';
 import { drawMenuScene, drawCreditsScene } from './ui.js';
-import { initTouch, isTouchDevice, setTouchEnabled } from './touch.js';
+import { initTouch, isTouchDevice, setTouchEnabled, releaseTouchInputs } from './touch.js';
 import { Ranking } from './ranking.js';
 import { Controls } from './control-mode.js';
 import { GamepadController } from './gamepad.js';
@@ -71,6 +71,8 @@ const game = new Game(ctx, canvas, {
   dialogue,
   ranking: Ranking,
   onVictory: (ending) => beginEndingCredits(ending),
+  onDeath: () => { gamepad.suspend(); releaseTouchInputs(); },
+  onRespawn: () => { gamepad.suspend(); releaseTouchInputs(); },
 });
 
 const menu = new Menu({
@@ -100,6 +102,14 @@ const pause = new Pause({
 const gamepad = new GamepadController({
   input: Input,
   onNavigate: (action) => {
+    if (appState === 'credits') {
+      if (action === 'attack') {
+        document.getElementById('victory-menu').click();
+        Input.reset(); gamepad.suspend();
+      }
+      return true;
+    }
+    if (action === 'attack') return false;
     const handled = menu.navigateWithGamepad(action);
     if (handled && ['confirm', 'cancel'].includes(action)) {
       Input.reset();
@@ -115,6 +125,16 @@ const gamepad = new GamepadController({
 gamepad.init();
 let appliedControlMode = null;
 Controls.subscribe(({ mode }) => {
+  const hint = document.getElementById('game-control-hint');
+  if (hint) hint.textContent = mode === 'gamepad'
+    ? 'Stick / cruceta: mover · ' + Controls.getHint('jump') + ': saltar · ' + Controls.getHint('attack') + ': atacar · ' + Controls.getHint('dodge') + ': esquivar · ' + Controls.getHint('interact') + ': usar · ' + Controls.getHint('pause') + ': pausa'
+    : mode === 'touch' ? 'Joystick: mover · Arriba: saltar · botones de acción a la derecha'
+      : 'A/D o flechas: mover · W/↑: saltar · J: atacar · E: usar · Esc: pausa';
+  const victoryHint = document.getElementById('victory-pad-hint');
+  if (victoryHint) {
+    victoryHint.classList.toggle('hidden', mode !== 'gamepad');
+    victoryHint.textContent = ' · ' + Controls.getHint('attack');
+  }
   if (mode === appliedControlMode) return;
   appliedControlMode = mode;
   Input.reset();
@@ -123,11 +143,6 @@ Controls.subscribe(({ mode }) => {
   dialogue.touch = mode === 'touch';
   gamepad.setEnabled(mode === 'gamepad' && Controls.isUnlocked());
   document.getElementById('app').dataset.controls = mode;
-  const hint = document.getElementById('game-control-hint');
-  if (hint) hint.textContent = mode === 'gamepad'
-    ? 'Stick / cruceta: mover · Arriba: saltar · □: atacar · ○: esquivar · △: usar · OPTIONS: pausa'
-    : mode === 'touch' ? 'Joystick: mover · Arriba: saltar · botones de acción a la derecha'
-      : 'A/D o flechas: mover · W/↑: saltar · J: atacar · E: usar · Esc: pausa';
   applyScale();
 });
 
@@ -150,6 +165,7 @@ function returnToMenu() {
   if (previous !== 'menu' || !Audio.currentTrack) Audio.playMusic('menu');
   else Audio.resumeMusic();
   menu.showMenu();
+  syncDeathPresentation();
 }
 
 function beginEndingCredits(ending) {
@@ -233,6 +249,7 @@ function tick(dt) {
   gamepad.poll(performance.now());
   Controls.setGamepadStatus(gamepad.getStatus());
   if (appState === 'game') {
+    if (game.state === 'death-phrase' && gamepad.getAnyButtonPressed()) game.requestRespawn();
     if (Input.justPressed('pause')) {
       if (!menu.elOptions.classList.contains('hidden')) menu.closeOptions();
       else if (pause.active) pause.resume();
@@ -240,7 +257,27 @@ function tick(dt) {
     }
     if (!pause.active) game.update(dt);
   }
+  syncDeathPresentation();
   Input.clearFrame();
+}
+
+const deathScreen = document.getElementById('screen-death');
+const deathPhrase = document.getElementById('death-phrase');
+const deathContext = document.getElementById('death-context');
+const deathPrompt = document.getElementById('death-prompt');
+deathScreen.addEventListener('pointerdown', () => {
+  if (appState === 'game' && game.requestRespawn()) syncDeathPresentation();
+});
+function syncDeathPresentation() {
+  const black = appState === 'game' && ['death-black', 'death-phrase'].includes(game.state);
+  const phrase = black && game.state === 'death-phrase';
+  document.getElementById('app').classList.toggle('death-screen', black);
+  deathScreen.classList.toggle('hidden', !phrase);
+  if (!phrase) return;
+  if (deathPhrase.textContent !== game._deathPhrase) deathPhrase.textContent = game._deathPhrase;
+  if (deathContext.textContent !== game._deathContext) deathContext.textContent = game._deathContext;
+  deathPrompt.textContent = Controls.getMode() === 'touch' ? 'TOCA PARA REAPARECER'
+    : Controls.getMode() === 'gamepad' ? 'PULSA CUALQUIER BOTÓN PARA REAPARECER' : 'PULSA CUALQUIER TECLA PARA REAPARECER';
 }
 
 function draw() {
@@ -251,7 +288,8 @@ function draw() {
   if (appState === 'game') {
     game.render();
   } else if (appState === 'credits') {
-    drawCreditsScene(ctx, IW, IH, Math.max(0, (performance.now() - creditsStartedAt) / 1000), game.visualMode, game.reducedEffects);
+    drawCreditsScene(ctx, IW, IH, Math.max(0, (performance.now() - creditsStartedAt) / 1000), game.visualMode,
+      game.reducedEffects || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
   } else {
     drawMenuScene(ctx, IW, IH, game.visualMode, game.reducedEffects);
   }
@@ -263,6 +301,7 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden) {
     wasHidden = true;
     Audio.pauseMusic();
+    Audio.pauseTransientCue?.();
     if (Audio.ctx && Audio.ctx.state === 'running') Audio.ctx.suspend();
     if (appState === 'game' && !pause.active && game.state === 'playing') pause.open();
   } else if (wasHidden) {
@@ -270,6 +309,7 @@ document.addEventListener('visibilitychange', () => {
     last = performance.now();   // don't dump a huge dt into the loop
     acc = 0;
     Audio.resume();
+    if (appState === 'game' && !pause.active && (['death-black', 'death-phrase'].includes(game.state) || game._respawnSoundPending)) Audio.resumeTransientCue?.();
     if (appState === 'menu' || appState === 'credits') { Audio.resumeMusic(); if (!Audio.currentTrack && appState === 'menu') Audio.playMusic('menu'); }
     // music for the game resumes when the player closes the pause menu
   }

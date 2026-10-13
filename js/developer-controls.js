@@ -1,14 +1,15 @@
 /* Private exhibition controls are enabled locally through the code in Credits. */
 import { Controls } from './control-mode.js';
+import { PadBindings } from './controller-bindings.js';
 
-export function createDeveloperControls(anchor) {
+export function createDeveloperControls(anchor, { onConfigure = () => {} } = {}) {
   const panel = document.createElement('details');
   panel.id = 'developer-controls';
   panel.className = 'developer-controls';
   panel.innerHTML = `
     <summary>Código</summary>
     <form class="developer-unlock" autocomplete="off">
-      <label for="developer-code">Código de desarrollador</label>
+      <label for="developer-code">Código para habilitar mando</label>
       <div class="developer-code-row">
         <input id="developer-code" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" maxlength="128" />
         <button class="mini" type="submit">Activar</button>
@@ -16,24 +17,22 @@ export function createDeveloperControls(anchor) {
     </form>
     <p id="developer-code-status" class="option-note" role="status" aria-live="polite"></p>
     <div class="developer-choices hidden">
-      <label for="developer-control-mode">Forma de jugar</label>
-      <select id="developer-control-mode">
-        <option value="touch">Táctil</option>
-        <option value="keyboard">Teclado</option>
-        <option value="gamepad">Mando</option>
-      </select>
+      <p class="option-note"><strong>Mando habilitado</strong></p>
       <p class="developer-pad-status option-note" role="status" aria-live="polite"></p>
       <p class="option-note">Para usar el mando, vincúlalo con la pantalla o computadora y pulsa un botón. El navegador del televisor también debe reconocerlo.</p>
       <dl class="developer-pad-guide">
         <div><dt>Stick izquierdo / cruceta</dt><dd>Mover y navegar</dd></div>
-        <div><dt>Arriba</dt><dd>Saltar; suelta y vuelve a subir para el doble salto</dd></div>
-        <div><dt>✕ / □</dt><dd>Confirmar / atacar</dd></div>
-        <div><dt>○ / △</dt><dd>Esquivar o volver / interactuar</dd></div>
-        <div><dt>L1 / R1</dt><dd>Parada / lanzar</dd></div>
-        <div><dt>L2 / R2</dt><dd>Objeto anterior / siguiente</dd></div>
-        <div><dt>OPTIONS</dt><dd>Pausa</dd></div>
+        <div><dt data-pad-action="jump"></dt><dd>Saltar; pulsa otra vez para el doble salto</dd></div>
+        <div><dt data-pad-action="attack"></dt><dd>Atacar; volver al menú al terminar</dd></div>
+        <div><dt data-pad-action="dodge"></dt><dd>Esquivar</dd></div>
+        <div><dt data-pad-action="interact"></dt><dd>Interactuar</dd></div>
+        <div><dt data-pad-action="parry"></dt><dd>Parada</dd></div>
+        <div><dt data-pad-action="throw"></dt><dd>Lanzar</dd></div>
+        <div><dt data-pad-action="pause"></dt><dd>Pausa</dd></div>
+        <div><dt>✕ / ○</dt><dd>Confirmar / volver en los menús</dd></div>
       </dl>
       <p class="option-note">En los menús: arriba y abajo recorren los controles; izquierda y derecha cambian opciones y volumen. Puedes empezar con el apodo guardado o RIKO.</p>
+      <button class="mini developer-configure" type="button">Configurar botones del mando</button>
       <button class="mini developer-lock" type="button">Cerrar acceso de desarrollador</button>
     </div>`;
   anchor.after(panel);
@@ -43,7 +42,6 @@ export function createDeveloperControls(anchor) {
   const submit = form.querySelector('button');
   const message = panel.querySelector('#developer-code-status');
   const choices = panel.querySelector('.developer-choices');
-  const select = panel.querySelector('select');
   const status = panel.querySelector('.developer-pad-status');
   let request = 0;
   let busy = false;
@@ -52,13 +50,13 @@ export function createDeveloperControls(anchor) {
     const unlocked = Controls.isUnlocked();
     form.classList.toggle('hidden', unlocked);
     choices.classList.toggle('hidden', !unlocked);
-    select.value = Controls.getMode();
-    if (unlocked) message.textContent = 'Acceso de desarrollador activo en esta sesión.';
+    if (unlocked) message.textContent = 'Mando activo en esta sesión. Puedes editar sus botones en Opciones.';
+    for (const label of panel.querySelectorAll('[data-pad-action]')) label.textContent = PadBindings.getHint(label.dataset.padAction);
     const pad = Controls.getGamepadStatus();
     status.classList.toggle('connected', !!pad.connected && !!pad.ready);
     if (!pad.supported) status.textContent = 'Este navegador no ofrece acceso a mandos. Vincularlo por Bluetooth no basta para jugar aquí.';
     else if (pad.connected && pad.mapping !== 'standard') status.textContent = 'Mando detectado, pero su distribución de botones no es compatible. Usa un mando con distribución estándar.';
-    else if (pad.connected && pad.ready) status.textContent = 'Mando listo' + (pad.id ? ' · ' + pad.id : '') + (Controls.getMode() === 'gamepad' ? '.' : '. Selecciona Mando para jugar.');
+    else if (pad.connected && pad.ready) status.textContent = 'Mando listo' + (pad.id ? ' · ' + pad.id : '') + '.';
     else if (pad.connected) status.textContent = 'Mando detectado. Suelta los botones y pulsa uno para activarlo.';
     else status.textContent = Controls.getMode() === 'gamepad' ? 'Esperando mando. Vincúlalo y pulsa un botón para continuar.' : 'Mando sin detectar. Vincúlalo y pulsa un botón para comprobarlo.';
   }
@@ -74,7 +72,7 @@ export function createDeveloperControls(anchor) {
       const accepted = await Controls.unlock(input.value.trim());
       if (revision !== request) return;
       input.value = '';
-      if (accepted) { refresh(); select.focus(); }
+      if (accepted) { refresh(); panel.querySelector('.developer-configure').focus(); }
       else { message.textContent = Controls.canUnlock() ? 'Código incorrecto.' : 'Este navegador no puede validar el código. Abre el juego mediante HTTPS en un navegador actualizado.'; input.focus(); }
     } catch {
       if (revision === request) message.textContent = 'No se pudo comprobar el código en este navegador.';
@@ -82,10 +80,7 @@ export function createDeveloperControls(anchor) {
       if (revision === request) { busy = false; submit.disabled = false; }
     }
   });
-  select.addEventListener('change', () => {
-    if (!Controls.setMode(select.value)) message.textContent = 'Activa el acceso de desarrollador para cambiar los controles.';
-    refresh();
-  });
+  panel.querySelector('.developer-configure').addEventListener('click', () => { if (Controls.isUnlocked()) onConfigure(); });
   panel.querySelector('.developer-lock').addEventListener('click', () => {
     request++; busy = false; submit.disabled = false; input.value = '';
     Controls.lock();

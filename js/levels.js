@@ -134,7 +134,7 @@ export const LEVELS = [
       { tx: 0, ty: 0, w: 7, h: 20, dialogue: [
         { speaker: 'Riko', text: 'Lumera. Mi ciudad. Cada luz, un recuerdo encendido.' },
         { speaker: 'Riko', text: 'Toqué una esfera en un contenedor… y ahora se apagan una a una.' },
-        { text: 'Mueve con A/D o Flechas. Salta con W o Flecha arriba; en móvil y mando, mueve hacia arriba. Repite en el aire para el doble salto.' },
+        { text: 'Mueve con A/D o Flechas. Salta con W o Flecha arriba; en móvil, mueve hacia arriba. En mando, usa el botón asignado a Saltar. Repite en el aire para el doble salto.' },
       ] },
       { tx: 34, ty: 8, w: 3, h: 12, dialogue: [
         { text: 'Ataca con J. Esquiva con Shift. Cae sobre un enemigo para pisarle la cabeza (le quita 1 vida, a ti nada).' },
@@ -279,7 +279,9 @@ export const LEVELS = [
       { type: 'button', id: 'sq_b', tx: 106, ty: 16 },
       { type: 'button', id: 'sq_c', tx: 112, ty: 16 },
       { type: 'sequence', id: 'seq1', order: ['sq_a', 'sq_b', 'sq_c'] },
-      { type: 'door', id: 'd_s2', tx: 115, ty: 15, tall: 2, requires: ['seq1'] },
+      // The sequence is a required passage, with the same sealed corridor
+      // barrier as the magnet puzzle. Neither nearby ledge can bypass it.
+      { type: 'door', id: 'd_s2', tx: 115, ty: 0, width: 2, tall: 17, requires: ['seq1'] },
       { type: 'door', id: 'd_exit3', tx: 118, ty: 0, tall: 17, requires: ['_clear'] },
     ],
     memories: [{ tx: 44, ty: 11 }, { tx: 60, ty: 11 }],

@@ -899,6 +899,92 @@ export function drawMenuScene(ctx, W, H, visualMode = 'night', reducedEffects = 
   ctx.fillRect(0, 0, W, H);
 }
 
+/* A stepped envelope and a suspended basket distinguish these from the
+   restored street lanterns. Their two depths drift slowly over the rooftops. */
+function celebrationBalloon(ctx, x, y, scale, palette, time, reducedEffects) {
+  ctx.save();
+  ctx.translate(Math.round(x), Math.round(y + (reducedEffects ? 0 : Math.sin(time * 0.65 + x) * 2)));
+  ctx.scale(scale, scale);
+  const rows = [[-4, 0, 8, 2], [-7, 2, 14, 3], [-9, 5, 18, 8], [-7, 13, 14, 4], [-4, 17, 8, 3], [-2, 20, 4, 2]];
+  for (const [rx, ry, w, h] of rows) {
+    px(ctx, rx, ry, w, h, palette[0]);
+    px(ctx, Math.max(rx, -3), ry, Math.min(w, 6), h, palette[1]);
+  }
+  px(ctx, -3, 3, 2, 12, palette[2]);
+  px(ctx, -4, 22, 1, 6, '#a1988e'); px(ctx, 3, 22, 1, 6, '#a1988e');
+  px(ctx, -3, 28, 6, 4, '#755140'); px(ctx, -3, 28, 6, 1, '#c79764');
+  px(ctx, -1, 24, 2, 2, '#ffe091');
+  ctx.restore();
+}
+
+/* Bounded pixel bursts use deterministic positions, with no full-screen
+   flashes. Reduced effects keep a still constellation instead of rockets. */
+function celebrationFireworks(ctx, W, H, time, day, reducedEffects) {
+  const palettes = day
+    ? [['#c77527', '#fbf0c3'], ['#258bac', '#d6ffff'], ['#b05096', '#ffe1ef']]
+    : [['#ffd46e', '#fff6da'], ['#68c9ff', '#dfffff'], ['#f2a4dc', '#ffe6f6']];
+  ctx.save();
+  for (let i = 0; i < 5; i++) {
+    const x = W * (0.12 + i * 0.185), y = H * (0.11 + h1(i + 31) * 0.17);
+    const colors = palettes[i % palettes.length];
+    if (reducedEffects) {
+      ctx.globalAlpha = day ? 0.65 : 0.82;
+      ctx.fillStyle = colors[0];
+      ctx.fillRect(Math.round(x) - 3, Math.round(y), 7, 1);
+      ctx.fillRect(Math.round(x), Math.round(y) - 3, 1, 7);
+      ctx.fillStyle = colors[1]; ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+      continue;
+    }
+    const phase = wrap(time / 4.6 + i * 0.217 + 0.28, 1);
+    if (phase < 0.15) {
+      const launch = phase / 0.15;
+      const rocketY = H * 0.55 + (y - H * 0.55) * launch;
+      ctx.globalAlpha = day ? 0.6 : 0.85; ctx.fillStyle = colors[0];
+      ctx.fillRect(Math.round(x), Math.round(rocketY), 1, 4);
+      ctx.globalAlpha *= 0.35; ctx.fillRect(Math.round(x), Math.round(rocketY) + 5, 1, 6);
+      continue;
+    }
+    if (phase >= 0.74) continue;
+    const burst = (phase - 0.15) / 0.59;
+    const radius = (18 + h1(i + 61) * 10) * (1 - Math.pow(1 - burst, 2.5));
+    const alpha = Math.pow(1 - burst, 0.65) * (day ? 0.76 : 0.96);
+    for (let ray = 0; ray < 18; ray++) {
+      const angle = ray / 18 * Math.PI * 2 + i * 0.37;
+      const pxX = x + Math.cos(angle) * radius;
+      const pxY = y + Math.sin(angle) * radius + burst * burst * 9;
+      ctx.globalAlpha = alpha; ctx.fillStyle = ray % 3 === 0 ? colors[1] : colors[0];
+      ctx.fillRect(Math.round(pxX), Math.round(pxY), ray % 3 === 0 ? 2 : 1, 2);
+      ctx.globalAlpha = alpha * 0.36;
+      ctx.fillRect(Math.round(x + (pxX - x) * 0.77), Math.round(y + (pxY - y) * 0.77), 1, 1);
+    }
+  }
+  ctx.restore();
+}
+
+function celebrationSky(ctx, W, H, time, day, reducedEffects) {
+  // Skyward beams belong to the celebration, rather than the street lights.
+  if (!reducedEffects) {
+    ctx.save();
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.22 + i * 0.3), sway = Math.sin(time * 0.22 + i * 2.3) * W * 0.1;
+      const light = ctx.createLinearGradient(x, H * 0.6, x + sway, 0);
+      light.addColorStop(0, day ? 'rgba(248,238,173,0.04)' : 'rgba(145,212,255,0.13)');
+      light.addColorStop(1, 'rgba(145,212,255,0)');
+      ctx.fillStyle = light; ctx.beginPath();
+      ctx.moveTo(x - 2, H * 0.62); ctx.lineTo(x + sway - W * 0.065, 0);
+      ctx.lineTo(x + sway + W * 0.065, 0); ctx.lineTo(x + 2, H * 0.62);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
+  }
+  const drift = reducedEffects ? 0 : Math.sin(time * 0.09) * W * 0.045;
+  celebrationBalloon(ctx, W * 0.075 + drift, H * 0.29, 0.76,
+    day ? ['#26629a', '#f6c162', '#fff0b4'] : ['#306497', '#dfb45a', '#ffe4a0'], time, reducedEffects);
+  celebrationBalloon(ctx, W * 0.925 - drift * 0.6, H * 0.38, 0.58,
+    day ? ['#9a4676', '#ded9df', '#fff5e0'] : ['#754873', '#b6bce3', '#e6e8ff'], time + 3, reducedEffects);
+  celebrationFireworks(ctx, W, H, time, day, reducedEffects);
+}
+
 /* Victory credits use the rooftops as a continuously walking backdrop.
    Time is supplied by the caller so the scene can stop with the final song. */
 export function drawCreditsScene(ctx, W, H, time, visualMode = 'night', reducedEffects = false) {
@@ -917,6 +1003,7 @@ export function drawCreditsScene(ctx, W, H, time, visualMode = 'night', reducedE
     moon(ctx, W * 0.82, H * 0.23, 20, false);
     if (!reducedEffects) driftingClouds(ctx, W, H, camera, t, clear);
   }
+  celebrationSky(ctx, W, H, t, day, reducedEffects);
   drawCitLayer(ctx, W, H, camera, { s: 0.12, base: 0.42, col: day ? '#93b7c0' : clear ? '#2d4866' : '#16274a', win: day ? '#d4e7db' : 'rgba(255,214,150,0.20)', step: 34, seed: 4 }, t);
   drawCitLayer(ctx, W, H, camera, { s: 0.28, base: 0.59, col: day ? '#78949e' : clear ? '#223c56' : '#0f1c38', win: day ? '#b1d8da' : 'rgba(255,208,140,0.26)', step: 46, seed: 12, props: true }, t);
 
