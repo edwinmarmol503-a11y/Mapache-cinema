@@ -17,6 +17,9 @@ test('developer modes require a valid code, with normal mobile defaults preserve
   assert.equal(await controls.unlock('wrong'), false);
   assert.equal(controls.isUnlocked(), false);
   assert.equal(await controls.unlock('  test-only-code  '), true);
+  assert.equal(controls.getMode(), 'gamepad');
+  assert.equal(controls.setMode('keyboard'), false);
+  assert.equal(controls.setMode('touch'), false);
   assert.equal(controls.setMode('gamepad'), true);
   assert.equal(controls.getHint('interact'), '△');
   assert.equal(controls.getHint('parry'), 'L1');
@@ -24,6 +27,14 @@ test('developer modes require a valid code, with normal mobile defaults preserve
   controls.lock();
   assert.equal(controls.getMode(), 'touch');
   assert.equal(controls.setMode('gamepad'), false);
+});
+
+test('the exhibition code is Mapache-cinema and the earlier long code no longer opens access', async () => {
+  const controls = createControls({ cryptoProvider: webcrypto });
+  assert.equal(await controls.unlock('LUMERA-107D-DBD3-387F-E7E2'), false);
+  assert.equal(await controls.unlock('  Mapache-cinema  '), true);
+  assert.equal(controls.getMode(), 'gamepad');
+  assert.equal(controls.getHint('jump'), '✕');
 });
 
 test('a pending code check cannot unlock again after closing developer access', async () => {

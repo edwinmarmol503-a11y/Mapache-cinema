@@ -68,10 +68,13 @@ test('installation caches the small manifest and game files, never all music tra
   const f = fixture();
   await f.install();
   assert.ok(f.installed.includes('./assets/audio/tracks.json'));
-  assert.ok(f.opened.includes('mapache-cinema-v4.0.1-arranque'));
+  assert.ok(f.opened.includes('mapache-cinema-v5.0.0-mando-reaparicion'));
   assert.ok(f.installRequests.every(request => request.cache === 'reload'), 'a new build cannot inherit HTTP-cached modules');
-  for (const module of ['gamepad', 'control-mode', 'developer-controls', 'display']) {
+  for (const module of ['gamepad', 'control-mode', 'developer-controls', 'controller-bindings', 'controller-settings', 'display']) {
     assert.ok(f.installed.includes('./js/' + module + '.js'), module + ' is available offline');
+  }
+  for (const style of ['style', 'menu', 'game', 'ui', 'touch', 'controller-settings', 'death']) {
+    assert.ok(f.installed.includes('./css/' + style + '.css'), style + ' is available offline');
   }
   assert.equal(f.installed.some(path => /\.(mp3|ogg|wav)$/i.test(path)), false);
   assert.equal(f.requested.length, 0);
@@ -79,7 +82,7 @@ test('installation caches the small manifest and game files, never all music tra
 
 test('the bootstrap can identify the controlling build before importing game modules', () => {
   const f = fixture();
-  assert.equal(f.message({ type: 'GET_BUILD_VERSION' }).version, '4.0.1');
+  assert.equal(f.message({ type: 'GET_BUILD_VERSION' }).version, '5.0.0');
   assert.equal(f.message({ type: 'unknown' }), undefined);
 });
 
@@ -88,7 +91,7 @@ test('versioned bootstrap and styles reuse their canonical offline entries', asy
   for (const asset of ['js/bootstrap.js', 'css/style.css', 'css/menu.css']) {
     const canonical = new URL(asset, scope).href;
     f.stored.set(canonical, new Response('installed-current-build'));
-    assert.equal(await (await f.dispatch(canonical + '?v=4.0.1').response).text(), 'installed-current-build');
+    assert.equal(await (await f.dispatch(canonical + '?v=5.0.0').response).text(), 'installed-current-build');
   }
   assert.equal(f.requested.length, 0);
 });
@@ -98,7 +101,7 @@ test('a future document bypasses the older canonical loader without rewriting it
   for (const asset of ['js/bootstrap.js', 'css/menu.css']) {
     const canonical = new URL(asset, scope).href;
     f.stored.set(canonical, new Response('installed-current-build'));
-    assert.equal(await (await f.dispatch(canonical + '?v=4.0.2').response).text(), 'future-build');
+    assert.equal(await (await f.dispatch(canonical + '?v=5.0.1').response).text(), 'future-build');
     assert.equal(await f.stored.get(canonical).clone().text(), 'installed-current-build');
   }
   assert.equal(f.requested.length, 2);

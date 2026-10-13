@@ -4,8 +4,9 @@ import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { Audio } from '../js/audio.js';
 
-function fixture(ids = ['a', 'b', 'c', 'd'], playlists, alternateSrcs = {}) {
+function fixture(ids = ['a', 'b', 'c', 'd'], playlists, alternateSrcs = {}, extra = {}) {
   const previousWindow = globalThis.window;
+  const previousFetch = globalThis.fetch;
   const instances = [];
   const tones = [];
   const gain = () => ({ gain: { value: 0, setValueAtTime(v) { this.value = v; },
@@ -38,31 +39,37 @@ function fixture(ids = ['a', 'b', 'c', 'd'], playlists, alternateSrcs = {}) {
     load() { this.currentSrc = this.src; this.currentTime = 0; this.ended = false; this.error = null; }
     finish() { this.ended = true; this.paused = true; this.onended?.(); }
   }
-  globalThis.window = { Audio: Media };
-  const audio = { ...Audio, opts: { music: 0.6, sfx: 0.7 }, _shuffleBags: new Map(),
+  const stored = new Map();
+  const storage = extra.storage || { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) };
+  globalThis.window = { Audio: Media, localStorage: storage };
+  globalThis.fetch = async () => new Response(new Uint8Array([1, 2]));
+  const audio = { ...Audio, opts: { music: 0.6, sfx: 0.7 }, _playlistOrders: new Map(), _playlistCursors: new Map(),
     _tracks: new Map(), _playlists: {}, _lastExternalTrack: null, _media: null,
     _externalTrack: null, currentTrack: null, _pausedTrack: null, _musicTimer: null,
     _playGeneration: 0, _mediaPlayRequest: 0, _mediaAttempt: 0, _activeSource: null,
     _trackEndListeners: new Set(), _endedAttempt: -1,
+    _cues: {}, _cuePlayers: new Map(), _cueState: null, _deathCueIndex: 0,
+    _musicReservations: new WeakSet(),
     musicGain: gain(), sfxGain: gain(),
     ctx: { state: 'running', currentTime: 0, createGain: gain,
+      decodeAudioData: async () => ({ duration: 4, numberOfChannels: 2 }),
+      createBufferSource() {
+        if (this.failSource) throw new Error('unsupported');
+        return { loop: false, connect() {}, disconnect() {}, start(at, offset) { this.offset = offset; },
+          stop() { this.stopped = true; }, finish() { this.onended?.(); } };
+      },
       createMediaElementSource: () => ({ connect() {} }), resume: () => Promise.resolve() },
     _tone(...args) { tones.push(args); },
   };
   const manifest = { tracks: ids.map((id) => ({ id, title: id, src: `https://game.example/audio/${id}.mp3`,
     gain: 0.5, alternateSrcs: alternateSrcs[id] || [] })),
-    playlists: playlists || { roofs: ids, forest: [...ids].reverse(), sewers: ids, district: ids, tower: ids, boss: ids } };
+    playlists: playlists || { roofs: ids, forest: [...ids].reverse(), sewers: ids, district: ids, tower: ids, boss: ids }, cues: extra.cues };
   audio.configureTracks(manifest);
-  return { audio, instances, tones, manifest, close() { audio.stopMusic(); globalThis.window = previousWindow; } };
+  return { audio, instances, tones, manifest, close() { audio.stopMusic(); globalThis.window = previousWindow; globalThis.fetch = previousFetch; } };
 }
 
-test('random music shares a shuffle bag across levels and plays every track before reshuffling', () => {
+test('level music follows one manifest-ordered sequence across themes and wraps after the last song', () => {
   const f = fixture();
-  const originalRandom = Math.random;
-  // The resulting order differs from the manifest: this verifies a shuffle,
-  // while a second cycle also exercises avoiding its boundary repeat.
-  let randomCalls = 0;
-  Math.random = () => randomCalls++ < 3 ? 0 : 0.999999;
   try {
     const sequence = [];
     const themes = ['roofs', 'forest', 'sewers', 'district', 'tower', 'boss'];
@@ -70,29 +77,23 @@ test('random music shares a shuffle bag across levels and plays every track befo
       f.audio.playMusic(themes[i % themes.length], { restart: true });
       sequence.push(f.audio._externalTrack.id);
     }
-    assert.notDeepEqual(sequence.slice(0, 4), ['a', 'b', 'c', 'd']);
-    assert.equal(sequence[3], 'a');
-    assert.notEqual(sequence[4], 'a', 'the next shuffled bag initially starts with a, so its boundary must be repaired');
-    for (let i = 0; i < sequence.length; i += 4) assert.equal(new Set(sequence.slice(i, i + 4)).size, 4);
-    for (let i = 1; i < sequence.length; i++) assert.notEqual(sequence[i], sequence[i - 1]);
+    assert.deepEqual(sequence, ['a', 'b', 'c', 'd', 'a', 'b', 'c', 'd', 'a', 'b', 'c', 'd']);
     assert.equal(f.instances.length, 1, 'all tracks stream through one media element');
-  } finally { Math.random = originalRandom; f.close(); }
+  } finally { f.close(); }
 });
 
-test('changing to an overlapping pool defers its final entry when it was just played', () => {
+test('fixed scene songs do not consume the ordered level cursor', () => {
   const f = fixture(['a', 'b'], { roofs: ['a', 'b'], forest: ['a'] });
-  const originalRandom = Math.random;
-  Math.random = () => 0;
   try {
     f.audio.playMusic('roofs');
-    assert.equal(f.audio._externalTrack.id, 'b');
+    assert.equal(f.audio._externalTrack.id, 'a');
     f.audio.playMusic('forest');
     assert.equal(f.audio._externalTrack.id, 'a');
     f.audio.playMusic('roofs');
     assert.equal(f.audio._externalTrack.id, 'b');
     f.audio.playMusic('roofs', { restart: true });
-    assert.equal(f.audio._externalTrack.id, 'a', 'deferred track remains available');
-  } finally { Math.random = originalRandom; f.close(); }
+    assert.equal(f.audio._externalTrack.id, 'a', 'the ordered pool wraps after b');
+  } finally { f.close(); }
 });
 
 test('natural song endings keep the same song until an explicit level or death transition', () => {
@@ -101,14 +102,14 @@ test('natural song endings keep the same song until an explicit level or death t
     f.audio.playMusic('roofs');
     const before = f.audio._externalTrack.id;
     const media = f.audio._media;
-    const bag = [...f.audio._shuffleBags.values()][0].slice();
+    const bag = [...f.audio._playlistCursors.entries()];
     const source = media.src;
     assert.equal(media.loop, true);
     f.audio._media.finish();
     assert.equal(f.audio._externalTrack.id, before);
     assert.equal(media.src, source);
     assert.equal(media.currentTime, 0);
-    assert.deepEqual([...f.audio._shuffleBags.values()][0], bag);
+    assert.deepEqual([...f.audio._playlistCursors.entries()], bag);
     assert.equal(f.audio.currentTrack, 'roofs');
     f.audio.playMusic('roofs', { restart: true });
     assert.notEqual(f.audio._externalTrack.id, before, 'death and level advance explicitly draw another song');
@@ -124,7 +125,7 @@ test('pausing, gestures and volume changes keep the same song and playback posit
     f.audio.playMusic('roofs');
     const media = f.audio._media;
     const song = f.audio._externalTrack;
-    const bag = [...f.audio._shuffleBags.values()][0].slice();
+    const bag = [...f.audio._playlistCursors.entries()];
     media.currentTime = 42;
     f.audio.pauseMusic();
     f.audio.resume();
@@ -135,7 +136,7 @@ test('pausing, gestures and volume changes keep the same song and playback posit
     assert.equal(f.audio.getMusicStatus().mode, 'external');
     assert.equal(media.currentTime, 42);
     assert.equal(f.audio._externalTrack, song);
-    assert.deepEqual([...f.audio._shuffleBags.values()][0], bag);
+    assert.deepEqual([...f.audio._playlistCursors.entries()], bag);
     f.audio.playMusic('roofs');
     assert.equal(f.audio._externalTrack, song, 'repeated non-restart calls preserve playback');
     f.audio.setMusicVol(0.25);
@@ -238,7 +239,7 @@ test('manifest deduplicates playlist entries and empty pools stay silent', () =>
   } finally { f.close(); }
 });
 
-test('missing primary URL retries the same song at its valid alternate without consuming the bag', () => {
+test('missing primary URL retries the same song at its valid alternate without advancing the sequence', () => {
   const f = fixture(['a', 'b'], undefined, { a: ['https://game.example/batch/audio/a.mp3'] });
   const originalRandom = Math.random;
   Math.random = () => 0.999999;
@@ -246,7 +247,7 @@ test('missing primary URL retries the same song at its valid alternate without c
     f.audio.playMusic('roofs');
     const entry = f.audio._externalTrack;
     assert.equal(entry.id, 'a');
-    const bag = [...f.audio._shuffleBags.values()][0].slice();
+    const bag = [...f.audio._playlistCursors.entries()];
     const media = f.audio._media;
     const generation = f.audio._playGeneration;
     media.error = { code: 4 };
@@ -254,7 +255,7 @@ test('missing primary URL retries the same song at its valid alternate without c
     assert.equal(f.audio._externalTrack, entry);
     assert.equal(media.src, 'https://game.example/batch/audio/a.mp3');
     assert.equal(f.audio._playGeneration, generation);
-    assert.deepEqual([...f.audio._shuffleBags.values()][0], bag);
+    assert.deepEqual([...f.audio._playlistCursors.entries()], bag);
     media.onplaying();
     assert.equal(f.audio.getMusicStatus().mode, 'external');
     assert.equal(f.audio.getMusicStatus().src, media.src);
@@ -382,14 +383,14 @@ test('source normalization drops unsafe schemes, malformed entries and duplicate
   } finally { f.close(); }
 });
 
-test('equivalent level requests and dialogue resume preserve the source, playhead and shuffle bag', () => {
+test('equivalent level requests and dialogue resume preserve the source, playhead and sequence cursor', () => {
   const f = fixture();
   try {
     f.audio.playMusic('roofs');
     const media = f.audio._media;
     const entry = f.audio._externalTrack;
     const source = media.src;
-    const bag = [...f.audio._shuffleBags.values()][0].slice();
+    const bag = [...f.audio._playlistCursors.entries()];
     const oldError = media.onerror;
     media.currentTime = 47;
     f.audio.playMusic('forest');
@@ -397,7 +398,7 @@ test('equivalent level requests and dialogue resume preserve the source, playhea
     assert.equal(f.audio._externalTrack, entry);
     assert.equal(media.currentTime, 47);
     assert.equal(media.src, source);
-    assert.deepEqual([...f.audio._shuffleBags.values()][0], bag);
+    assert.deepEqual([...f.audio._playlistCursors.entries()], bag);
     media.error = { code: 4 };
     oldError();
     assert.equal(f.audio._failedTracks.size, 0, 'obsolete theme callback cannot mark the retained song as failed');
@@ -465,11 +466,11 @@ test('a missing fixed theme remains silent instead of borrowing a random level s
   } finally { f.close(); }
 });
 
-test('the supplied manifest loads all 37 songs and reserves the requested three for their scenes', async () => {
+test('the supplied manifest loads 37 songs and 4 cues with a deterministic 34-song level sequence', async () => {
   const manifest = JSON.parse(await readFile(new URL('../assets/audio/tracks.json', import.meta.url), 'utf8'));
   const ids = manifest.tracks.map(track => track.id);
-  assert.equal(ids.length, 37);
-  assert.equal(new Set(ids).size, 37);
+  assert.equal(ids.length, 41);
+  assert.equal(new Set(ids).size, 41);
   assert.deepEqual(manifest.playlists.menu, ['pista-37']);
   assert.deepEqual(manifest.playlists.ending, ['pista-34']);
   assert.deepEqual(manifest.playlists.boss, ['pista-03']);
@@ -485,9 +486,9 @@ test('the supplied manifest loads all 37 songs and reserves the requested three 
   }
   // The real browser resolves relative URLs from an HTTPS manifest. Supplying
   // its resolved URLs here exercises the limit without file:// test paths.
-  const f = fixture(ids, manifest.playlists);
+  const f = fixture(ids, manifest.playlists, {}, { cues: manifest.cues });
   try {
-    assert.equal(f.audio._tracks.size, 37, 'tracks after number 20 cannot be silently discarded');
+    assert.equal(f.audio._tracks.size, 41, 'tracks after number 20 cannot be silently discarded');
     for (const [theme, id] of [['menu', 'pista-37'], ['boss', 'pista-03'], ['ending', 'pista-34']]) {
       f.audio.playMusic(theme);
       assert.equal(f.audio._externalTrack.id, id);
@@ -498,14 +499,211 @@ test('the supplied manifest loads all 37 songs and reserves the requested three 
       sequence.push(f.audio._externalTrack.id);
     }
     assert.equal(new Set(sequence).size, 34);
+    assert.deepEqual(sequence, manifest.playlists.roofs, 'every level song is heard in the supplied order');
     assert.equal(sequence.some(id => reserved.has(id)), false);
+    assert.deepEqual(manifest.cues, { death: ['burla-01', 'burla-02', 'burla-03'], respawn: ['reaparicion'] });
+    assert.equal(sequence.some(id => manifest.tracks.find(track => track.id === id)?.role === 'cue'), false);
   } finally { f.close(); }
 });
 
-test('all 26 new canonical MP3s match the received originals without losing or modifying audio', async () => {
+test('the next ordered song persists across reloads without fixed songs or manifest refresh consuming it', () => {
+  const stored = new Map();
+  const storage = { getItem: key => stored.get(key) || null, setItem: (key, value) => stored.set(key, value) };
+  const playlists = { roofs: ['a', 'b', 'c'], forest: ['a', 'b', 'c'], menu: ['arcade'], boss: ['battle'], ending: ['victory'] };
+  const ids = ['a', 'b', 'c', 'arcade', 'battle', 'victory'];
+  const first = fixture(ids, playlists, {}, { storage });
+  try {
+    first.audio.playMusic('roofs');
+    assert.equal(first.audio._externalTrack.id, 'a');
+    const media = first.audio._media;
+    media.currentTime = 22;
+    first.audio.configureTracks(first.manifest);
+    assert.equal(first.audio._externalTrack.id, 'a');
+    assert.equal(media.currentTime, 22, 'refreshing metadata preserves the active song');
+    for (const theme of ['menu', 'boss', 'ending']) first.audio.playMusic(theme);
+  } finally { first.close(); }
+  const second = fixture(ids, playlists, {}, { storage });
+  try {
+    second.audio.playMusic('forest');
+    assert.equal(second.audio._externalTrack.id, 'b', 'next session resumes the next unplayed level song');
+    second.audio.playMusic('forest', { restart: true });
+    assert.equal(second.audio._externalTrack.id, 'c');
+    second.audio.playMusic('forest', { restart: true });
+    assert.equal(second.audio._externalTrack.id, 'a');
+  } finally { second.close(); }
+});
+
+test('blocked localStorage still follows the full ordered queue in memory', () => {
+  const storage = { getItem() { throw new Error('denied'); }, setItem() { throw new Error('denied'); } };
+  const f = fixture(['a', 'b', 'c'], undefined, {}, { storage });
+  try {
+    const sequence = [];
+    for (let i = 0; i < 6; i++) { f.audio.playMusic('roofs', { restart: true }); sequence.push(f.audio._externalTrack.id); }
+    assert.deepEqual(sequence, ['a', 'b', 'c', 'a', 'b', 'c']);
+  } finally { f.close(); }
+});
+
+function cueFixture() {
+  return fixture(['a', 'b', 'c', 'burla-01', 'burla-02', 'burla-03', 'reaparicion'],
+    { roofs: ['a', 'b', 'c'] }, {}, { cues: { death: ['burla-01', 'burla-02', 'burla-03'], respawn: ['reaparicion'] } });
+}
+
+test('complete death recordings rotate in order, then stay silent until a full respawn recording finishes', async () => {
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    f.audio.playMusic('roofs');
+    f.audio.stopMusic();
+    for (const id of ['burla-01', 'burla-02', 'burla-03', 'burla-01']) {
+      const playing = f.audio.playTransitionCue('death');
+      const source = f.audio._cueState.source;
+      assert.equal(f.audio.getCueStatus().id, id);
+      assert.equal(source.loop, false);
+      assert.equal(f.audio.currentTrack, null, 'the death screen has no background song');
+      source.finish();
+      assert.equal((await playing).status, 'ended');
+      assert.equal(f.audio.getCueStatus().mode, 'stopped', 'the quote waits in silence');
+    }
+    const respawn = f.audio.playTransitionCue('respawn');
+    assert.equal(f.audio.getCueStatus().id, 'reaparicion');
+    f.audio._cueState.source.finish();
+    assert.equal((await respawn).status, 'ended');
+    assert.equal(f.audio.currentTrack, null, 'the caller controls when gameplay resumes');
+    f.audio.playMusic('roofs', { restart: true });
+    assert.equal(f.audio._externalTrack.id, 'b', 'death cues do not skip any level songs');
+  } finally { f.close(); }
+});
+
+test('cue pause, visibility resume and muting preserve recording position and its completion promise', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    let settled = false;
+    const playing = f.audio.playTransitionCue('respawn').then(result => { settled = true; return result; });
+    const source = f.audio._cueState.source;
+    t.mock.timers.tick(1000);
+    f.audio.ctx.currentTime = 1;
+    f.audio.pauseMusic();
+    assert.equal(f.audio.getCueStatus().mode, 'paused');
+    f.audio.resume();
+    assert.equal(f.audio._cueState.source, null, 'a new gesture never undoes an explicit pause');
+    t.mock.timers.tick(10000);
+    await Promise.resolve();
+    assert.equal(settled, false, 'background time does not finish a paused recording');
+    f.audio.setSfxVol(0);
+    f.audio.resumeMusic();
+    assert.equal(f.audio.getCueStatus().position, 1);
+    assert.equal(f.audio._cueState.source.offset, 1);
+    assert.equal(f.audio.sfxGain.gain.value, 0);
+    f.audio._cueState.source.finish();
+    assert.equal((await playing).status, 'ended', 'muted clips still complete their visual transition');
+  } finally { f.close(); }
+});
+
+test('unsupported and stalled decoding / playback have bounded completion and never hang the death screen', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    assert.equal((await f.audio.playTransitionCue('unknown')).status, 'unavailable');
+    f.audio.ctx.failSource = true;
+    assert.equal((await f.audio.playTransitionCue('death')).status, 'unavailable');
+    f.audio.ctx.failSource = false;
+    const player = f.audio._cuePlayers.get('burla-02');
+    player.buffer = null;
+    player.promise = new Promise(() => {});
+    const stalledDecode = f.audio.playTransitionCue('death');
+    t.mock.timers.tick(4000);
+    assert.equal((await stalledDecode).status, 'timed-out');
+    const stalledPlayback = f.audio.playTransitionCue('death');
+    t.mock.timers.tick(5500);
+    assert.equal((await stalledPlayback).status, 'timed-out');
+    assert.equal(f.audio.getCueStatus().mode, 'stopped');
+    f.audio.ctx = null;
+    assert.equal((await f.audio.playTransitionCue('respawn')).status, 'unavailable');
+  } finally { f.close(); }
+});
+
+test('starting another scene cancels its cue and obsolete recording events cannot interrupt the new song', async () => {
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    const playing = f.audio.playTransitionCue('respawn');
+    const source = f.audio._cueState.source;
+    const oldEnded = source.onended;
+    f.audio.playMusic('roofs');
+    assert.equal((await playing).status, 'cancelled');
+    const song = f.audio._externalTrack;
+    oldEnded();
+    assert.equal(f.audio._externalTrack, song);
+    assert.equal(f.audio.getCueStatus().mode, 'stopped');
+  } finally { f.close(); }
+});
+
+test('an obsolete buffer ended event from before pause cannot finish the resumed recording', async () => {
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    const playing = f.audio.playTransitionCue('respawn');
+    const oldEnded = f.audio._cueState.source.onended;
+    f.audio.ctx.currentTime = 2;
+    f.audio.pauseMusic();
+    f.audio.resumeMusic();
+    oldEnded();
+    assert.equal(f.audio.getCueStatus().id, 'reaparicion');
+    assert.equal(f.audio.getCueStatus().position, 2);
+    f.audio._cueState.source.finish();
+    assert.equal((await playing).status, 'ended');
+  } finally { f.close(); }
+});
+
+test('respawn reservations consume exactly one ordered song and later start it without consuming another', async () => {
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    f.audio.playMusic('roofs');
+    assert.equal(f.audio._externalTrack.id, 'a');
+    f.audio.stopMusic();
+    const reserved = f.audio.reserveMusic('roofs');
+    assert.equal(reserved.id, 'b');
+    assert.equal(f.audio.currentTrack, null);
+    const cue = f.audio.playTransitionCue('respawn');
+    f.audio._cueState.source.finish();
+    await cue;
+    assert.equal(f.audio.playReservedMusic(reserved), true);
+    assert.equal(f.audio._externalTrack.id, 'b');
+    assert.equal(f.audio.playReservedMusic(reserved), false, 'a reservation is single use');
+    f.audio.playMusic('roofs', { restart: true });
+    assert.equal(f.audio._externalTrack.id, 'c');
+  } finally { f.close(); }
+});
+
+test('another death or level invalidates stale respawn reservations while preserving their one-song advance', async () => {
+  const f = cueFixture();
+  try {
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    f.audio.playMusic('roofs');
+    f.audio.stopMusic();
+    const first = f.audio.reserveMusic('roofs');
+    const interruptedCue = f.audio.playTransitionCue('respawn');
+    f.audio.stopMusic();
+    assert.equal((await interruptedCue).status, 'cancelled');
+    const second = f.audio.reserveMusic('roofs');
+    assert.equal(first.id, 'b');
+    assert.equal(second.id, 'c', 'the second death advances once even if b never began sounding');
+    assert.equal(f.audio.playReservedMusic(first), false);
+    assert.equal(f.audio.playReservedMusic(second), true);
+    assert.equal(f.audio._externalTrack.id, 'c');
+    assert.equal(f.audio.playReservedMusic({ theme: 'roofs', id: 'a', generation: f.audio._playGeneration }), false,
+      'foreign objects cannot start or advance music');
+  } finally { f.close(); }
+});
+
+test('all canonical music and 4 cue MP3s exactly match the received originals', async () => {
   const inventory = await readFile(new URL('../assets/audio/INVENTARIO.md', import.meta.url), 'utf8');
-  const rows = inventory.split('\n').filter(line => /^\| pista-/.test(line));
-  assert.equal(rows.length, 37);
+  const rows = inventory.split('\n').filter(line => /^\| (pista-|burla-|reaparicion)/.test(line));
+  assert.equal(rows.length, 41);
   const sha = bytes => createHash('sha256').update(bytes).digest('hex');
   for (const row of rows) {
     const [, id, , original, size, digest] = row.split('|').map(cell => cell.trim());

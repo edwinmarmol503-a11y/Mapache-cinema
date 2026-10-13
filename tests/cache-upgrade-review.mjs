@@ -11,13 +11,16 @@ const { chromium } = await import(path.isAbsolute(modulePath) ? pathToFileURL(mo
 const root = path.resolve('.');
 const output = path.join(root, 'test-results/cache-upgrade');
 const scopePath = '/Mapache-cinema/';
-const version = '4.0.1';
+const version = '5.0.0';
+const styles = ['style', 'menu', 'game', 'ui', 'touch', 'controller-settings', 'death'];
 const legacyCache = 'mapache-cinema-v3.1.0-stale-review';
 const staleMarker = 'QA_STALE_MENU_WITH_REMOVED_SCALE';
 const optionsKey = 'mapache_cinema_opts_v1';
 const saveKey = 'mapache_cinema_save_v1';
 const seedOptions = { music: 0, sfx: 0, visualMode: 'clear', nick: 'CACHE-QA', bindingVersion: 4,
-  bindings: { jump: ['KeyW', 'ArrowUp'], attack: ['KeyF'] } };
+  bindings: { jump: ['KeyW', 'ArrowUp'], attack: ['KeyF'] }, padBindingVersion: 1,
+  padBindings: { left: 14, right: 15, up: 12, down: 13, jump: 2, attack: 0, dodge: 1,
+    parry: 4, interact: 3, throw: 5, cycleL: 6, cycleR: 7, pause: 9 } };
 const seedSave = { level: 2, checkpoint: { x: 320, y: 160 }, items: { magnet: true }, collected: ['qa-preserved'],
   levelProgress: { d_s1: true }, hp: 2, maxHp: 3, memories: 5, flags: { qa_preserved: true },
   ending: null, completed: false, playtime: 730, created: 123456789, difficulty: 'hard', nick: 'CACHE-QA', levelElapsedMs: 4321 };
@@ -27,8 +30,8 @@ const htmlSource = await readFile(path.join(root, 'index.html'), 'utf8');
 const assetsBlock = swSource.match(/const ASSETS\s*=\s*\[([\s\S]*?)\];/);
 assert.ok(assetsBlock, 'fixture can find the actual precached assets');
 const assets = [...assetsBlock[1].matchAll(/['"]([^'"]+)['"]/g)].map(match => match[1]);
-assert.match(htmlSource, /js\/bootstrap\.js\?v=4\.0\.1/, 'new HTML bypasses an old cached bootstrap');
-for (const css of ['style', 'menu', 'game', 'ui', 'touch']) {
+assert.ok(htmlSource.includes(`js/bootstrap.js?v=${version}`), 'new HTML bypasses an old cached bootstrap');
+for (const css of styles) {
   assert.ok(htmlSource.includes(`css/${css}.css?v=${version}`), `${css} stylesheet is versioned`);
 }
 assert.match(swSource, /GET_BUILD_VERSION/, 'new worker can identify its build');
@@ -136,7 +139,7 @@ async function makeContext(name, { unsupported = false } = {}) {
 
 async function waitBoot(page) {
   await page.waitForFunction(() => !!window.MC && document.getElementById('boot-hint').classList.contains('hide'), null, { timeout: 25000 });
-  await page.waitForFunction(() => MC.Audio.getMusicStatus().configuredTracks === 37);
+  await page.waitForFunction(() => MC.Audio.getMusicStatus().configuredTracks === 41);
 }
 async function workerVersion(page) {
   return page.evaluate(() => new Promise((resolve, reject) => {
@@ -147,13 +150,18 @@ async function workerVersion(page) {
   }));
 }
 async function assertPersisted(page, label) {
-  const values = await page.evaluate(({ optionsKey, saveKey }) => ({
-    options: JSON.parse(localStorage.getItem(optionsKey)), save: JSON.parse(localStorage.getItem(saveKey)),
-    customAttack: MC.Input.bindings.attack,
-  }), { optionsKey, saveKey });
-  assert.deepEqual(values.options, seedOptions, `${label}: stored user options survive`);
+  const values = await page.evaluate(async ({ optionsKey, saveKey }) => {
+    const { PadBindings } = await import('./js/controller-bindings.js');
+    return { options: JSON.parse(localStorage.getItem(optionsKey)), save: JSON.parse(localStorage.getItem(saveKey)),
+      customAttack: MC.Input.bindings.attack, customPad: PadBindings.getBindings() };
+  }, { optionsKey, saveKey });
+  // v5 adds controller defaults to options. Existing user values must remain
+  // intact while newly introduced keys may be saved alongside them.
+  const storedOriginalValues = Object.fromEntries(Object.keys(seedOptions).map(key => [key, values.options[key]]));
+  assert.deepEqual(storedOriginalValues, seedOptions, `${label}: stored user options survive`);
   assert.deepEqual(values.save, seedSave, `${label}: checkpoint, inventory and progress survive`);
   assert.deepEqual(values.customAttack, ['KeyF'], `${label}: custom bindings are respected`);
+  assert.deepEqual(values.customPad, seedOptions.padBindings, `${label}: custom controller buttons survive and are loaded`);
 }
 function check(message) { report.checks.push(message); console.log(message); }
 
@@ -164,7 +172,7 @@ try {
   assert.equal(await workerVersion(fresh.page), version);
   await assertPersisted(fresh.page, 'fresh installation');
   assert.equal(fresh.scenario.navigations, 1, 'first installation claims without reloading the page');
-  check('Fresh browser installs, activates and claims v4.0.1 before starting the game, without reload.');
+  check('Fresh browser installs, activates and claims v5.0.0 before starting the game, without reload.');
   await fresh.context.close();
 
   servingLegacy = true;
@@ -196,7 +204,7 @@ try {
   assert.deepEqual(upgraded.legacyHits.filter(hit => hit.endsWith('.js')), [], 'no stale unversioned game module is requested before the new worker claims');
   assert.equal(upgrade.scenario.navigations, 2, 'upgrade uses the existing document without an automatic extra navigation');
   check('An installed v3.1 cache containing a broken old menu cannot mix with new HTML; new worker claims before modules load.');
-  check('Cache migration keeps nickname, custom keys, checkpoint, inventory, difficulty, elapsed time and saved progress.');
+  check('Cache migration keeps nickname, custom keys and controller buttons, checkpoint, inventory, difficulty, elapsed time and saved progress.');
 
   // A changed worker script with the same release version emulates a background
   // reinstallation. It may claim, but must never destroy the current session.
@@ -235,7 +243,9 @@ try {
   await upgrade.page.reload();
   await waitBoot(upgrade.page);
   assert.equal(await workerVersion(upgrade.page), version);
-  for (const asset of ['js/bootstrap.js', 'css/style.css', 'css/menu.css', 'css/game.css', 'css/ui.css', 'css/touch.css']) {
+  const offlinePad = await upgrade.page.evaluate(async () => (await import('./js/controller-bindings.js')).PadBindings.getBindings());
+  assert.deepEqual(offlinePad, seedOptions.padBindings, 'custom controller mappings also load offline');
+  for (const asset of ['js/bootstrap.js', ...styles.map(style => `css/${style}.css`)]) {
     const served = await upgrade.page.evaluate(async ({ asset, version }) => {
       const response = await fetch('./' + asset + '?v=' + version);
       return { status: response.status, source: await response.text() };
@@ -244,7 +254,15 @@ try {
     assert.equal(served.source, await readFile(path.join(root, asset), 'utf8'), `${asset} versioned request maps to its current canonical cache`);
   }
   await upgrade.page.screenshot({ path: path.join(output, 'offline-upgraded-menu.png'), fullPage: true });
-  check('Installed v4.0.1 starts offline, including versioned bootstrap and all five CSS URLs under the repository subdirectory.');
+  for (const module of ['controller-bindings', 'controller-settings']) {
+    const served = await upgrade.page.evaluate(async module => {
+      const response = await fetch(`./js/${module}.js`);
+      return { status: response.status, source: await response.text() };
+    }, module);
+    assert.equal(served.status, 200, `${module} module loads offline`);
+    assert.equal(served.source, await readFile(path.join(root, 'js', module + '.js'), 'utf8'), `${module} loads from the installed build`);
+  }
+  check('Installed v5.0.0 starts offline, including versioned bootstrap, all seven CSS URLs and both controller settings modules under the repository subdirectory.');
   await upgrade.context.close();
 
   const unsupported = await makeContext('Service Worker unsupported fallback', { unsupported: true });
