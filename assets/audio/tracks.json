@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "tracks": [
     {
       "id": "pista-01",
@@ -329,6 +329,38 @@
       "src": "pista-37.mp3",
       "gain": 0.65,
       "durationSeconds": 318.0
+    },
+    {
+      "id": "burla-01",
+      "title": "Burla 1",
+      "src": "burla-01.mp3",
+      "gain": 0.8,
+      "durationSeconds": 3.888,
+      "role": "cue"
+    },
+    {
+      "id": "burla-02",
+      "title": "Burla 2",
+      "src": "burla-02.mp3",
+      "gain": 0.8,
+      "durationSeconds": 2.544,
+      "role": "cue"
+    },
+    {
+      "id": "burla-03",
+      "title": "Burla 3",
+      "src": "burla-03.mp3",
+      "gain": 0.8,
+      "durationSeconds": 2.496,
+      "role": "cue"
+    },
+    {
+      "id": "reaparicion",
+      "title": "Reaparición",
+      "src": "reaparicion.mp3",
+      "gain": 0.8,
+      "durationSeconds": 3.12,
+      "role": "cue"
     }
   ],
   "playlists": {
@@ -520,6 +552,17 @@
     ],
     "ending": [
       "pista-34"
+    ]
+  },
+  "selection": "ordered",
+  "cues": {
+    "death": [
+      "burla-01",
+      "burla-02",
+      "burla-03"
+    ],
+    "respawn": [
+      "reaparicion"
     ]
   }
 }
