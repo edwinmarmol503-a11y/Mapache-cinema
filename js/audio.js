@@ -3,8 +3,8 @@
    Separate music / sfx buses. Missing music never interrupts SFX.
    ============================================================ */
 export const MUSIC_MANIFEST_URL = new URL('../assets/audio/tracks.json', import.meta.url).href;
-const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending', 'ending-bad'];
-const isEndingTheme = (theme) => theme === 'ending' || theme === 'ending-bad';
+const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending', 'ending-bad', 'ending-bad-nightmare'];
+const isEndingTheme = (theme) => theme === 'ending' || theme === 'ending-bad' || theme === 'ending-bad-nightmare';
 const ORDER_STORAGE_KEY = 'mapache_cinema_music_order_v1';
 const volume = (v, fallback) => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 

@@ -58,6 +58,7 @@ let renderScale = 1;
 let appState = 'menu';
 let creditsStartedAt = 0;
 let creditsEnding = 'A';
+let creditsDifficulty = 'normal';
 
 // Load the local pixel font before measuring text on the high-DPI canvas.
 if (document.fonts?.load) await Promise.allSettled([
@@ -77,7 +78,7 @@ const game = new Game(ctx, canvas, {
   save: Save,
   dialogue,
   ranking: Ranking,
-  onVictory: (ending) => beginEndingCredits(ending),
+  onVictory: (ending, difficulty) => beginEndingCredits(ending, { difficulty }),
   onDeath: () => { gamepad.suspend(); releaseTouchInputs(); },
   onRespawn: () => { gamepad.suspend(); releaseTouchInputs(); },
 });
@@ -94,7 +95,7 @@ const menu = new Menu({
   },
   onCreditsClosed: () => returnToMenu(),
   onVictoryClosed: () => returnToMenu(),
-  onPreviewEnding: ending => beginEndingCredits(ending, { preview: true }),
+  onPreviewEnding: (ending, difficulty) => beginEndingCredits(ending, { preview: true, difficulty }),
   applyVisual: (mode) => { game.setVisualMode(mode); document.documentElement.dataset.visual = mode; },
   applyEffects: (reduced) => { game.reducedEffects = reduced; document.documentElement.classList.toggle('reduced-effects', reduced); },
 });
@@ -177,19 +178,20 @@ function returnToMenu() {
   syncDeathPresentation();
 }
 
-function beginEndingCredits(ending, { preview = false } = {}) {
+function beginEndingCredits(ending, { preview = false, difficulty = game.diff?.key || 'normal' } = {}) {
   if (!isEnding(ending)) return;
   creditsEnding = ending;
+  creditsDifficulty = difficulty;
   appState = 'credits';
   creditsStartedAt = performance.now();
   document.getElementById('app').classList.remove('playing', 'paused');
-  menu.showVictory(ending, { preview });
-  Audio.playMusic(endingMusicTheme(ending), { restart: preview });
+  menu.showVictory(ending, { preview, difficulty: creditsDifficulty });
+  Audio.playMusic(endingMusicTheme(ending, creditsDifficulty), { restart: preview });
   Input.reset();
 }
 
 Audio.subscribeTrackEnd(({ theme }) => {
-  if (theme === endingMusicTheme(creditsEnding) && appState === 'credits') returnToMenu();
+  if (theme === endingMusicTheme(creditsEnding, creditsDifficulty) && appState === 'credits') returnToMenu();
 });
 
 /* ---------------- scaling ---------------- */

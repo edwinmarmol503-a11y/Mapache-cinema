@@ -171,7 +171,7 @@ export function drawBackground(ctx, world, visualMode) {
   const W = world.W, H = world.H;
   const cam = world.camera;
   const theme = world.levelDef.key;
-  const t = performance.now() / 1000;
+  const t = world.reducedEffects ? 0 : performance.now() / 1000;
   const mode = modeFor(world, visualMode);
   const day = mode === 'day';
   const clear = mode === 'clear';
@@ -452,6 +452,16 @@ function drawCitLayer(ctx, W, H, cam, L, t) {
     ctx.fillStyle = 'rgba(194,218,243,0.08)';
     ctx.fillRect(x, by, bw, 1);
     ctx.fillRect(x, by + 1, 1, H - by - 1);
+    // A recessed side and sparse floor bands give the silhouettes depth while
+    // retaining broad, quiet faces behind the playable platforms.
+    ctx.fillStyle = 'rgba(1,7,19,0.15)';
+    ctx.fillRect(x + bw - 4, by + 1, 4, H - by - 1);
+    if (L.props) {
+      ctx.fillStyle = 'rgba(161,191,218,0.07)';
+      for (let y = by + 22; y < H; y += 28) ctx.fillRect(x + 1, y, bw - 5, 1);
+      ctx.fillStyle = 'rgba(2,8,18,0.19)';
+      ctx.fillRect(x - 1, by - 2, bw + 2, 2);
+    }
     // windows grid (hashed by building index + cell, so no flicker)
     let wc = 0;
     for (let wy = by + 5; wy < H - 6; wy += 7) {
@@ -462,6 +472,13 @@ function drawCitLayer(ctx, W, H, cam, L, t) {
           ctx.globalAlpha *= 0.85 + 0.15 * Math.sin(t * 0.32 + i + wc * 3 + wr);
           ctx.fillStyle = L.win; ctx.fillRect(wx, wy, 2, 3);
           ctx.restore();
+          if (L.props) {
+            ctx.fillStyle = 'rgba(2,8,18,0.18)';
+            ctx.fillRect(wx, wy + 3, 3, 1);
+          }
+        } else if (L.props && h1(i * 47 + wc * 7 + wr) > 0.64) {
+          ctx.fillStyle = 'rgba(2,8,18,0.12)';
+          ctx.fillRect(wx, wy, 2, 3);
         }
         wr++;
       }
@@ -469,11 +486,19 @@ function drawCitLayer(ctx, W, H, cam, L, t) {
     }
     if (L.props && r > 0.6) {
       ctx.fillStyle = L.col;                          // water tower
-      ctx.fillRect(x + bw / 2 - 4, by - 8, 8, 8);
-      ctx.fillRect(x + bw / 2 - 5, by - 10, 10, 2);
+      ctx.fillRect(x + bw / 2 - 4, by - 11, 8, 7);
+      ctx.fillRect(x + bw / 2 - 5, by - 13, 10, 2);
+      ctx.fillRect(x + bw / 2 - 3, by - 4, 1, 4);
+      ctx.fillRect(x + bw / 2 + 2, by - 4, 1, 4);
+      ctx.fillStyle = 'rgba(177,204,225,0.13)';
+      ctx.fillRect(x + bw / 2 - 4, by - 10, 1, 5);
+      ctx.fillRect(x + bw / 2 - 4, by - 7, 8, 1);
     } else if (L.props && r > 0.32) {
       ctx.strokeStyle = L.col; ctx.lineWidth = 1;     // antenna
       ctx.beginPath(); ctx.moveTo(x + bw / 2, by); ctx.lineTo(x + bw / 2, by - 10); ctx.stroke();
+      ctx.fillStyle = L.col;
+      ctx.fillRect(x + bw / 2 - 4, by - 7, 8, 1);
+      ctx.fillRect(x + bw / 2 - 2, by - 10, 4, 1);
       ctx.fillStyle = `rgba(255,90,90,${0.1 + 0.4 * Math.pow((1 + Math.sin(t * 2 + i)) / 2, 4)})`;
       ctx.fillRect(x + bw / 2 - 1, by - 12, 2, 2);
     } else if (L.props && r < 0.18) {
@@ -517,15 +542,26 @@ function bgForest(ctx, world, t, day = false, clear = false) {
   }
 
   const pines = (s, col, base, step, seed) => {
-    ctx.fillStyle = col;
     worldStrip(cam.x, s, step, W, (i, x) => {
       const r = h1(i * 3.13 + seed * 9.7);
       const th = (H * base) * (0.5 + 0.75 * r);
-      ctx.beginPath();
-      ctx.moveTo(x - 2, H);
-      ctx.lineTo(x + step / 2, H - th);
-      ctx.lineTo(x + step + 2, H);
-      ctx.closePath(); ctx.fill();
+      const cx = Math.round(x + step / 2), top = Math.round(H - th);
+      ctx.fillStyle = col;
+      ctx.fillRect(cx - 2, top + th * .28, 4, th * .72);
+      // Four stepped boughs replace the solid triangle with a readable pine.
+      for (let tier = 0; tier < 4; tier++) {
+        const y = Math.round(top + tier * th * .18), height = Math.round(th * .38);
+        const half = Math.round(step * (.19 + tier * .09));
+        for (let row = 0; row < 5; row++) {
+          const extent = Math.max(1, Math.round(half * (row + 1) / 5));
+          ctx.fillStyle = col;
+          ctx.fillRect(cx - extent, y + Math.round(row * height / 5), extent * 2, Math.ceil(height / 5));
+          if (s > .2) {
+            ctx.fillStyle = day ? 'rgba(175,222,176,0.14)' : 'rgba(102,160,164,0.10)';
+            ctx.fillRect(cx - extent, y + Math.round(row * height / 5), Math.max(1, extent - 2), 1);
+          }
+        }
+      }
     });
   };
   pines(0.14, day ? '#80b6a0' : clear ? '#22444d' : '#0a1c26', 0.5, 34, 3);
@@ -547,10 +583,18 @@ function bgForest(ctx, world, t, day = false, clear = false) {
   ctx.restore();
 
   // near trunks
-  ctx.fillStyle = day ? '#4d6e62' : clear ? '#183039' : '#08161e';
   worldStrip(cam.x, 0.55, 90, W, (i, x) => {
     const r = h1(i * 4.4 + 20);
-    ctx.fillRect(x + 10, H * (0.32 + r * 0.22), 6 + (r * 5 | 0), H);
+    const top = Math.round(H * (.32 + r * .22)), width = 6 + (r * 5 | 0);
+    ctx.fillStyle = day ? '#4d6e62' : clear ? '#183039' : '#08161e';
+    ctx.fillRect(x + 10, top, width, H - top);
+    ctx.fillRect(x + 10 - 7, top + 15, 7, 3);
+    ctx.fillRect(x + 10 - 7, top + 9, 2, 6);
+    ctx.fillRect(x + 10 + width, top + 34, 8, 3);
+    ctx.fillRect(x + 16 + width, top + 28, 2, 6);
+    ctx.fillStyle = day ? 'rgba(162,186,136,.25)' : 'rgba(95,135,139,.13)';
+    ctx.fillRect(x + 11, top + 3, 1, H - top - 3);
+    for (let y = top + 12; y < H; y += 24) ctx.fillRect(x + 13, y, 2, 5);
   });
 
   // Butterflies in daylight; fireflies at night.
@@ -609,13 +653,36 @@ function bgSewers(ctx, world, t, day = false, clear = false) {
   for (const py of [H * 0.22, H * 0.34]) {
     ctx.fillStyle = day ? '#66857d' : clear ? '#2c4b43' : '#14201f';
     ctx.fillRect(0, py, W, 5);
+    ctx.fillStyle = day ? '#9bb8a8' : clear ? '#527065' : '#263c36';
+    ctx.fillRect(0, py + 1, W, 1);
     ctx.fillStyle = day ? '#2b4843' : clear ? '#1b312d' : '#0e1817';
-    for (let x = -((cam.x * 0.2) % 40); x < W; x += 40) ctx.fillRect(x, py - 2, 4, 9); // brackets
+    for (let x = -((cam.x * 0.2) % 40); x < W; x += 40) {
+      ctx.fillRect(x, py - 2, 4, 9); // brackets
+      ctx.fillStyle = day ? '#b9c3a5' : '#597368';
+      ctx.fillRect(x + 1, py - 1, 1, 1);
+      ctx.fillRect(x + 1, py + 5, 1, 1);
+      ctx.fillStyle = day ? '#2b4843' : clear ? '#1b312d' : '#0e1817';
+    }
     // valve wheel
     const wx = (W * 0.4 - cam.x * 0.2) % W;
     ctx.strokeStyle = day ? '#a1b9a1' : '#1b2c2a'; ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc((wx + W) % W, py + 2, 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 1;
+    const wheelX = (wx + W) % W;
+    ctx.beginPath();ctx.moveTo(wheelX - 3, py + 2);ctx.lineTo(wheelX + 3, py + 2);
+    ctx.moveTo(wheelX, py - 1);ctx.lineTo(wheelX, py + 5);ctx.stroke();
   }
+  // The drainage channel is a distant wall feature, always behind level tiles.
+  const waterY = Math.round(H * .83);
+  ctx.fillStyle = day ? '#426e63' : clear ? '#173e35' : '#102a24';
+  ctx.fillRect(0, waterY, W, H - waterY);
+  ctx.fillStyle = day ? 'rgba(183,215,174,.30)' : 'rgba(103,179,146,.17)';
+  worldStrip(cam.x, .15, 32, W, (i, x) => {
+    const y = waterY + 3 + Math.round(h1(i + 83) * 23);
+    const drift = Math.round(Math.sin(t * .8 + i) * 3);
+    ctx.fillRect(Math.round(x + drift), y, 7 + Math.round(h1(i) * 8), 1);
+    ctx.fillRect(Math.round(x + drift + 4), y + 3, 4, 1);
+  });
   // drips
   ctx.fillStyle = day ? 'rgba(205,237,219,0.65)' : 'rgba(140,200,190,0.4)';
   for (let i = 0; i < 8; i++) {
@@ -660,35 +727,42 @@ function bgDistrict(ctx, world, t, day = false, clear = false) {
       ctx.lineTo(x + step - 4 + sk, by - (h1(i * 9.1) * 6 | 0));
       ctx.lineTo(x + step - 4, H);
       ctx.closePath(); ctx.fill();
+      ctx.fillStyle = day ? 'rgba(226,218,194,.20)' : 'rgba(139,120,160,.12)';
+      ctx.fillRect(x + sk, by + 2, step - 5, 1);
+      ctx.fillStyle = 'rgba(0,0,0,.16)';
+      ctx.fillRect(x + step - 10 + sk, by + 3, 5, H - by);
       ctx.fillStyle = 'rgba(0,0,0,0.35)';
       let wc = 0;
-      for (let wy = by + 6; wy < H - 6; wy += 8) { if (h1(i * 40 + wc * 3.3) > 0.4) ctx.fillRect(x + 4 + sk, wy, 3, 4); wc++; }
+      for (let wy = by + 6; wy < H - 6; wy += 8) {
+        if (h1(i * 40 + wc * 3.3) > 0.4) {
+          ctx.fillRect(x + 4 + sk, wy, 3, 4);
+          ctx.fillRect(x + 13 + sk, wy, 3, 4);
+        }
+        wc++;
+      }
+      if (lean && r > .58) {
+        // The neon belongs to this façade, so it never floats between buildings.
+        const sx = Math.round(x + step - 11 + sk), sy = by + 17;
+        const color = ['#b86d8d', '#5e9bad', '#b69b67', '#8f78b3'][wrap(i, 4)];
+        const on = Math.sin(t * 1.3 + i * 2.1) > -.75;
+        ctx.fillStyle = day ? '#53616b' : '#242335';
+        ctx.fillRect(sx - 3, sy - 3, 3, 11);
+        ctx.fillRect(sx, sy - 2, 12, 8);
+        ctx.fillStyle = day ? '#38414a' : '#0d1020';
+        ctx.fillRect(sx + 1, sy - 1, 10, 6);
+        ctx.fillStyle = on ? color : '#383344';
+        ctx.fillRect(sx + 2, sy, 6, 1);
+        ctx.fillRect(sx + 2, sy + 2, 8, 1);
+        ctx.fillRect(sx + 7, sy + 3, 3, 1);
+        if (on && !day) {
+          ctx.save();ctx.globalAlpha *= .1;ctx.fillStyle = color;
+          ctx.fillRect(sx - 2, sy - 4, 16, 12);ctx.restore();
+        }
+      }
     });
   };
   ruins(0.12, day ? '#a3b4b7' : clear ? '#3a3045' : '#1a1424', 0.5, 34, 3, false);
   ruins(0.28, day ? '#859091' : clear ? '#2b2438' : '#140f1c', 0.66, 46, 9, true);
-
-  // flickering broken neon signs
-  for (let i = 0; i < 5; i++) {
-    const nx = (i * 260 + 60 - cam.x * 0.28) % (W + 200);
-    const x = nx < -60 ? nx + W + 200 : nx;
-    const y = H * (0.28 + h1(i) * 0.28);
-    const on = Math.sin(t * (7 + i * 3) + i) > (-0.3 + h1(i));
-    const col = ['#ff5a7a', '#5ad1ff', '#ffd060', '#8a7aff'][i % 4];
-    ctx.save();
-    if (on) {
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = col;
-      ctx.globalAlpha = day ? 0.2 : 0.5;
-      ctx.fillRect(x - 1, y - 1, 16, 6);
-      ctx.globalAlpha = 1;
-      ctx.fillRect(x, y, 14, 4);
-    } else {
-      ctx.fillStyle = 'rgba(40,40,50,0.6)';
-      ctx.fillRect(x, y, 14, 4);
-    }
-    ctx.restore();
-  }
 
   // near: dead streetlight
   const slx = (W * 0.5 - cam.x * 0.5) % (W * 1.5);
@@ -714,10 +788,10 @@ function bgTower(ctx, world, t, day = false, clear = false) {
     const cxp = ((t * (5 + i * 2) + i * 120) % (W + 200)) - 100;
     const cy = H * (0.14 + i * 0.09) - cam.y * 0.02;
     ctx.fillStyle = day ? 'rgba(230,240,255,0.25)' : 'rgba(20,18,40,0.55)';
-    ctx.beginPath();
-    ctx.ellipse(cxp, cy, 40, 9, 0, 0, Math.PI * 2);
-    ctx.ellipse(cxp + 24, cy + 3, 26, 7, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(Math.round(cxp - 38), Math.round(cy - 2), 78, 8);
+    ctx.fillRect(Math.round(cxp - 25), Math.round(cy - 7), 45, 5);
+    ctx.fillRect(Math.round(cxp - 12), Math.round(cy - 10), 20, 3);
+    ctx.fillRect(Math.round(cxp + 26), Math.round(cy + 1), 22, 6);
   }
   ctx.restore();
 
@@ -727,11 +801,17 @@ function bgTower(ctx, world, t, day = false, clear = false) {
     const baseX = side ? W - 40 : 8;
     ctx.fillStyle = day ? '#9f9aaa' : clear ? '#2c2842' : '#120f26';
     ctx.fillRect(baseX, 0, 32, H);
+    ctx.fillStyle = day ? '#b7adbb' : clear ? '#453c59' : '#231b39';
+    ctx.fillRect(baseX + (side ? 0 : 30), 0, 2, H);
+    ctx.fillStyle = 'rgba(3,4,14,.22)';
+    ctx.fillRect(baseX + (side ? 29 : 0), 0, 3, H);
     ctx.fillStyle = day ? '#60667d' : clear ? '#1e1b33' : '#0d0b1e';
     for (let y = (colY % 40) - 40; y < H; y += 40) {
       // arched window with faint stained-glass glow
       ctx.fillStyle = day ? '#60667d' : clear ? '#1e1b33' : '#0d0b1e';
       ctx.fillRect(baseX + 8, y + 8, 16, 24);
+      ctx.fillRect(baseX + 10, y + 6, 12, 2);
+      ctx.fillRect(baseX + 13, y + 4, 6, 2);
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const wg = ctx.createLinearGradient(0, y + 8, 0, y + 32);
@@ -740,6 +820,12 @@ function bgTower(ctx, world, t, day = false, clear = false) {
       ctx.fillStyle = wg;
       ctx.fillRect(baseX + 9, y + 9, 14, 22);
       ctx.restore();
+      ctx.fillStyle = day ? '#77758a' : clear ? '#3b3152' : '#261e39';
+      ctx.fillRect(baseX + 15, y + 7, 2, 25);
+      ctx.fillRect(baseX + 8, y + 19, 16, 1);
+      ctx.fillStyle = day ? '#c6b8b6' : clear ? '#5a4864' : '#392b43';
+      ctx.fillRect(baseX + 13, y + 11, 6, 2);
+      ctx.fillRect(baseX + 15, y + 9, 2, 6);
       // ledge
       ctx.fillStyle = day ? '#c0b6c2' : clear ? '#3a3154' : '#151230';
       ctx.fillRect(baseX - 3, y, 38, 3);
@@ -851,7 +937,7 @@ function drawLevelScenery(ctx, world, day) {
    Riko sitting on a rooftop, looking at the nocturnal city.
    ============================================================ */
 export function drawMenuScene(ctx, W, H, visualMode = 'night', reducedEffects = false) {
-  const t = performance.now() / 1000;
+  const t = reducedEffects ? 0 : performance.now() / 1000;
   const day = visualMode === 'day';
   const clear = visualMode === 'clear';
   const camX = t * 6;                                  // slow drift

@@ -37,7 +37,8 @@ export const ENDINGS = Object.freeze({
 });
 
 export const isEnding = (value) => Object.prototype.hasOwnProperty.call(ENDINGS, value);
-export const endingMusicTheme = (value) => (ENDINGS[value] || ENDINGS.A).theme;
+export const endingMusicTheme = (value, difficulty = 'normal') =>
+  value === 'B' ? (difficulty === 'nightmare' ? 'ending-bad-nightmare' : 'ending-bad') : 'ending';
 // Dialogue owns mutable typewriter state; every showing receives fresh lines.
 export const getEndingDialogue = (value) => (ENDINGS[value] || ENDINGS.A).dialogue.map(line => ({ ...line }));
 

@@ -821,7 +821,8 @@ export class Game {
   _playEnding(val) {
     this.endingKey = val;
     this.endingStartedAt = performance.now();
-    this.audio.playMusic(endingMusicTheme(val), { restart: true });
+    const difficulty = this.diff?.key || 'normal';
+    this.audio.playMusic(endingMusicTheme(val, difficulty), { restart: true });
     this.save.update({ ending: val, completed: true, items: this.inventory.serialize() });
     this.persistRankingSession();
     this.save.markLevelBeaten((this.diff && this.diff.key) || 'normal', this.levelIndex);   // beat the tower
@@ -836,12 +837,12 @@ export class Game {
     const campaignTicket = this._campaignTicket;
     const campaignPayload = { activeMs: Math.round(this.save.data.playtime * 1000), ending: val, deaths: this._rankDeaths, assisted: this._rankAssisted };
     if (campaignTicket && this.ranking) {
-      this._levelFinish.then(() => this.ranking.finishRun(campaignTicket, campaignPayload))
+      this.ranking.finishRun(campaignTicket, campaignPayload, { after: this._levelFinish })
         .then(result => this.toast(result.ok ? 'Campaña registrada en la clasificación' : 'Campaña guardada · revisa la conexión'))
         .catch(() => this.toast('Campaña guardada en este dispositivo'));
     }
     this.state = 'ending';
-    this.dialogue.start(getEndingDialogue(val), () => this.hooks.onVictory && this.hooks.onVictory(val));
+    this.dialogue.start(getEndingDialogue(val), () => this.hooks.onVictory && this.hooks.onVictory(val, difficulty));
   }
 
   /* ---------------- transitions ---------------- */

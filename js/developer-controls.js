@@ -2,6 +2,7 @@
 import { Controls } from './control-mode.js';
 import { PadBindings } from './controller-bindings.js';
 import { ENDINGS, createEndingAccess, isEnding } from './endings.js';
+import { DIFFS, DIFF_ORDER } from './difficulty.js';
 
 export function createDeveloperControls(anchor, { onConfigure = () => {}, onPreviewEnding = () => {} } = {}) {
   const endingAccess = createEndingAccess();
@@ -40,6 +41,7 @@ export function createDeveloperControls(anchor, { onConfigure = () => {}, onPrev
     <div class="developer-endings hidden">
       <p class="option-note"><strong>Galería de finales</strong></p>
       <p class="option-note">Vista previa de las tres decisiones. No modifica tu partida ni la clasificación.</p>
+      <label class="opt-row" for="ending-preview-difficulty"><span>Dificultad</span><select id="ending-preview-difficulty">${DIFF_ORDER.map(key => `<option value="${key}"${key === 'normal' ? ' selected' : ''}>${DIFFS[key].label}</option>`).join('')}</select></label>
       <div class="developer-ending-grid">${Object.entries(ENDINGS).map(([key, ending]) => `<button type="button" class="mini" data-preview-ending="${key}"><strong>FINAL ${key}</strong><span>${ending.choice}</span></button>`).join('')}</div>
       <button class="mini developer-endings-lock" type="button">Cerrar galería</button>
     </div>`;
@@ -101,7 +103,8 @@ export function createDeveloperControls(anchor, { onConfigure = () => {}, onPrev
   for (const button of panel.querySelectorAll('[data-preview-ending]')) {
     button.addEventListener('click', () => {
       const ending = button.dataset.previewEnding;
-      if (endingAccess.isUnlocked() && isEnding(ending)) onPreviewEnding(ending);
+      const difficulty = panel.querySelector('#ending-preview-difficulty').value;
+      if (endingAccess.isUnlocked() && isEnding(ending)) onPreviewEnding(ending, DIFFS[difficulty] ? difficulty : 'normal');
     });
   }
   panel.querySelector('.developer-endings-lock').addEventListener('click', () => {

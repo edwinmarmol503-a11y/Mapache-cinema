@@ -54,11 +54,12 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   else if (state === 'idle') bob = (Math.floor(frame / 6) % 6 === 0) ? 1 : 0;
   else if (state === 'jump') bob = -1;
 
-  const OUT   = flash ? '#ffe0e0' : '#20242e';
-  const fur   = flash ? '#ffffff' : '#9aa2b2';
-  const furD  = flash ? '#ffdede' : '#6b7280';
-  const dark  = flash ? '#ffd9d9' : '#2b3140';
-  const belly = flash ? '#ffffff' : '#dbdfe8';
+  const OUT   = flash ? '#ffe0e0' : '#141d2b';
+  const fur   = flash ? '#ffffff' : '#a7b3c5';
+  const furD  = flash ? '#ffdede' : '#65758b';
+  const dark  = flash ? '#ffd9d9' : '#253247';
+  const belly = flash ? '#ffffff' : '#e2eaf2';
+  const rim   = flash ? '#ffffff' : '#d0e1ee';
   const pack  = flash ? '#ffbcb0' : '#b5573a';
   const packD = flash ? '#ff9d90' : '#8a3f2c';
   const scarf = flash ? '#ffd9d9' : '#c0392b';
@@ -89,6 +90,8 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   px(ctx, -5, by + 1, 4, 2, dark);
   px(ctx, -5, by + 4, 4, 2, dark);
   px(ctx, -4, by + 6, 3, 2, dark);
+  px(ctx, -5, by + 3, 1, 1, rim);
+  px(ctx, -4, by + 6, 1, 1, fur);
 
   /* backpack + shoulder strap */
   px(ctx, -2, by - 1, 4, 9, packD);
@@ -96,19 +99,25 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   px(ctx, -1, by, 3, 2, packD);
   px(ctx, 0, by + 1, 1, 1, '#d97a5c');           // little top-left highlight
   px(ctx, 2, by - 1, 2, 7, packD);
+  px(ctx, -1, by + 3, 2, 1, flash ? '#ffffff' : '#f1b674');
+  px(ctx, -1, by + 5, 1, 2, packD);
 
   /* body */
   px(ctx, 0, by - 1, w + 1, h - 4, OUT);
   px(ctx, 1, by, w - 1, h - 6, fur);
-  px(ctx, 1, by, w - 1, 1, '#b6bccb');            // top-of-back highlight
+  px(ctx, 1, by, w - 1, 1, rim);                  // top-of-back highlight
   px(ctx, 1, h - 3, w - 1, 2, furD);
+  px(ctx, 1, by + 2, 1, h - 9, rim);
+  px(ctx, w - 1, by + 1, 1, h - 8, furD);
   px(ctx, 3, by + 2, w - 4, 4, belly);
   px(ctx, 3, by + 2, w - 4, 1, '#ffffff');        // belly sheen
+  px(ctx, 3, by + 5, w - 4, 1, flash ? '#ffe0e0' : '#b8c9d9');
 
   /* scarf */
   px(ctx, 0, by - 2, w + 1, 2, '#7c261c');
   px(ctx, 1, by - 2, w - 1, 2, scarf);
   px(ctx, 2, by, 2, 3, scarf);
+  px(ctx, 2, by, 1, 2, flash ? '#ffffff' : '#ef7862');
 
   /* head */
   px(ctx, 0, -2 + bob, w + 1, 8, OUT);
@@ -117,15 +126,21 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
   px(ctx, 1, 1 + bob, w - 1, 3, dark);            // bandit mask
   px(ctx, 1, 1 + bob, w - 1, 1, '#454d63');       // soft top edge on the mask (depth)
   px(ctx, 1, 3 + bob, w - 1, 1, '#10131a');       // mask underside shadow
+  px(ctx, Math.floor(w / 2) - 1, bob, 2, 2, belly); // stepped bridge between the mask patches
   /* fluffy cheek tufts */
   px(ctx, 0, 3 + bob, 1, 2, furD);
   px(ctx, w, 3 + bob, 1, 2, furD);
+  px(ctx, 0, 3 + bob, 1, 1, rim);
   /* ears */
   px(ctx, -1, -4 + bob, 4, 4, OUT); px(ctx, 0, -3 + bob, 3, 3, fur); px(ctx, 1, -2 + bob, 1, 1, '#c98a8a');
   px(ctx, w - 3, -4 + bob, 4, 4, OUT); px(ctx, w - 3, -3 + bob, 3, 3, fur); px(ctx, w - 2, -2 + bob, 1, 1, '#c98a8a');
+  px(ctx, 0, -3 + bob, 2, 1, rim);
+  px(ctx, w - 3, -3 + bob, 2, 1, rim);
   /* eyes -- a hair bigger, with a bright catchlight */
   px(ctx, 2, 1 + bob, 2, 2, '#f0f5ff'); px(ctx, 3, 1 + bob, 1, 1, '#141820'); px(ctx, 2, 1 + bob, 1, 1, '#ffffff');
   px(ctx, w - 4, 1 + bob, 2, 2, '#f0f5ff'); px(ctx, w - 3, 1 + bob, 1, 1, '#141820'); px(ctx, w - 4, 1 + bob, 1, 1, '#ffffff');
+  px(ctx, 3, 2 + bob, 1, 1, dark);
+  px(ctx, w - 3, 2 + bob, 1, 1, dark);
   /* snout + nose */
   px(ctx, w - 2, 3 + bob, 3, 3, belly);
   px(ctx, w - 1, 3 + bob, 1, 1, '#ffffff');       // snout highlight
@@ -141,6 +156,7 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
     px(ctx, 0, by, 2, 2, furD);
   } else {
     px(ctx, w - 2, by + 2, 2, 3, furD);
+    px(ctx, w - 2, by + 2, 1, 2, rim);
   }
 
   /* legs */
@@ -154,6 +170,10 @@ export function drawRiko(ctx, x, y, w, h, facing, state, frame, flash, holdingBu
     px(ctx, 1, h - 2, 3, 3, dark); px(ctx, w - 4, h - 2, 3, 3, dark);
   } else {
     px(ctx, 2, h - 2, 3, 2, dark); px(ctx, w - 5, h - 2, 3, 2, dark);
+  }
+  if (state !== 'jump') {
+    px(ctx, state === 'fall' ? 1 : 2, h - 2, 2, 1, furD);
+    px(ctx, state === 'fall' ? w - 4 : w - 5, h - 2, 2, 1, furD);
   }
 
   /* held bombilla */
@@ -225,8 +245,8 @@ export function drawSombra(ctx, x, y, w, h, facing, frame, flash) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, 1); ctx.translate(-w / 2, -h / 2);
   const OUT = flash ? '#ffe0e0' : '#150c26';
-  const body = flash ? '#ffffff' : '#47315e';
-  const hi = flash ? '#ffe0e0' : '#624780';
+  const body = flash ? '#ffffff' : '#52396f';
+  const hi = flash ? '#ffe0e0' : '#76549a';
   const wob = Math.sin(frame * 0.35) * 1.4;
 
   // trailing smoke wisps
@@ -239,16 +259,22 @@ export function drawSombra(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 2, 2 + wob, w - 4, h - 3, body);
   px(ctx, 3, 3 + wob, w - 6, h - 6, hi);
   px(ctx, 3, 3 + wob, w - 6, 1, flash ? '#ffffff' : '#8e69b0');
-  detail(ctx, 2, 4 + wob, 0.5, h - 7, flash ? '#ffffff' : '#a67ac4');
+  px(ctx, 2, 4 + wob, 1, h - 7, flash ? '#ffffff' : '#a67ac4');
+  px(ctx, w - 4, 6 + wob, 2, h - 7, flash ? '#ffe0e0' : '#35254f');
+  px(ctx, 4, h - 4 + wob, 2, 1, flash ? '#ffffff' : '#9164b4');
   // pointed ears
   px(ctx, 1, -1 + wob, 2, 3, OUT); px(ctx, 1, 0 + wob, 2, 2, body);
   px(ctx, w - 3, -1 + wob, 2, 3, OUT); px(ctx, w - 3, 0 + wob, 2, 2, body);
+  px(ctx, 1, wob, 1, 1, flash ? '#ffffff' : '#bd92d4');
+  px(ctx, w - 3, wob, 1, 1, flash ? '#ffffff' : '#bd92d4');
   // glowing eyes -- small cross-shaped glint reads sharper than a flat square
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.fillStyle = 'rgba(159,232,255,0.45)';
-  ctx.beginPath(); ctx.arc(4, 4 + wob, 3, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(w - 4, 4 + wob, 3, 0, Math.PI * 2); ctx.fill();
+  // Keep the halo compact and stepped; a pair of large discs hid the mask.
+  px(ctx, 2, 3 + wob, 4, 2, 'rgba(159,232,255,0.22)');
+  px(ctx, 3, 2 + wob, 2, 4, 'rgba(159,232,255,0.12)');
+  px(ctx, w - 6, 3 + wob, 4, 2, 'rgba(159,232,255,0.22)');
+  px(ctx, w - 5, 2 + wob, 2, 4, 'rgba(159,232,255,0.12)');
   ctx.restore();
   px(ctx, 3, 3 + wob, 2, 2, '#dff0ff'); px(ctx, w - 5, 3 + wob, 2, 2, '#dff0ff');
   px(ctx, 3, 3 + wob, 1, 1, '#8fb8ff'); px(ctx, w - 5, 3 + wob, 1, 1, '#8fb8ff');
@@ -264,13 +290,14 @@ export function drawCuervo(ctx, x, y, w, h, facing, frame, flash) {
   ctx.save();
   ctx.translate(x + w / 2, y + h / 2); ctx.scale(f, 1); ctx.translate(-w / 2, -h / 2);
   const OUT = flash ? '#ffe0e0' : '#0e1420';
-  const body = flash ? '#ffffff' : '#32405a';
-  const hi = flash ? '#ffe0e0' : '#526887';
+  const body = flash ? '#ffffff' : '#354763';
+  const hi = flash ? '#ffe0e0' : '#6485a4';
   const flap = Math.sin(frame * 0.6);
 
   // tail fan
   px(ctx, 1, h - 4, 5, 2, OUT);
   px(ctx, 2, h - 3, 4, 2, body);
+  px(ctx, 2, h - 3, 3, 1, hi);
 
   // tucked talons (this one flies, but a hint of feet reads more like a bird)
   px(ctx, 4, h - 3, 1, 2, '#b5822f');
@@ -281,6 +308,7 @@ export function drawCuervo(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 4, 4, w - 7, h - 7, body);
   px(ctx, 5, 5, w - 9, 3, hi);
   px(ctx, 5, 5, w - 9, 1, flash ? '#ffffff' : '#8aabc4');
+  px(ctx, w - 6, h - 5, 2, 1, flash ? '#ffe0e0' : '#1b2b42');
   px(ctx, w - 4, 2, 4, 4, OUT);
   px(ctx, w - 3, 3, 3, 3, body);
   px(ctx, w, 4, 2, 1, '#d9a441');                 // beak
@@ -290,13 +318,15 @@ export function drawCuervo(ctx, x, y, w, h, facing, frame, flash) {
   detail(ctx, w - 2.5, 3, 0.5, 0.5, '#fff0c2');
 
   // wings
-  const up = flap > 0;
-  px(ctx, -1, up ? 0 : 4, 6, 3, OUT);
-  px(ctx, 0, up ? 1 : 5, 5, 2, hi);
-  px(ctx, 1, up ? -1 : 6, 3, 2, body);
-  detail(ctx, 0, up ? 1 : 5, 4, 0.5, flash ? '#ffffff' : '#9cbbd2');
-  detail(ctx, 1, up ? 2 : 6, 0.5, 1.5, flash ? '#ffffff' : '#1c293b');
-  detail(ctx, 3, up ? 2 : 6, 0.5, 1.5, flash ? '#ffffff' : '#1c293b');
+  // A passing pose softens the beat without stretching or blurring pixels.
+  const wingY = flap > 0.4 ? 0 : flap < -0.4 ? 4 : 2;
+  const tipY = flap > 0.4 ? -1 : flap < -0.4 ? 6 : 2;
+  px(ctx, -1, wingY, 6, 3, OUT);
+  px(ctx, 0, wingY + 1, 5, 2, hi);
+  px(ctx, 1, tipY, 3, 2, body);
+  px(ctx, 0, wingY + 1, 4, 1, flash ? '#ffffff' : '#a8c6da');
+  detail(ctx, 1, wingY + 2, 0.5, 1, flash ? '#ffffff' : '#1c293b');
+  detail(ctx, 3, wingY + 2, 0.5, 1, flash ? '#ffffff' : '#1c293b');
   ctx.restore();
 }
 
@@ -320,13 +350,16 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
   px(ctx, 1, 4, w - 1, h - 5, body);
   px(ctx, 2, 5, w - 3, 3, hi);
   px(ctx, 2, 5, w - 3, 1, flash ? '#ffffff' : '#b58ac4');
-  detail(ctx, 1, 7, 0.5, h - 9, flash ? '#ffffff' : '#9967a4');
+  px(ctx, 1, 7, 1, h - 9, flash ? '#ffffff' : '#b286c2');
+  px(ctx, 2, h - 3, w - 12, 1, flash ? '#ffe0e0' : '#382743');
+  px(ctx, 4, 8, 3, 1, flash ? '#ffffff' : '#8d699d');
+  px(ctx, 6, 9, 3, 1, flash ? '#ffe0e0' : '#3d2a4d');
   detail(ctx, 4, h - 5, 3, 0.5, flash ? '#ffffff' : '#3a214c');
   // back plates
   for (let i = 0; i < 4; i++) {
     px(ctx, 2 + i * 4, 1, 3, 3, OUT);
     px(ctx, 3 + i * 4, 2, 2, 2, plate);
-    detail(ctx, 3 + i * 4, 2, 1.5, 0.5, flash ? '#ffffff' : '#d0a4dc');
+    px(ctx, 3 + i * 4, 2, 2, 1, flash ? '#ffffff' : '#d0a4dc');
   }
   // maw
   const open = chew ? 7 : 5;
@@ -341,6 +374,7 @@ export function drawDevorador(ctx, x, y, w, h, facing, frame, flash) {
   if (chew) px(ctx, w - 8, 4 + open + 1, 1, 2, '#8fd6ff');   // a drop of drool when the jaw opens wide
   px(ctx, w - 5, 3, 2, 2, '#ff5a5a');              // eye
   px(ctx, w - 5, 3, 1, 1, '#ffb0a0');              // eye glint
+  px(ctx, w - 3, 4, 1, 1, OUT);
   detail(ctx, w - 8, 5, 7, 0.5, flash ? '#ffffff' : '#b07b9e');
   ctx.restore();
 }
@@ -360,6 +394,7 @@ export function drawGuardian(ctx, x, y, w, h, facing, frame, flash, charging) {
   // legs
   px(ctx, 1, h - 4, 4, 4, OUT); px(ctx, w - 5, h - 4, 4, 4, OUT);
   px(ctx, 2, h - 3, 3, 3, metalD); px(ctx, w - 5, h - 3, 3, 3, metalD);
+  px(ctx, 2, h - 3, 2, 1, metal); px(ctx, w - 5, h - 3, 2, 1, metal);
 
   // antenna, blinking with the charge state
   px(ctx, w / 2 - 1, bob - 3, 1, 3, metalD);
@@ -369,16 +404,18 @@ export function drawGuardian(ctx, x, y, w, h, facing, frame, flash, charging) {
   px(ctx, 3, bob, w - 6, 4, OUT);
   px(ctx, 4, 1 + bob, w - 8, 3, metalD);
   px(ctx, w - 7, 1 + bob, 2, 2, charging ? '#ff5a5a' : '#8fb8ff');
+  px(ctx, w - 7, 1 + bob, 1, 1, charging ? '#ffe0b0' : '#d8f4ff');
   px(ctx, 1, 4, w - 2, h - 7, OUT);
   px(ctx, 2, 5, w - 4, h - 9, metal);
   px(ctx, 2, 5, w - 4, 1, flash ? '#ffffff' : '#beceda');
   px(ctx, 3, 6, w - 6, h - 12, metalD);
-  detail(ctx, 2, 6, 0.5, h - 11, flash ? '#ffffff' : '#a9bdce');
+  px(ctx, 2, 6, 1, h - 11, flash ? '#ffffff' : '#b8cedd');
   detail(ctx, w - 3, 6, 0.5, h - 11, flash ? '#ffffff' : '#334357');
   detail(ctx, 4, 1 + bob, w - 8, 0.5, flash ? '#ffffff' : '#8babc3');
   // rivets
   px(ctx, 3, 6, 1, 1, rivet); px(ctx, w - 4, 6, 1, 1, rivet);
   px(ctx, 3, h - 6, 1, 1, rivet); px(ctx, w - 4, h - 6, 1, 1, rivet);
+  px(ctx, 5, h - 6, w - 10, 1, flash ? '#ffffff' : '#829bb0');
   // core lantern
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
@@ -387,6 +424,8 @@ export function drawGuardian(ctx, x, y, w, h, facing, frame, flash, charging) {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g; ctx.beginPath(); ctx.arc(w / 2, h / 2, 8, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+  px(ctx, w / 2 - 3, h / 2 - 3, 6, 6, OUT);
+  px(ctx, w / 2 - 2, h / 2 - 3, 4, 1, rivet);
   px(ctx, w / 2 - 2, h / 2 - 2, 4, 4, lamp);
   px(ctx, w / 2 - 1, h / 2 - 1, 2, 2, '#fff6d8');
   ctx.restore();
@@ -409,17 +448,24 @@ export function drawFarolero(ctx, x, y, w, h, facing, frame, phase, flash, vulne
   px(ctx, 5, h - 11 + float, w - 10, 11, robeD);
   px(ctx, 2, h - 4 + float, w - 4, 4, OUT);
   px(ctx, 3, h - 4 + float, w - 6, 3, robeD);
+  px(ctx, 5, h - 10 + float, 1, 6, flash ? '#ffffff' : '#62759b');
+  px(ctx, w - 7, h - 10 + float, 1, 6, robe);
+  px(ctx, 5, h - 3 + float, w - 10, 1, flash ? '#ffe0e0' : '#ad9255');
   // torso
   px(ctx, cx - 7, 6 + float, 14, h - 14, OUT);
   px(ctx, cx - 6, 7 + float, 12, h - 16, robe);
   px(ctx, cx - 6, 7 + float, 12, 2, trim);
   px(ctx, cx - 5, 11 + float, 2, h - 22, robeD);
+  px(ctx, cx + 3, 10 + float, 1, h - 18, flash ? '#ffffff' : '#61789d');
+  px(ctx, cx, 10 + float, 1, h - 15, robeD);
+  px(ctx, cx - 1, 10 + float, 2, 2, trim);
   // hood
   px(ctx, cx - 6, float, 12, 9, OUT);
   px(ctx, cx - 5, 1 + float, 10, 8, robe);
   px(ctx, cx - 5, 1 + float, 10, 2, robeD);
-  detail(ctx, cx - 5, 1 + float, 10, 0.5, flash ? '#ffffff' : '#6b7aab');
-  detail(ctx, cx - 6, 8 + float, 0.5, h - 19, flash ? '#ffffff' : '#6771a0');
+  px(ctx, cx - 5, 1 + float, 10, 1, flash ? '#ffffff' : '#7c91b3');
+  px(ctx, cx - 6, 8 + float, 1, h - 19, flash ? '#ffffff' : '#7383a8');
+  px(ctx, cx - 4, 3 + float, 8, 4, OUT);
   // eyes under the hood
   const eye = vulnerable ? '#ffb060' : '#8fb8ff';
   px(ctx, cx - 4, 4 + float, 2, 2, eye);
@@ -445,6 +491,11 @@ export function drawFarolero(ctx, x, y, w, h, facing, frame, phase, flash, vulne
   lg.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = lg; ctx.beginPath(); ctx.arc(lx + 1, ly + 5, 16, 0, Math.PI * 2); ctx.fill();
   ctx.restore();
+  // Reapply the cage over its bloom so the lamp still has a crisp silhouette.
+  px(ctx, lx - 4, ly - 2, 10, 1, flash ? '#ffffff' : '#d9bc7c');
+  px(ctx, lx - 3, ly + 1, 1, 9, '#aa8146');
+  px(ctx, lx + 4, ly + 1, 1, 9, '#76582e');
+  px(ctx, lx - 3, ly + 9, 8, 1, '#bc9558');
   ctx.restore();
 }
 

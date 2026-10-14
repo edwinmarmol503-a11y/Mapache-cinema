@@ -27,7 +27,7 @@ const CREDITS = [
   { role: 'Pixel Art', who: 'Estudio Lumera  (placeholders procedurales)' },
   { role: 'Tipografía', who: 'Monocraft · Idrees Hassan · SIL Open Font License 1.1' },
   { role: 'Level Design', who: 'Estudio Lumera' },
-  { role: 'Audio', who: '37 canciones · 4 clips de muerte y reaparición · efectos con Web Audio API' },
+  { role: 'Audio', who: '39 canciones · 4 clips de muerte y reaparición · efectos con Web Audio API' },
   { role: 'Story', who: 'La ciudad que recordaba demasiado' },
   { sec: 'GRACIAS POR JUGAR' },
 ];
@@ -177,7 +177,7 @@ export class Menu {
       if (this.elMenu.classList.contains('hidden')) return;
       this._beginMenuGlitch();
       this._scheduleMenuGlitch();
-    }, first ? 1400 + Math.random() * 1600 : 4000 + Math.random() * 6000);
+    }, first ? 800 + Math.random() * 700 : 1400 + Math.random() * 1800);
   }
 
   _menuAction(act) {
@@ -581,7 +581,7 @@ export class Menu {
     this.developerControls?.destroy();
     this.developerControls = createDeveloperControls(body, {
       onConfigure: () => { this.optionsReturn = 'menu'; this.showOptions(); },
-      onPreviewEnding: (ending) => this.hooks.onPreviewEnding?.(ending),
+      onPreviewEnding: (ending, difficulty) => this.hooks.onPreviewEnding?.(ending, difficulty),
     });
   }
 
@@ -609,12 +609,13 @@ export class Menu {
     });
   }
 
-  showVictory(ending, { preview = false } = {}) {
+  showVictory(ending, { preview = false, difficulty = 'normal' } = {}) {
     this.hideAll();
     this.elVictory.classList.remove('hidden');
     const key = ENDINGS[ending] ? ending : 'A';
     const metadata = ENDINGS[key];
     this.elVictory.dataset.ending = key;
+    this.elVictory.dataset.difficulty = DIFFS[difficulty] ? difficulty : 'normal';
     this.elVictory.classList.toggle('ending-preview', preview);
     document.getElementById('victory-title').textContent = metadata.title;
     document.getElementById('victory-sub').textContent = metadata.subtitle + ' · Final ' + key;

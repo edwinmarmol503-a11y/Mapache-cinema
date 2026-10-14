@@ -200,32 +200,42 @@ export class RankingClient {
     }, this._retryDelay);
   }
 
-  async finishRun(ticket, detail = {}) {
+  async finishRun(ticket, detail = {}, { after } = {}) {
     if (!ticket?.id || !ticket?.token) return localResult('Partida local: se necesita conexión al empezar para entrar al ranking global.');
     const now = this.clock();
     if (ticket.expiresAt <= now) return { ok: false, status: 'rejected', reason: 'El ticket en línea expiró; tu récord local se conserva.' };
-    const payload = { ...detail, token: ticket.token };
+    this._pruneQueue();
+    // Persist before the first network request (or a preceding level finishes).
+    // Closing the page while a response is in flight must not lose the record.
+    // Replays always retain the first captured time, ending and assistance flag.
+    let entry = this.queue.find((item) => item.ticket.id === ticket.id);
+    if (!entry) {
+      entry = { ticket: { ...ticket }, detail: { ...detail }, queuedAt: now, expiresAt: ticket.expiresAt };
+      this.queue.push(entry);
+      this.queue = this.queue.slice(-QUEUE_LIMIT);
+      this._persist(QUEUE_KEY, this.queue);
+    }
+    const payload = { ...entry.detail, token: entry.ticket.token };
     try {
+      if (after) await Promise.resolve(after).catch(() => {});
       const result = await this._request(`/runs/${encodeURIComponent(ticket.id)}/finish`, 'POST', payload);
       this.queue = this.queue.filter((entry) => entry.ticket.id !== ticket.id);
       this._persist(QUEUE_KEY, this.queue);
       this._retryDelay = 15000;
+      this.lastNotice = '';
       this._emit('submitted', result);
       return result;
     } catch (error) {
       if (error.status === 0 || error.status >= 500 || error.status === 429 || error.code === 'campaign_incomplete') {
         this._pruneQueue();
-        if (!this.queue.some((entry) => entry.ticket.id === ticket.id)) {
-          this.queue.push({ ticket: { ...ticket }, detail: { ...detail }, queuedAt: now, expiresAt: ticket.expiresAt });
-          this.queue = this.queue.slice(-QUEUE_LIMIT);
-          this._persist(QUEUE_KEY, this.queue);
-        }
         this.lastNotice = 'Tiempo pendiente de conexión. Se enviará automáticamente mientras el ticket siga vigente, sin sumar la espera.';
         const result = { ok: false, status: 'queued', code: error.code, reason: this.lastNotice, message: this.lastNotice };
         this._emit('queued', result);
         this._scheduleRetry();
         return result;
       }
+      this.queue = this.queue.filter((entry) => entry.ticket.id !== ticket.id);
+      this._persist(QUEUE_KEY, this.queue);
       this.lastNotice = error.message;
       const result = { ok: false, status: 'rejected', reason: error.message, code: error.code };
       this._emit('rejected', result);
