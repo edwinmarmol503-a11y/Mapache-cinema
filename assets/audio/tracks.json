@@ -10,7 +10,7 @@
         "../../01-AUDIOS-1-A-4/assets/audio/pista-01.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 136.0
+      "durationSeconds": 136
     },
     {
       "id": "pista-02",
@@ -21,7 +21,7 @@
         "../../01-AUDIOS-1-A-4/assets/audio/pista-02.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 179.0
+      "durationSeconds": 179
     },
     {
       "id": "pista-03",
@@ -32,7 +32,7 @@
         "../../01-AUDIOS-1-A-4/assets/audio/pista-03.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 209.0
+      "durationSeconds": 209
     },
     {
       "id": "pista-04",
@@ -43,7 +43,7 @@
         "../../01-AUDIOS-1-A-4/assets/audio/pista-04.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 205.0
+      "durationSeconds": 205
     },
     {
       "id": "pista-05",
@@ -54,7 +54,7 @@
         "../../02-AUDIOS-5-A-8/assets/audio/pista-05.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 271.0
+      "durationSeconds": 271
     },
     {
       "id": "pista-06",
@@ -65,7 +65,7 @@
         "../../02-AUDIOS-5-A-8/assets/audio/pista-06.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 161.0
+      "durationSeconds": 161
     },
     {
       "id": "pista-07",
@@ -76,7 +76,7 @@
         "../../02-AUDIOS-5-A-8/assets/audio/pista-07.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 222.0
+      "durationSeconds": 222
     },
     {
       "id": "pista-08",
@@ -87,7 +87,7 @@
         "../../02-AUDIOS-5-A-8/assets/audio/pista-08.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 180.0
+      "durationSeconds": 180
     },
     {
       "id": "pista-09",
@@ -98,7 +98,7 @@
         "../../03-AUDIOS-9-A-11/assets/audio/pista-09.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 315.0
+      "durationSeconds": 315
     },
     {
       "id": "pista-10",
@@ -109,7 +109,7 @@
         "../../03-AUDIOS-9-A-11/assets/audio/pista-10.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 239.0
+      "durationSeconds": 239
     },
     {
       "id": "pista-11",
@@ -120,7 +120,7 @@
         "../../03-AUDIOS-9-A-11/assets/audio/pista-11.mp3"
       ],
       "gain": 0.65,
-      "durationSeconds": 233.0
+      "durationSeconds": 233
     },
     {
       "id": "pista-12",
@@ -128,7 +128,7 @@
       "artist": "Azerbeats",
       "src": "pista-12.mp3",
       "gain": 0.65,
-      "durationSeconds": 165.0
+      "durationSeconds": 165
     },
     {
       "id": "pista-13",
@@ -136,7 +136,7 @@
       "artist": "Jbeat",
       "src": "pista-13.mp3",
       "gain": 0.65,
-      "durationSeconds": 223.0
+      "durationSeconds": 223
     },
     {
       "id": "pista-14",
@@ -144,7 +144,7 @@
       "artist": "DJ Dmandado",
       "src": "pista-14.mp3",
       "gain": 0.65,
-      "durationSeconds": 123.0
+      "durationSeconds": 123
     },
     {
       "id": "pista-15",
@@ -152,7 +152,7 @@
       "artist": "CeBa Beats",
       "src": "pista-15.mp3",
       "gain": 0.65,
-      "durationSeconds": 168.0
+      "durationSeconds": 168
     },
     {
       "id": "pista-16",
@@ -160,7 +160,7 @@
       "artist": "Alcazone",
       "src": "pista-16.mp3",
       "gain": 0.65,
-      "durationSeconds": 240.0
+      "durationSeconds": 240
     },
     {
       "id": "pista-17",
@@ -168,7 +168,7 @@
       "artist": "AlcaZone",
       "src": "pista-17.mp3",
       "gain": 0.65,
-      "durationSeconds": 129.0
+      "durationSeconds": 129
     },
     {
       "id": "pista-18",
@@ -176,7 +176,7 @@
       "artist": "Red Bull Batalla, Baghira",
       "src": "pista-18.mp3",
       "gain": 0.65,
-      "durationSeconds": 141.0
+      "durationSeconds": 141
     },
     {
       "id": "pista-19",
@@ -184,7 +184,7 @@
       "artist": "Alcazone",
       "src": "pista-19.mp3",
       "gain": 0.65,
-      "durationSeconds": 177.0
+      "durationSeconds": 177
     },
     {
       "id": "pista-20",
@@ -192,7 +192,7 @@
       "artist": "AlcaZone",
       "src": "pista-20.mp3",
       "gain": 0.65,
-      "durationSeconds": 201.0
+      "durationSeconds": 201
     },
     {
       "id": "pista-21",
@@ -200,7 +200,7 @@
       "artist": "AlcaZone",
       "src": "pista-21.mp3",
       "gain": 0.65,
-      "durationSeconds": 167.0
+      "durationSeconds": 167
     },
     {
       "id": "pista-22",
@@ -208,7 +208,7 @@
       "artist": "Nerso & Verse",
       "src": "pista-22.mp3",
       "gain": 0.65,
-      "durationSeconds": 158.0
+      "durationSeconds": 158
     },
     {
       "id": "pista-23",
@@ -216,7 +216,7 @@
       "artist": "Alcazone",
       "src": "pista-23.mp3",
       "gain": 0.65,
-      "durationSeconds": 124.0
+      "durationSeconds": 124
     },
     {
       "id": "pista-24",
@@ -224,7 +224,7 @@
       "artist": "Red Bull Batalla",
       "src": "pista-24.mp3",
       "gain": 0.65,
-      "durationSeconds": 223.0
+      "durationSeconds": 223
     },
     {
       "id": "pista-25",
@@ -232,7 +232,7 @@
       "artist": "David Estrella",
       "src": "pista-25.mp3",
       "gain": 0.65,
-      "durationSeconds": 168.0
+      "durationSeconds": 168
     },
     {
       "id": "pista-26",
@@ -240,7 +240,7 @@
       "artist": "Alcazone",
       "src": "pista-26.mp3",
       "gain": 0.65,
-      "durationSeconds": 189.0
+      "durationSeconds": 189
     },
     {
       "id": "pista-27",
@@ -248,7 +248,7 @@
       "artist": "Urban Roosters Fake Beats",
       "src": "pista-27.mp3",
       "gain": 0.65,
-      "durationSeconds": 237.0
+      "durationSeconds": 237
     },
     {
       "id": "pista-28",
@@ -256,7 +256,7 @@
       "artist": "Beatmosferah",
       "src": "pista-28.mp3",
       "gain": 0.65,
-      "durationSeconds": 356.0
+      "durationSeconds": 356
     },
     {
       "id": "pista-29",
@@ -264,7 +264,7 @@
       "artist": "DJ Dmandado",
       "src": "pista-29.mp3",
       "gain": 0.65,
-      "durationSeconds": 289.0
+      "durationSeconds": 289
     },
     {
       "id": "pista-30",
@@ -272,7 +272,7 @@
       "artist": "Jbeat",
       "src": "pista-30.mp3",
       "gain": 0.65,
-      "durationSeconds": 289.0
+      "durationSeconds": 289
     },
     {
       "id": "pista-31",
@@ -280,7 +280,7 @@
       "artist": "Beats Tips",
       "src": "pista-31.mp3",
       "gain": 0.65,
-      "durationSeconds": 232.0
+      "durationSeconds": 232
     },
     {
       "id": "pista-32",
@@ -288,7 +288,7 @@
       "artist": "Alcazone",
       "src": "pista-32.mp3",
       "gain": 0.65,
-      "durationSeconds": 211.0
+      "durationSeconds": 211
     },
     {
       "id": "pista-33",
@@ -296,7 +296,7 @@
       "artist": "NxtiveBeats",
       "src": "pista-33.mp3",
       "gain": 0.65,
-      "durationSeconds": 192.0
+      "durationSeconds": 192
     },
     {
       "id": "pista-34",
@@ -304,7 +304,7 @@
       "artist": "Los Vaguens",
       "src": "pista-34.mp3",
       "gain": 0.65,
-      "durationSeconds": 161.0
+      "durationSeconds": 161
     },
     {
       "id": "pista-35",
@@ -312,7 +312,7 @@
       "artist": "Alcazone",
       "src": "pista-35.mp3",
       "gain": 0.65,
-      "durationSeconds": 159.0
+      "durationSeconds": 159
     },
     {
       "id": "pista-36",
@@ -320,7 +320,7 @@
       "artist": "Red Bull Batalla",
       "src": "pista-36.mp3",
       "gain": 0.65,
-      "durationSeconds": 257.0
+      "durationSeconds": 257
     },
     {
       "id": "pista-37",
@@ -328,7 +328,7 @@
       "artist": "ZornBeats",
       "src": "pista-37.mp3",
       "gain": 0.65,
-      "durationSeconds": 318.0
+      "durationSeconds": 318
     },
     {
       "id": "burla-01",
@@ -368,6 +368,14 @@
       "src": "final-malo.mp3",
       "gain": 0.65,
       "durationSeconds": 105.000625,
+      "role": "ending"
+    },
+    {
+      "id": "final-malo-pesadilla",
+      "title": "Final malo · Pesadilla",
+      "src": "final-malo-pesadilla.mp3",
+      "gain": 0.65,
+      "durationSeconds": 212.3696875,
       "role": "ending"
     }
   ],
@@ -563,6 +571,9 @@
     ],
     "ending-bad": [
       "final-malo"
+    ],
+    "ending-bad-nightmare": [
+      "final-malo-pesadilla"
     ]
   },
   "selection": "ordered",

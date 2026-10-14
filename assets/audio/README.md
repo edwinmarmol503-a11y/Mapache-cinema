@@ -1,6 +1,6 @@
 # Banda sonora de Lumera
 
-La colección activa contiene **42 archivos de audio**: 38 canciones y 4 grabaciones para muerte y reaparición. Los originales de `AUDIOS` permanecen intactos. Las copias de `assets/audio` tienen nombres ASCII y exactamente los mismos bytes; no se recodificaron. `INVENTARIO.md` relaciona cada copia con su archivo original, tamaño y SHA-256. Uno de los 12 archivos anteriores repetía Turquesa; se distribuye una sola copia de esa canción.
+La colección contiene **43 archivos de audio**: 39 canciones y 4 grabaciones para muerte y reaparición. Los originales de `AUDIOS` permanecen intactos. Las copias de `assets/audio` tienen nombres ASCII y exactamente los mismos bytes; no se recodificaron. `INVENTARIO.md` relaciona cada copia con su archivo original, tamaño y SHA-256. Uno de los 12 archivos anteriores repetía Turquesa; se distribuye una sola copia de esa canción.
 
 ## Canciones asignadas
 
@@ -8,8 +8,11 @@ La colección activa contiene **42 archivos de audio**: 38 canciones y 4 grabaci
 | --- | --- | --- |
 | Menú principal y sus opciones / créditos informativos | ZornBeats - Arcade / ACZINO vs JACK | pista-37.mp3 |
 | Enfrentamiento final de cualquier dificultad | BAGHIRA: STRADIVARI / CHUTY VS ACZINO | pista-03.mp3 |
-| Elección y créditos de los finales A y C | Lo Que Soy / Los Vaguens | pista-34.mp3 |
-| Elección y créditos del final B | Final malo | final-malo.mp3 |
+| Elección y créditos de los finales A y C, cualquier dificultad | Lo Que Soy / Los Vaguens | pista-34.mp3 |
+| Elección y créditos del final B en Fácil, Normal o Difícil | Final malo (audio anterior) | final-malo.mp3 |
+| Elección y créditos del final B en Pesadilla | Final malo · Pesadilla (audio nuevo) | final-malo-pesadilla.mp3 |
+
+El audio nuevo dura **212.370 s**. La elección B usa esa canción solamente cuando la partida es de dificultad Pesadilla, incluso si se activó la ayuda de ese modo. Los finales A y C conservan `Lo Que Soy` en todas las dificultades. La vista previa permite comprobar cada combinación sin modificar la partida.
 
 Las otras **34 canciones se reproducen en orden**, según las listas de `tracks.json`: pista-01, pista-02, pista-04 hasta pista-33, pista-35 y pista-36. Al llegar a la última, se vuelve a la primera. Todas las dificultades y mundos comparten el mismo cursor. Menú, jefe, final y clips de muerte quedan fuera de esa secuencia.
 
@@ -32,7 +35,7 @@ Estas grabaciones utilizan **Volumen efectos**. Los cuatro archivos pequeños se
 
 ## Rutas y publicación
 
-Publica los archivos activos de `assets/audio`, incluido `tracks.json`: pista-01.mp3 a pista-37.mp3, final-malo.mp3, burla-01-v6.mp3, burla-02.mp3, burla-03.mp3 y reaparicion.mp3. `burla-01.mp3` corresponde a la grabación anterior y ya no está referenciada por el juego. Los nombres no contienen espacios ni tildes.
+Publica los archivos de `assets/audio`, incluido `tracks.json`: pista-01.mp3 a pista-37.mp3, final-malo.mp3, final-malo-pesadilla.mp3, burla-01-v6.mp3, burla-02.mp3, burla-03.mp3 y reaparicion.mp3. `burla-01.mp3` corresponde a la grabación anterior y ya no está referenciada por el juego. Los nombres no contienen espacios ni tildes.
 
 Las primeras 11 canciones conservan rutas alternativas de la publicación anterior:
 
@@ -52,7 +55,7 @@ El reproductor admite hasta 500 entradas. `gain`, entre 0 y 1, se multiplica por
 - `Audio.playTransitionCue('death')` alterna una burla completa. `Audio.playTransitionCue('respawn')` reproduce REAPARICION completa. Ambas devuelven una promesa con `{ name, id, title, status }`, donde `status` puede ser `ended`, `unavailable`, `timed-out` o `cancelled`. La aplicación debe ignorar continuaciones antiguas al cambiar de pantalla. Para un uso futuro, `{ maxDuration: segundos }` permite limitar explícitamente un clip; el flujo normal no lo limita.
 - `Audio.cancelTransientCue()` resuelve la promesa del clip como `cancelled` y lo detiene. `getCueStatus()` informa del clip, modo, posición y duración.
 - `Audio.pauseMusic()` y `resumeMusic()` también pausan o reanudan los clips, conservando su posición y el tiempo de espera restante. Una acción de usuario que desbloquee el audio no anula una pausa explícita.
-- `Audio.subscribeTrackEnd(callback)` devuelve una función para cancelar la suscripción. Los finales emiten `{ theme: 'ending' | 'ending-bad', id, title }`, una vez al terminar su canción. La música comienza al elegir el final y continúa durante sus créditos sin volver al inicio.
+- `Audio.subscribeTrackEnd(callback)` devuelve una función para cancelar la suscripción. Los finales emiten `{ theme: 'ending' | 'ending-bad' | 'ending-bad-nightmare', id, title }`, una vez al terminar su canción. La música comienza al elegir el final y continúa durante sus créditos sin volver al inicio.
 - `Audio.getMusicStatus()` informa de la canción y clip activos, posición, duración, escena y modo, incluido `ended`.
 
 ## Sin conexión

@@ -1,6 +1,6 @@
 # Inventario de pistas
 
-42 archivos activos: 38 canciones y 4 grabaciones de muerte / reaparición. La versión 6 agrega Final malo y sustituye Burla 1 por el nuevo archivo BURLA 1.mpeg. Las copias MP3 conservan exactamente los bytes de los archivos MPEG originales; no se recodificaron. El archivo anterior duplicado de Turquesa sigue intacto en AUDIOS, pero se distribuye una sola copia. La primera columna indica el nombre de la copia sin extensión.
+43 archivos en la colección: 39 canciones y 4 grabaciones de muerte / reaparición. La versión 6 agrega Final malo y sustituye Burla 1 por el nuevo archivo BURLA 1.mpeg; la 6.0.2 agrega la canción exclusiva para el final B en Pesadilla. Las copias MP3 conservan exactamente los bytes de los archivos MPEG originales; no se recodificaron. El archivo anterior duplicado de Turquesa sigue intacto en AUDIOS, pero se distribuye una sola copia. La primera columna indica el nombre de la copia sin extensión.
 
 | ID | Titulo | Archivo original | Bytes | SHA-256 |
 | --- | --- | --- | ---: | --- |
@@ -42,10 +42,11 @@
 | pista-36 | ACZINO vs WOS / BEAT 2: RESTOS de ALCAZONE | WhatsApp Audio 2026-10-11 at 10.30.19 PM (7).mpeg | 5212767 | `847708eafee794ac540d3072135951e61253792c523dd013fd17584ceb93bd5e` |
 | pista-37 | ZornBeats - Arcade // ACZINO vs JACK - Instrumental FMS | WhatsApp Audio 2026-10-11 at 10.30.19 PM (8).mpeg | 6373610 | `a55c07c2a421185c928514e89bff5ac3b08d74021fcca199d2e4d148f2e92d74` |
 | final-malo | Final malo | final malo.mpeg | 2521684 | `1db603c56ab800e8e56cf5052a38c8e6ee5d30b721110516d6a89b843cbac78e` |
+| final-malo-pesadilla | Final malo · Pesadilla | FINAL MALO dificultad pesadilla.mpeg | 3302143 | `4b0fdff2310196449920a874df766708885d74de4f5375c4dc05e2ad6ecd5fd2` |
 
 ## Clips de muerte y reaparición
 
-Las cuatro copias mantienen exactamente los bytes recibidos. Duraciones medidas del PCM: la nueva Burla 1, 2.50775 s; Burla 2, 2.544 s; Burla 3, 2.496 s; Reaparición, 3.120 s. Su nombre versionado evita reutilizar el archivo antiguo de la caché. La pantalla negra dura 0.5 s; las burlas continúan sobre la frase hasta que terminan o el jugador reaparece. No forman parte de la lista de canciones de nivel. La canción Final malo dura 105.000625 s y suena únicamente en el final B.
+Las cuatro copias mantienen exactamente los bytes recibidos. Duraciones medidas del PCM: la nueva Burla 1, 2.50775 s; Burla 2, 2.544 s; Burla 3, 2.496 s; Reaparición, 3.120 s. Su nombre versionado evita reutilizar el archivo antiguo de la caché. La pantalla negra dura 0.5 s; las burlas continúan sobre la frase hasta que terminan o el jugador reaparece. No forman parte de la lista de canciones de nivel. La canción Final malo dura 105.000625 s y se usa en B de Fácil, Normal y Difícil; B en Pesadilla usa Final malo · Pesadilla (212.3696875 s de PCM, estéreo a 48 kHz). Los finales A y C usan Lo Que Soy en todas las dificultades.
 
 | ID | Titulo | Archivo original | Bytes | SHA-256 |
 | --- | --- | --- | ---: | --- |
