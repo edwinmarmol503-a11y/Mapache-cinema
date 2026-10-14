@@ -1,5 +1,5 @@
 {
-  "version": 5,
+  "version": 6,
   "tracks": [
     {
       "id": "pista-01",
@@ -333,9 +333,9 @@
     {
       "id": "burla-01",
       "title": "Burla 1",
-      "src": "burla-01.mp3",
+      "src": "burla-01-v6.mp3",
       "gain": 0.8,
-      "durationSeconds": 3.888,
+      "durationSeconds": 2.50775,
       "role": "cue"
     },
     {
@@ -361,6 +361,14 @@
       "gain": 0.8,
       "durationSeconds": 3.12,
       "role": "cue"
+    },
+    {
+      "id": "final-malo",
+      "title": "Final malo",
+      "src": "final-malo.mp3",
+      "gain": 0.65,
+      "durationSeconds": 105.000625,
+      "role": "ending"
     }
   ],
   "playlists": {
@@ -552,6 +560,9 @@
     ],
     "ending": [
       "pista-34"
+    ],
+    "ending-bad": [
+      "final-malo"
     ]
   },
   "selection": "ordered",

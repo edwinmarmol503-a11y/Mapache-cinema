@@ -1,6 +1,6 @@
 # Inventario de pistas
 
-41 archivos distintos: 37 canciones (11 anteriores y 26 agregadas el 11 de octubre de 2026) y 4 clips de muerte / reaparición agregados el 12 de octubre de 2026. Las copias MP3 conservan exactamente los bytes de los archivos MPEG originales; no se recodificaron. El archivo anterior duplicado de Turquesa sigue intacto en AUDIOS, pero se distribuye una sola copia.
+42 archivos activos: 38 canciones y 4 grabaciones de muerte / reaparición. La versión 6 agrega Final malo y sustituye Burla 1 por el nuevo archivo BURLA 1.mpeg. Las copias MP3 conservan exactamente los bytes de los archivos MPEG originales; no se recodificaron. El archivo anterior duplicado de Turquesa sigue intacto en AUDIOS, pero se distribuye una sola copia. La primera columna indica el nombre de la copia sin extensión.
 
 | ID | Titulo | Archivo original | Bytes | SHA-256 |
 | --- | --- | --- | ---: | --- |
@@ -24,7 +24,7 @@
 | pista-18 | Zurna | WhatsApp Audio 2026-10-11 at 10.30.15 PM (6).mpeg | 2903370 | `bed2f91c4d5aba37a157b1415b8a52d436fcc8ebd108696e52046c68f9f3066c` |
 | pista-19 | Llamador de freestylers | WhatsApp Audio 2026-10-11 at 10.30.16 PM.mpeg | 3587088 | `770899567d4f06a218f9c9623d95b412074ff1a655136efabb92eaeab6c31aa6` |
 | pista-20 | Salten - AlcaZone /  Causa & Consecuencia | WhatsApp Audio 2026-10-11 at 10.30.16 PM (1).mpeg | 4069043 | `7a3c08c75a79b15762850443cdc536302b3e6a6f3ad4769fb526aec675715fb9` |
-| pista-21 | Azúcar - AlcaZone /  Causa & Consecuencia | WhatsApp Audio 2026-10-11 at 10.30.16 PM (2).mpeg | 3386642 | `fae9afcdd31d6380181bb1257146fd1eaf861b5c5b4b08ad7c78bbd658a07295` |
+| pista-21 | Azúcar - AlcaZone /  Causa & Consecuencia | WhatsApp Audio 2026-10-07 at 9.05.28 PM (90).mpeg | 3386642 | `fae9afcdd31d6380181bb1257146fd1eaf861b5c5b4b08ad7c78bbd658a07295` |
 | pista-22 | Tik Tok | WhatsApp Audio 2026-10-11 at 10.30.16 PM (3).mpeg | 3168971 | `eeb8b91ea232598c68d73128f7f799246649aabb4bf5d5997ebfad71c0420965` |
 | pista-23 | Escuela | WhatsApp Audio 2026-10-11 at 10.30.16 PM (4).mpeg | 2528176 | `ccbe2fa0027ca2b8f07d36ef5bfcb7538995412442796b46ca8143e43bf9da63` |
 | pista-24 | FRANCO vs YARTZI / BEAT 1: VENDETTA de ALCAZONE | WhatsApp Audio 2026-10-11 at 10.30.16 PM (5).mpeg | 4510410 | `dc842ed2e2751753d5ee9b283c2b85866073d316d39ffd0e9b4d21b01a23a586` |
@@ -41,14 +41,15 @@
 | pista-35 | Dólar | WhatsApp Audio 2026-10-11 at 10.30.19 PM (6).mpeg | 3232945 | `a916ac2710da358a3176e2002fda7aea3af95526b73b4f42c91cac01954a4a4e` |
 | pista-36 | ACZINO vs WOS / BEAT 2: RESTOS de ALCAZONE | WhatsApp Audio 2026-10-11 at 10.30.19 PM (7).mpeg | 5212767 | `847708eafee794ac540d3072135951e61253792c523dd013fd17584ceb93bd5e` |
 | pista-37 | ZornBeats - Arcade // ACZINO vs JACK - Instrumental FMS | WhatsApp Audio 2026-10-11 at 10.30.19 PM (8).mpeg | 6373610 | `a55c07c2a421185c928514e89bff5ac3b08d74021fcca199d2e4d148f2e92d74` |
+| final-malo | Final malo | final malo.mpeg | 2521684 | `1db603c56ab800e8e56cf5052a38c8e6ee5d30b721110516d6a89b843cbac78e` |
 
 ## Clips de muerte y reaparición
 
-Las cuatro copias son MP3 de 160 kbps y mantienen exactamente los bytes recibidos. Duraciones: Burla 1, 3.888 s; Burla 2, 2.544 s; Burla 3, 2.496 s; Reaparición, 3.120 s. Las duraciones provienen de los samples PCM decodificados; las estimaciones MPEG/HTML pueden incluir relleno y son mayores. Se reproducen completas; no forman parte de la lista de canciones de nivel.
+Las cuatro copias mantienen exactamente los bytes recibidos. Duraciones medidas del PCM: la nueva Burla 1, 2.50775 s; Burla 2, 2.544 s; Burla 3, 2.496 s; Reaparición, 3.120 s. Su nombre versionado evita reutilizar el archivo antiguo de la caché. La pantalla negra dura 0.5 s; las burlas continúan sobre la frase hasta que terminan o el jugador reaparece. No forman parte de la lista de canciones de nivel. La canción Final malo dura 105.000625 s y suena únicamente en el final B.
 
 | ID | Titulo | Archivo original | Bytes | SHA-256 |
 | --- | --- | --- | ---: | --- |
-| burla-01 | Burla 1 | BURLA1.mpeg | 89775 | `20a51cc8b035b7423af0f446afe88c07020428555000b9b72d8f5f9472d6ff4d` |
+| burla-01-v6 | Burla 1 | BURLA 1.mpeg | 61577 | `4255f456177c4acb16c57cd6b291deabd730d12976da95c3923e4bb71882fc8e` |
 | burla-02 | Burla 2 | BURLA2.mpeg | 118585 | `dc7d9b2905875ae37e5dd66411dfa2df49c59f1d52b8d3e661e36b866912b3e6` |
 | burla-03 | Burla 3 | BURLA 3.mpeg | 75027 | `ba24b262e0e632dce4c7510dbc313b8ef251e1d01cadf42aa4b3451986b6d5cb` |
 | reaparicion | Reaparición | REAPARICION.mpeg | 93234 | `99570beebb22e4fc6bd136ff85c9a5025fb93f42b2aa7551a39f2f04aa4045a8` |
