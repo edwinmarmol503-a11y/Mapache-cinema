@@ -462,7 +462,7 @@ html[data-visual="day"] .menu-content { background: radial-gradient(ellipse at c
 #screen-menu .network-badge { font-size: clamp(8px, .7vw, 12px); letter-spacing: 0; margin-top: 16px; }
 #screen-menu #menu-nav {
   position: absolute;
-  top: 40%; right: 4%;
+  top: 48%; right: 4%;
   width: 28%;
   margin: 0;
   align-items: stretch;
@@ -527,7 +527,7 @@ html[data-visual="day"] #screen-menu #menu-nav { background: #08172b6b; border-r
   #screen-menu .subtitle { margin-top: 13px; font-size: 10px; letter-spacing: 2px; }
   #screen-menu .menu-tagline { margin-top: 13px; font-size: 9px; line-height: 1.7; }
   #screen-menu .network-badge { font-size: 8px; margin-top: 12px; padding: 6px 8px; }
-  #screen-menu #menu-nav { top: 12%; right: 3%; width: 32%; gap: 2px; }
+  #screen-menu #menu-nav { top: 18%; right: 3%; width: 32%; gap: 2px; }
   #app.touch-mode #screen-menu #menu-nav button, #screen-menu #menu-nav button { min-height: 30px; padding: 6px 4px; font-size: clamp(12px, 1.75vw, 17px); text-align: right; }
   #app.touch-mode #screen-menu .menu-footer .version { display: block; }
   #screen-menu .menu-footer { bottom: 3%; }
@@ -545,7 +545,7 @@ html[data-visual="day"] #screen-menu #menu-nav { background: #08172b6b; border-r
   #screen-menu .subtitle { font-size: clamp(10px, 2.7vw, 16px); margin-top: 16px; letter-spacing: 2px; }
   #screen-menu .menu-tagline { font-size: 10px; line-height: 1.7; }
   #screen-menu .network-badge { font-size: 8px; margin-top: 12px; }
-  #screen-menu #menu-nav { top: 42%; left: 12%; right: 12%; width: auto; gap: 4px; }
+  #screen-menu #menu-nav { top: 45%; left: 12%; right: 12%; width: auto; gap: 4px; }
   #app.touch-mode #screen-menu #menu-nav button, #screen-menu #menu-nav button { text-align: center; min-height: 43px; padding: 10px 2px; font-size: clamp(14px, 3.6vw, 22px); }
   #screen-menu .menu-footer { bottom: max(3%, 20px); left: 5%; right: 5%; }
   #screen-menu .menu-footer .hint { display: none; }
@@ -553,7 +553,7 @@ html[data-visual="day"] #screen-menu #menu-nav { background: #08172b6b; border-r
 }
 @media (orientation: portrait) and (max-height: 680px) {
   #screen-menu .menu-heading { top: 5%; }
-  #screen-menu #menu-nav { top: 41%; gap: 1px; }
+  #screen-menu #menu-nav { top: 44%; gap: 1px; }
   #app.touch-mode #screen-menu #menu-nav button, #screen-menu #menu-nav button { min-height: 35px; padding: 7px 2px; font-size: 13px; }
   #screen-menu .menu-tagline { margin-top: 9px; }
 }
