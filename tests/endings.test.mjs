@@ -3,14 +3,20 @@ import { test } from 'node:test';
 import { webcrypto } from 'node:crypto';
 import { ENDINGS, isEnding, endingMusicTheme, getEndingDialogue, createEndingAccess, drawEndingScene } from '../js/endings.js';
 
-test('the three decisions retain their identity and only B uses the bad-ending soundtrack', () => {
+test('the three decisions retain their identity and only B in Nightmare uses the exclusive soundtrack', () => {
   assert.deepEqual(Object.keys(ENDINGS), ['A', 'B', 'C']);
   assert.equal(ENDINGS.A.choice, 'Devolverla a Lumera');
   assert.equal(ENDINGS.B.choice, 'Conservarla, como él');
   assert.equal(ENDINGS.C.choice, 'Compartirla con todos');
+  for (const difficulty of ['easy', 'normal', 'hard', 'nightmare']) {
+    for (const ending of ['A', 'B', 'C']) {
+      assert.equal(endingMusicTheme(ending, difficulty),
+        ending === 'B' ? (difficulty === 'nightmare' ? 'ending-bad-nightmare' : 'ending-bad') : 'ending', `${ending}/${difficulty}`);
+    }
+  }
   assert.equal(endingMusicTheme('B'), 'ending-bad');
-  assert.equal(endingMusicTheme('A'), 'ending');
-  assert.equal(endingMusicTheme('C'), 'ending');
+  assert.equal(endingMusicTheme('B', 'invalid'), 'ending-bad');
+  assert.equal(endingMusicTheme('invalid', 'nightmare'), 'ending');
   assert.match(ENDINGS.B.narration, /lo que juró destruir, la nueva amenaza de Ciudad Lumera…$/);
   assert.equal(isEnding('constructor'), false);
   assert.equal(isEnding('D'), false);

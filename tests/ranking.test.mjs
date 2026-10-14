@@ -408,3 +408,112 @@ test('a fresh level can classify independently after an earlier offline stage br
     assert.equal((await client.finishRun(campaign.ticket, { activeMs: 30000, ending: 'B' })).ok, false);
   } finally { f.close(); }
 });
+
+test('closing during the first finish request retains the result for another device after reload', async () => {
+  const f = fixture();
+  const storage = memoryStorage();
+  const directFetch = (url, options) => Worker.fetch(new Request(url, options), { DB: f.db }, {});
+  let release;
+  const responseGate = new Promise(resolve => { release = resolve; });
+  let pending;
+  try {
+    const first = new RankingClient({ apiBase: ORIGIN, storage, now: f.now, autoEvents: false,
+      fetch: async (url, options) => {
+        if (url.endsWith('/finish')) await responseGate;
+        return directFetch(url, options);
+      } });
+    await first.setNickname('Noobmaster69');
+    const selection = { difficulty: 'nightmare', kind: 'level', level: 4 };
+    const { ticket } = await first.beginRun(selection);
+    f.advance(17000);
+    pending = first.finishRun(ticket, { activeMs: 12000, deaths: 1 });
+    const persisted = JSON.parse(storage.getItem('mapache_ranking_pending_v2'));
+    assert.equal(persisted.length, 1, 'The request must be durable before its response or error arrives.');
+    assert.equal(persisted[0].detail.activeMs, 12000);
+    assert.equal(f.db.sqlite.prepare('SELECT COUNT(*) n FROM scores').get().n, 0);
+    // A fresh page loads the same persistent browser storage. The original
+    // page is still waiting; the new page must independently recover the run.
+    const reloaded = new RankingClient({ apiBase: ORIGIN, storage, now: f.now, fetch: directFetch, autoEvents: false });
+    await reloaded.init();
+    assert.equal(reloaded.getStatus().pending, 0);
+    const otherDevice = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now, fetch: directFetch, autoEvents: false });
+    const board = await otherDevice.getLeaderboard(selection);
+    assert.equal(board.entries.length, 1);
+    assert.equal(board.entries[0].nickname, 'Noobmaster69');
+    assert.equal(board.entries[0].elapsedMs, 12000);
+    assert.notEqual(reloaded.getStatus().playerId, otherDevice.getStatus().playerId);
+    release();
+    assert.equal((await pending).duplicate, true);
+    assert.equal(f.db.sqlite.prepare('SELECT COUNT(*) n FROM scores').get().n, 1);
+  } finally { release(); if (pending) await pending; f.close(); }
+});
+
+test('campaign and last level survive closing before the last level response', async () => {
+  const f = fixture();
+  const storage = memoryStorage();
+  const directFetch = (url, options) => Worker.fetch(new Request(url, options), { DB: f.db }, {});
+  let blockFinish = false;
+  let release;
+  const responseGate = new Promise(resolve => { release = resolve; });
+  let lastFinish;
+  let campaignFinish;
+  try {
+    const client = new RankingClient({ apiBase: ORIGIN, storage, now: f.now, autoEvents: false,
+      fetch: async (url, options) => {
+        if (blockFinish && url.endsWith('/finish')) await responseGate;
+        return directFetch(url, options);
+      } });
+    await client.setNickname('Lumera');
+    const selection = { difficulty: 'nightmare', kind: 'campaign', level: -1 };
+    const campaign = await client.beginRun(selection);
+    for (let level = 0; level < 5; level++) {
+      const { ticket } = await client.beginRun({ ...selection, kind: 'level', level, campaignId: campaign.ticket.id });
+      f.advance(8000);
+      if (level === 4) {
+        blockFinish = true;
+        lastFinish = client.finishRun(ticket, { activeMs: 7000 });
+      } else assert.equal((await client.finishRun(ticket, { activeMs: 7000 })).ok, true);
+    }
+    campaignFinish = client.finishRun(campaign.ticket, { activeMs: 35000, ending: 'B' }, { after: lastFinish });
+    const pending = JSON.parse(storage.getItem('mapache_ranking_pending_v2'));
+    assert.equal(pending.length, 2);
+    assert.equal(pending[1].ticket.kind, 'campaign');
+    assert.equal(pending[1].detail.ending, 'B');
+    const reloaded = new RankingClient({ apiBase: ORIGIN, storage, now: f.now, fetch: directFetch, autoEvents: false });
+    await reloaded.init();
+    assert.equal(reloaded.getStatus().pending, 0);
+    const otherDevice = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now, fetch: directFetch, autoEvents: false });
+    const table = await otherDevice.getLeaderboard(selection);
+    assert.equal(table.entries.length, 1);
+    assert.equal(table.entries[0].nickname, 'Lumera');
+    assert.equal(table.entries[0].elapsedMs, 35000);
+    assert.equal(table.entries[0].ending, 'B');
+    assert.equal(f.db.sqlite.prepare('SELECT COUNT(*) n FROM scores').get().n, 6);
+    release();
+    assert.equal((await campaignFinish).duplicate, true);
+  } finally { release(); await Promise.all([lastFinish, campaignFinish]); f.close(); }
+});
+
+test('retrying a pending finish preserves the first captured duration and ending', async () => {
+  const f = fixture();
+  let disconnected = false;
+  const client = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now, autoEvents: false,
+    fetch: (url, options) => {
+      if (disconnected) throw new Error('offline');
+      return Worker.fetch(new Request(url, options), { DB: f.db }, {});
+    } });
+  try {
+    const selection = { difficulty: 'hard', kind: 'level', level: 4 };
+    const { ticket } = await client.beginRun(selection);
+    f.advance(25000);
+    disconnected = true;
+    assert.equal((await client.finishRun(ticket, { activeMs: 16000, ending: 'B' })).status, 'queued');
+    assert.equal((await client.finishRun(ticket, { activeMs: 21000, ending: 'C' })).status, 'queued');
+    disconnected = false;
+    await client.sync();
+    const table = await client.getLeaderboard(selection);
+    assert.equal(table.entries[0].elapsedMs, 16000);
+    assert.equal(table.entries[0].ending, 'B');
+    assert.equal(client.getStatus().lastNotice, '');
+  } finally { f.close(); }
+});

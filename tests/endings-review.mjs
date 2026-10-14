@@ -6,7 +6,7 @@ const modulePath = process.env.PLAYWRIGHT_MODULE || 'playwright';
 const { chromium } = await import(path.isAbsolute(modulePath) ? pathToFileURL(modulePath).href : modulePath);
 const base = process.env.PREVIEW_URL || 'http://127.0.0.1:4173';
 const origin = new URL(base).origin;
-const output = path.resolve('test-results/endings-v6');
+const output = path.resolve('test-results/endings-v602');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const report = { checks: [], layouts: [], errors: [], apiRequests: [] };
@@ -39,19 +39,23 @@ try {
   report.checks.push('Correct gallery code reveals A/B/C without enabling controller mode; wrong code stays closed');
   const before = await page.evaluate(() => JSON.stringify({ data: MC.Save.data, storage: { ...localStorage } }));
   const apiBefore = report.apiRequests.length;
-  for (const ending of ['A', 'B', 'C']) {
-    if (ending !== 'A') {
+  const cases = ['normal', 'easy', 'hard', 'nightmare'].flatMap(difficulty => ['A', 'B', 'C'].map(ending => ({ ending, difficulty })));
+  for (const [index, { ending, difficulty }] of cases.entries()) {
+    if (index > 0) {
       await page.locator('#victory-menu').click();
       await page.locator('#menu-nav [data-act="credits"]').click();
     }
+    await page.locator('#ending-preview-difficulty').selectOption(difficulty);
     await page.locator(`[data-preview-ending="${ending}"]`).click();
+    const expectedTrack = ending === 'B' ? (difficulty === 'nightmare' ? 'final-malo-pesadilla' : 'final-malo') : 'pista-34';
     await page.waitForFunction(expected => MC.getState() === 'credits' && MC.Audio.getMusicStatus().id === expected && MC.Audio.getMusicStatus().position > .05,
-      ending === 'B' ? 'final-malo' : 'pista-34');
+      expectedTrack);
     assert.equal(await page.locator('#screen-victory').getAttribute('data-ending'), ending);
     assert.equal(await page.locator('#victory-preview').isVisible(), true);
     assert.equal(await page.evaluate(() => MC.Audio._media.loop), false);
-    await page.waitForTimeout(700);
-    for (const viewport of [{ width: 1920, height: 1080 }, { width: 844, height: 390 }, { width: 568, height: 320 }]) {
+    report.checks.push(`${ending}/${difficulty} plays ${expectedTrack} without looping`);
+    const viewports = difficulty === 'normal' ? [{ width: 1920, height: 1080 }, { width: 844, height: 390 }, { width: 568, height: 320 }] : [];
+    for (const viewport of viewports) {
       await page.setViewportSize(viewport);
       await page.waitForTimeout(100);
       const layout = await page.evaluate(() => {
@@ -71,11 +75,12 @@ try {
   }
   assert.equal(await page.evaluate(() => JSON.stringify({ data: MC.Save.data, storage: { ...localStorage } })), before, 'preview never changes local records, inventory or progress');
   assert.equal(report.apiRequests.length, apiBefore, 'preview sends no player, run or leaderboard requests');
-  report.checks.push('All three full-screen previews use the correct fixed song, fit 1920/844/568, preserve save and send no API writes');
+  report.checks.push('All twelve previews use the correct fixed song, preserve save and send no API writes; all three scenes fit 1920/844/568');
   await page.locator('#victory-menu').click();
   await page.locator('#menu-nav [data-act="credits"]').click();
+  await page.locator('#ending-preview-difficulty').selectOption('nightmare');
   await page.locator('[data-preview-ending="B"]').click();
-  await page.waitForFunction(() => MC.Audio.getMusicStatus().id === 'final-malo' && MC.Audio._media.currentTime > .05);
+  await page.waitForFunction(() => MC.Audio.getMusicStatus().id === 'final-malo-pesadilla' && MC.Audio._media.currentTime > .05);
   await page.evaluate(() => {
     window.endingNativeEvents = [];
     MC.Audio._media.addEventListener('ended', event => window.endingNativeEvents.push(event.isTrusted), { once: true });
@@ -84,7 +89,7 @@ try {
   });
   await page.waitForFunction(() => MC.getState() === 'menu' && MC.Audio.getMusicStatus().id === 'pista-37', null, { timeout: 20000 });
   assert.deepEqual(await page.evaluate(() => window.endingNativeEvents), [true]);
-  report.checks.push('Native end of Final malo returns to ARCADE without looping or advancing the level sequence');
+  report.checks.push('Native end of Final malo Pesadilla returns to ARCADE without looping or advancing the level sequence');
   assert.deepEqual(report.errors, []);
   await writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ checks: report.checks, layouts: report.layouts.length, errors: report.errors }, null, 2));

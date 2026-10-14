@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { Audio } from '../js/audio.js';
+import { endingMusicTheme } from '../js/endings.js';
 
 function fixture(ids = ['a', 'b', 'c', 'd'], playlists, alternateSrcs = {}, extra = {}) {
   const previousWindow = globalThis.window;
@@ -466,19 +467,20 @@ test('a missing fixed theme remains silent instead of borrowing a random level s
   } finally { f.close(); }
 });
 
-test('the supplied manifest loads 38 songs and 4 cues with a deterministic 34-song level sequence', async () => {
+test('the supplied manifest loads 39 songs and 4 cues with a deterministic 34-song level sequence', async () => {
   const manifest = JSON.parse(await readFile(new URL('../assets/audio/tracks.json', import.meta.url), 'utf8'));
   const ids = manifest.tracks.map(track => track.id);
-  assert.equal(ids.length, 42);
-  assert.equal(new Set(ids).size, 42);
+  assert.equal(ids.length, 43);
+  assert.equal(new Set(ids).size, 43);
   assert.deepEqual(manifest.playlists.menu, ['pista-37']);
   assert.deepEqual(manifest.playlists.ending, ['pista-34']);
   assert.deepEqual(manifest.playlists['ending-bad'], ['final-malo']);
+  assert.deepEqual(manifest.playlists['ending-bad-nightmare'], ['final-malo-pesadilla']);
   assert.deepEqual(manifest.playlists.boss, ['pista-03']);
   assert.match(manifest.tracks.find(track => track.id === 'pista-37').title, /Arcade/i);
   assert.match(manifest.tracks.find(track => track.id === 'pista-34').title, /^Lo Que Soy$/i);
   assert.match(manifest.tracks.find(track => track.id === 'pista-03').title, /CHUTY VS ACZINO/i);
-  const reserved = new Set(['pista-37', 'pista-34', 'pista-03', 'final-malo']);
+  const reserved = new Set(['pista-37', 'pista-34', 'pista-03', 'final-malo', 'final-malo-pesadilla']);
   const random = manifest.playlists.roofs;
   assert.equal(random.length, 34);
   for (const theme of ['roofs', 'forest', 'sewers', 'district', 'tower']) {
@@ -489,8 +491,8 @@ test('the supplied manifest loads 38 songs and 4 cues with a deterministic 34-so
   // its resolved URLs here exercises the limit without file:// test paths.
   const f = fixture(ids, manifest.playlists, {}, { cues: manifest.cues });
   try {
-    assert.equal(f.audio._tracks.size, 42, 'tracks after number 20 cannot be silently discarded');
-    for (const [theme, id] of [['menu', 'pista-37'], ['boss', 'pista-03'], ['ending', 'pista-34'], ['ending-bad', 'final-malo']]) {
+    assert.equal(f.audio._tracks.size, 43, 'tracks after number 20 cannot be silently discarded');
+    for (const [theme, id] of [['menu', 'pista-37'], ['boss', 'pista-03'], ['ending', 'pista-34'], ['ending-bad', 'final-malo'], ['ending-bad-nightmare', 'final-malo-pesadilla']]) {
       f.audio.playMusic(theme);
       assert.equal(f.audio._externalTrack.id, id);
     }
@@ -549,22 +551,30 @@ function cueFixture() {
     { roofs: ['a', 'b', 'c'] }, {}, { cues: { death: ['burla-01', 'burla-02', 'burla-03'], respawn: ['reaparicion'] } });
 }
 
-test('the bad-ending song stays fixed, preserves its playhead between narrative and credits, and ends once', () => {
-  const f = fixture(['a', 'b', 'bad'], { roofs: ['a', 'b'], 'ending-bad': ['bad'] });
+test('all twelve ending/difficulty combinations keep their selected song through narration and credits and end once', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../assets/audio/tracks.json', import.meta.url), 'utf8'));
+  const f = fixture(manifest.tracks.map(track => track.id), manifest.playlists);
   try {
     const events = [];
     f.audio.subscribeTrackEnd(event => events.push(event));
     f.audio.playMusic('roofs');
     const cursor = [...f.audio._playlistCursors];
-    f.audio.playMusic('ending-bad');
-    const media = f.audio._media;
-    media.currentTime = 18;
-    f.audio.playMusic('ending-bad');
-    assert.equal(media.currentTime, 18);
-    assert.equal(media.loop, false);
-    assert.deepEqual([...f.audio._playlistCursors], cursor);
-    media.finish(); media.finish();
-    assert.deepEqual(events, [{ theme: 'ending-bad', id: 'bad', title: 'bad' }]);
+    for (const difficulty of ['easy', 'normal', 'hard', 'nightmare']) {
+      for (const ending of ['A', 'B', 'C']) {
+        const theme = endingMusicTheme(ending, difficulty);
+        const id = ending === 'B' ? (difficulty === 'nightmare' ? 'final-malo-pesadilla' : 'final-malo') : 'pista-34';
+        f.audio.playMusic(theme, { restart: true });
+        assert.equal(f.audio.getMusicStatus().id, id, `${ending}/${difficulty}`);
+        const media = f.audio._media;
+        media.currentTime = 18;
+        f.audio.playMusic(theme);
+        assert.equal(media.currentTime, 18, 'narrative-to-credits transition must retain position');
+        assert.equal(media.loop, false);
+        assert.deepEqual([...f.audio._playlistCursors], cursor);
+        media.finish(); media.finish();
+        assert.deepEqual(events.splice(0), [{ theme, id, title: id }]);
+      }
+    }
   } finally { f.close(); }
 });
 
@@ -797,10 +807,10 @@ test('another death or level invalidates stale respawn reservations while preser
   } finally { f.close(); }
 });
 
-test('all 42 active audio files match recorded fingerprints and any retained source originals', async () => {
+test('all 43 supplied audio files match recorded fingerprints and any retained source originals', async () => {
   const inventory = await readFile(new URL('../assets/audio/INVENTARIO.md', import.meta.url), 'utf8');
   const rows = inventory.split('\n').filter(line => /^\| (pista-|burla-|reaparicion|final-malo)/.test(line));
-  assert.equal(rows.length, 42);
+  assert.equal(rows.length, 43);
   const sha = bytes => createHash('sha256').update(bytes).digest('hex');
   for (const row of rows) {
     const [, id, , original, size, digest] = row.split('|').map(cell => cell.trim());

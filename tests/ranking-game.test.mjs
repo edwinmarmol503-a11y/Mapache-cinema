@@ -32,9 +32,9 @@ function fixture({ delayedStarts = false, delayedFinishes = false } = {}) {
       if (!delayedStarts) wait.resolve({ ok: true, ticket: item.ticket });
       return wait.promise;
     },
-    finishRun(ticket, detail) {
+    finishRun(ticket, detail, options = {}) {
       const wait = deferred();
-      finishes.push({ ticket: { ...ticket }, detail: { ...detail }, wait });
+      finishes.push({ ticket: { ...ticket }, detail: { ...detail }, options, wait });
       if (!delayedFinishes) wait.resolve({ ok: true, status: 'submitted' });
       return wait.promise;
     },
@@ -144,13 +144,15 @@ test('a queued old campaign finish captures its original statistics before a new
     f.game._rankDeaths = 3;
     f.game.onBossDefeated();
     await settle();
+    const levelFinish = f.game._levelFinish;
     f.game._playEnding('C');
+    const campaignFinish = f.finishes.find((item) => item.ticket.id === originalCampaign.id);
+    assert.ok(campaignFinish, 'Persist the campaign before the last level response arrives.');
+    assert.equal(campaignFinish.options.after, levelFinish);
     f.game.startAt('hard', 2, 'NEXT');
     await settle();
     f.finishes[0].wait.resolve({ ok: true, status: 'submitted' });
     await settle();
-    const campaignFinish = f.finishes.find((item) => item.ticket.id === originalCampaign.id);
-    assert.ok(campaignFinish);
     assert.equal(campaignFinish.detail.activeMs, 82250);
     assert.equal(campaignFinish.detail.deaths, 3);
     assert.equal(campaignFinish.detail.ending, 'C');
