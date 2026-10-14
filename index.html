@@ -12,13 +12,17 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 <meta name="apple-mobile-web-app-title" content="Mapache Cinema" />
-<link rel="stylesheet" href="css/style.css?v=5.0.0" />
-<link rel="stylesheet" href="css/menu.css?v=5.0.0" />
-<link rel="stylesheet" href="css/game.css?v=5.0.0" />
-<link rel="stylesheet" href="css/ui.css?v=5.0.0" />
-<link rel="stylesheet" href="css/touch.css?v=5.0.0" />
-<link rel="stylesheet" href="css/controller-settings.css?v=5.0.0" />
-<link rel="stylesheet" href="css/death.css?v=5.0.0" />
+<link rel="stylesheet" href="css/style.css?v=6.0.0" />
+<link rel="stylesheet" href="css/menu.css?v=6.0.0" />
+<link rel="stylesheet" href="css/game.css?v=6.0.0" />
+<link rel="stylesheet" href="css/ui.css?v=6.0.0" />
+<link rel="stylesheet" href="css/touch.css?v=6.0.0" />
+<link rel="stylesheet" href="css/controller-settings.css?v=6.0.0" />
+<link rel="stylesheet" href="css/death.css?v=6.0.0" />
+<link rel="preload" href="assets/fonts/Monocraft-Regular.ttf" as="font" type="font/ttf" crossorigin />
+<link rel="preload" href="assets/fonts/Monocraft-Bold.ttf" as="font" type="font/ttf" crossorigin />
+<link rel="stylesheet" href="css/typography.css?v=6.0.0" />
+<link rel="stylesheet" href="css/endings.css?v=6.0.0" />
 </head>
 <body>
 <div id="app">
@@ -46,7 +50,7 @@
         Atacar: <b>J</b> &nbsp;·&nbsp; Esquivar: <b>Shift</b> &nbsp;·&nbsp; Parada: <b>L</b> (con <b>↑</b>/<b>↓</b> arriba/abajo) &nbsp;·&nbsp;
         Interactuar: <b>E</b> &nbsp;·&nbsp; Lanzar: <b>K</b> &nbsp;·&nbsp; Pausa: <b>Esc</b>
       </p>
-      <p class="version">v5.0.0 · LUMERA · AVENTURA PIXEL ART</p>
+      <p class="version">v6.0.0 · LUMERA · AVENTURA PIXEL ART</p>
     </div>
   </div>
 
@@ -89,7 +93,7 @@
         <span></span>
       </div>
       <p class="option-note">El apodo aparece en la clasificación. Tu identidad se conserva en este navegador; todavía no se vincula a una cuenta.</p>
-      <details class="audio-note"><summary>Banda sonora · 37 canciones y 4 clips</summary><p>ARCADE acompaña el menú; CHUTY VS ACZINO, al jefe; LO QUE SOY, a los créditos finales. Las otras 34 canciones avanzan en orden al cambiar de nivel o después de morir. Los diálogos y las opciones mantienen la canción. Las tres BURLA se alternan durante la pantalla negra; REAPARICIÓN suena al volver a jugar.</p></details>
+      <details class="audio-note"><summary>Banda sonora · 38 canciones y 4 clips</summary><p>ARCADE acompaña el menú; CHUTY VS ACZINO, al jefe; LO QUE SOY, a los finales A y C; FINAL MALO, al final B. Las otras 34 canciones avanzan en orden al cambiar de nivel o después de morir. Los diálogos y las opciones mantienen la canción. Las BURLA suenan sobre la frase; al pulsar para volver, suena REAPARICIÓN.</p></details>
       <div class="opt-controls">
         <h3>Controles</h3>
         <div id="control-list"></div>
@@ -139,7 +143,7 @@
       <p id="score-status" class="score-status" role="status" aria-live="polite"></p>
       <div class="score-table" id="score-table"></div>
       <p id="score-player" class="score-player"></p>
-      <p class="option-note">Ranking por tiempo real: incluye pausas, diálogos y reintentos. Campaña: cinco niveles desde el principio. Las partidas con ayuda de Pesadilla quedan en récords locales.</p>
+      <p class="option-note">Cuenta solo el tiempo de juego: pausas, diálogos y espera para reaparecer no suman. Campaña: cinco niveles desde el principio. Los resultados de Pesadilla con ayuda tienen su propia tabla.</p>
       <button id="scores-clear" class="mini hidden">Borrar récords de este dispositivo</button>
       <button class="back" data-act="back">VOLVER</button>
     </div>
@@ -149,7 +153,7 @@
   <div id="screen-pause" class="screen hidden">
     <div class="panel small">
       <h2>PAUSA</h2>
-      <p id="pause-ranking" class="option-note">El cronómetro de clasificación continúa durante la pausa.</p>
+      <p id="pause-ranking" class="option-note">Tiempo detenido. Las pausas, los diálogos y la pantalla de reaparición no cuentan en la clasificación.</p>
       <nav class="menu-nav">
         <button data-act="resume">CONTINUAR</button>
         <button data-act="options">OPCIONES</button>
@@ -206,6 +210,6 @@
     <span class="tv-power"></span>
   </div>
 </div>
-<script type="module" src="js/bootstrap.js?v=5.0.0"></script>
+<script type="module" src="js/bootstrap.js?v=6.0.0"></script>
 </body>
 </html>

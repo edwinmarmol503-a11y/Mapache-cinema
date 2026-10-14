@@ -3,8 +3,8 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const RELEASE_VERSION = '5.0.0';
-const CACHE_NAME = 'mapache-cinema-v5.0.0-mando-reaparicion';
+const RELEASE_VERSION = '6.0.0';
+const CACHE_NAME = 'mapache-cinema-v6.0.0-finales-recuerdos';
 // GitHub web uploads may retain the three soundtrack batch directories.
 // Both layouts stay inside this game's scope and use the same lazy cache.
 const AUDIO_DIRECTORIES = [
@@ -24,10 +24,17 @@ const ASSETS = [
   './css/touch.css',
   './css/controller-settings.css',
   './css/death.css',
+  './css/typography.css',
+  './css/endings.css',
+  './assets/fonts/Monocraft-Regular.ttf',
+  './assets/fonts/Monocraft-Bold.ttf',
   './js/main.js',
   './js/bootstrap.js',
   './js/config.js',
   './js/ranking.js',
+  './js/ranking-session.js',
+  './js/endings.js',
+  './js/emotes.js',
   './js/input.js',
   './js/gamepad.js',
   './js/control-mode.js',

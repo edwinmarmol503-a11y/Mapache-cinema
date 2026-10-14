@@ -16,7 +16,7 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión local 5.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 6.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -80,9 +80,16 @@ Luego abre `http://localhost:PUERTO`.
 | Interactuar   | `E`                      |
 | Lanzar objeto | `K`  (lata seleccionada) |
 | Cambiar objeto| `Q` / `R`                |
+| Emote         | `G` (cuatro gestos alternados) |
 | Pausa         | `Esc`                    |
 
 `↓` permite bajar de plataformas de un sentido.
+
+Selecciona **Recuerdos** con Q/R y pulsa E: cada **3 recuerdos recuperan un
+corazón**. Se acumulan entre niveles y se guardan; con vida completa no se gastan.
+Los cuatro emotes son acostarse, voltereta, saludo a cámara y baile. Son visuales:
+no dan invulnerabilidad y se interrumpen al moverse, atacar o recibir daño.
+En mando se usa L3 (editable); en celular, MÁS → GESTO.
 
 **Parada (L):** justo antes de recibir un golpe (Sombra, Cuervo, Devorador,
 Guardián, proyectil o el jefe), pulsa `L`. Si aciertas: no recibes daño, el mundo
@@ -101,7 +108,7 @@ su propia luz (círculo reducido) y siempre se dibuja por encima de la penumbra.
 ```
 index.html
 css/   style.css · menu.css · game.css · ui.css · touch.css
-       controller-settings.css · death.css
+       controller-settings.css · death.css · typography.css · endings.css
 js/    bootstrap.js     actualización coherente de caché antes de importar el juego
        main.js          game loop (requestAnimationFrame, fixed step)
        input.js         input centralizado + rebinding
@@ -109,7 +116,10 @@ js/    bootstrap.js     actualización coherente de caché antes de importar el 
        controller-bindings.js  botones del mando, captura e intercambio de acciones
        controller-settings.js  editor de botones operable desde el televisor
        control-mode.js         teclado/táctil automáticos; mando mediante Código
-       developer-controls.js  acceso al mando desde Créditos
+       developer-controls.js  acceso al mando y previsualización de finales desde Créditos
+       endings.js       tres escenas y narraciones distintas según la decisión
+       emotes.js        cuatro animaciones cosméticas de Riko
+       ranking-session.js     persistencia y validación de tickets al continuar
        audio.js         canciones en orden y clips de muerte/reaparición
        save.js          localStorage (progreso + opciones)
        particles.js     sistema de partículas con pooling
@@ -117,7 +127,7 @@ js/    bootstrap.js     actualización coherente de caché antes de importar el 
        physics.js       físicas de plataformas + colisión con tilemap (AABB barrido)
        collision.js     primitivas AABB reutilizables
        sprites.js       PLACEHOLDERS pixel-art procedurales (Riko, enemigos, jefe)
-       inventory.js     bolsa de objetos (llave, lata, bombilla, imán, cuerda)
+       inventory.js     bolsa de objetos (llave, lata, bombilla, imán, cuerda, recuerdos)
        items.js         pickups, recuerdos y proyectiles
        player.js        Riko: movimiento, salto, esquiva, ataque, daño, muerte
        enemies.js       base Enemy + Sombra / Cuervo / Devorador / Guardián
@@ -165,15 +175,20 @@ es permanente, aparte de la partida). `JUGAR` = Normal desde el principio.
 
 ## Finales (se guardan en `localStorage`)
 
-- **A — Devolver la luz**
-- **B — Conservar la luz**
-- **C — Compartir la luz** *(final verdadero)*
+- **A — Devolver la luz:** Riko restaura la ciudad con una onda de luz.
+- **B — Conservar la luz:** el poder corrompe a Riko; flota en la esfera con sus nuevos aliados.
+- **C — Compartir la luz:** la luz se reparte entre todos *(final verdadero)*.
+
+Créditos → Código permite abrir una galería de los tres finales con el código
+de previsualización del desarrollador. Verlos allí no modifica la partida,
+los finales desbloqueados ni la clasificación.
 
 ## Guardado
 
 `JUGAR` inicia una campaña Normal nueva. `NIVELES` permite elegir dificultad.
 Empezar en el primer nivel registra también una campaña completa. `CONTINUAR`
-retoma desde el último checkpoint y conserva los resultados como locales.
+retoma desde el último checkpoint. Los tickets de clasificación válidos se
+conservan; un guardado antiguo sin ticket sigue siendo local para ese nivel.
 Para borrar el progreso desde la consola del navegador:
 ```js
 MC.Save.clear()
@@ -184,8 +199,9 @@ MC.Save.clear()
 Todo el arte es procedural (formas dibujadas en canvas). Para sustituirlo por
 sprite-sheets reales, reemplaza las funciones de `js/sprites.js` cargando
 imágenes desde `assets/` — la lógica de juego no cambia. Los efectos se sintetizan
-con `Web Audio API`. Hay **37 canciones MP3 y cuatro clips cortos**: **ARCADE** en el menú,
-**CHUTY VS ACZINO** durante el jefe y **LO QUE SOY** en los créditos finales.
+con `Web Audio API`. Hay **38 canciones MP3 y cuatro clips cortos**: **ARCADE** en el menú,
+**CHUTY VS ACZINO** durante el jefe, **LO QUE SOY** en los finales A y C y
+**FINAL MALO** en el final B.
 Las otras **34 suenan en orden**, desde pista-01 y pista-02, después pista-04
 hasta pista-33, pista-35 y pista-36. Al terminar la lista vuelve a la primera.
 Todas las zonas y dificultades comparten el recorrido; el siguiente ID se
@@ -195,21 +211,20 @@ opciones, créditos informativos, pausa y reinicio manual conservan canción y
 posición. Si una canción de nivel termina se repite la misma.
 
 Al morir se conserva la animación del cuerpo y el alma de Riko. Después el
-fondo queda negro al menos **0.5 segundos** y suena una de tres grabaciones de
-burla, alternadas en orden. Para escucharlas completas, la pantalla permanece
-negra hasta que termina la grabación. Luego aparece la frase de muerte en
-pantalla completa, en silencio, y espera una **pulsación nueva de cualquier
+fondo queda negro **0.5 segundos** y suena una de tres grabaciones de
+burla, alternadas en orden. Después aparece la frase de muerte en
+pantalla completa mientras continúa el audio, y espera una **pulsación nueva de cualquier
 botón o tecla**, o un toque. Mantener el botón que causó la muerte no reanuda
-solo. Riko vuelve al checkpoint inmediatamente al confirmar y se puede jugar
+solo. Confirmar corta la burla; Riko vuelve al checkpoint y se puede jugar
 mientras suena **REAPARICION**; al terminar ese clip empieza la siguiente canción
 de nivel. Una nueva muerte, salida al menú o transición cancela los sonidos y
 continuaciones pendientes. Los cuatro clips usan **Volumen efectos**.
 
-Los créditos finales conservan a Riko caminando sobre tejados y añaden globos
-aerostáticos, fuegos artificiales y luces del cielo. **FELICIDADES** tiene brillo
+Los finales A y C incluyen globos aerostáticos, fuegos artificiales y luces del
+cielo; el B tiene una esfera de luz corrupta y enemigos aliados. **FELICIDADES** tiene brillo
 dorado y destellos; **EKD** aparece a la izquierda y **3E** a la derecha. El botón
 **Volver al menú** queda abajo a la derecha; en mando también funciona el botón
-asignado a **Atacar**. Si no se pulsa, se vuelve al menú al terminar LO QUE SOY.
+asignado a **Atacar**. Si no se pulsa, se vuelve al menú al terminar la canción del final.
 Los efectos reducidos y la preferencia de movimiento reducido detienen los
 adornos animados del cielo y el brillo del título.
 
@@ -217,14 +232,14 @@ Opciones controla música y efectos por separado. Los originales de `AUDIOS/`
 permanecen intactos; una copia antigua duplicada se omite. Consulta
 `assets/audio/README.md` e `INVENTARIO.md` para títulos y huellas de los archivos.
 
-## Versión 3.0: clasificación compartida
+## Clasificación compartida
 
 - Tablas independientes para Fácil, Normal, Difícil y Pesadilla, por cada uno de
   los cinco niveles o por campaña completa. El menor tiempo gana; cada jugador
   conserva su mejor resultado por tabla. Los empates se ordenan por fecha y jugador.
-- El servidor entrega un ticket al comenzar y mide el tiempo real hasta recibir
-  el final. Incluye introducciones, diálogos, pausas, muertes y demora de envío.
-  La fecha o reloj del dispositivo no determina el tiempo mundial.
+- El servidor entrega un ticket al comenzar y valida el tiempo activo de juego.
+  Pausas, diálogos, introducciones, espera para reaparecer y demoras de conexión
+  no aumentan el cronómetro. El reloj del dispositivo no determina el resultado.
 - Una campaña exige cinco niveles vinculados y completados en orden, desde el
   principio, y elegir un final. Entrar directamente a otro nivel registra ese
   nivel; nunca fabrica un tiempo de campaña.
@@ -235,10 +250,13 @@ permanecen intactos; una copia antigua duplicada se omite. Consulta
 - Borrar los datos del navegador crea otra identidad. Todavía no hay cuenta,
   recuperación entre dispositivos ni guardado de progreso en la nube.
 - Sin conexión al comenzar, la partida es local. Si se pierde la conexión al
-  terminar una partida iniciada en línea, el envío se conserva hasta 15 minutos
-  y se reintenta al recuperar conexión o abrir la clasificación. El tiempo
-  mundial incluye esa demora. La tabla almacenada sin conexión se etiqueta.
-- Pesadilla con la ayuda automática tras 25 muertes se registra solo localmente.
+  terminar una partida iniciada en línea, el envío se conserva hasta que expire
+  su ticket (6 horas por nivel, 24 horas por campaña) y se reintenta automáticamente.
+  Esa demora no suma al tiempo. La tabla almacenada sin conexión se etiqueta.
+- Pesadilla con la ayuda automática tras 25 muertes se publica en la categoría
+  **Con ayuda**, separada de **Estándar**. El apodo conserva solo el nombre elegido.
+- Los récords locales antiguos sin ticket no se pueden convertir en resultados
+  mundiales. Una partida nueva iniciada en línea puede registrar nuevos tiempos.
 - Tickets, validación de datos, límites de solicitudes y envíos idempotentes
   reducen tiempos imposibles y duplicados. El juego se ejecuta en el navegador:
   estas medidas no verifican cada movimiento ni impiden todas las trampas.
@@ -253,7 +271,7 @@ partida. `migrations/0001_ranking.sql` es la versión del emulador de desarrollo
 Joystick con zona muerta, histéresis y movimientos diagonales. Empujar hacia
 arriba salta; volver al centro y subir de nuevo hace el doble salto. No hay
 botón SALTO adicional. ATQ, ESQ y USAR forman un arco cómodo a la derecha;
-MÁS abre BLOQ, LANZA y cambio de objeto. Hacia abajo permite bajar plataformas;
+MÁS abre BLOQ, LANZA, GESTO y cambio de objeto. Hacia abajo permite bajar plataformas;
 la dirección también orienta la parada. Opciones permite cruceta clásica o
 acciones a la izquierda para zurdos. Los botones de acción avanzan los textos
 con una pulsación nueva; mantener un botón no descarta toda la conversación.
@@ -271,10 +289,11 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
-La versión 5.0.0 conserva las letras nativas, lluvia, hojas y mejoras previas.
-Añade botones de mando editables, salto mediante botón, lista musical en orden,
-cuatro clips de muerte/reaparición, frases a pantalla completa, barrera de
-secuencia obligatoria y un final de celebración. Las pruebas automáticas de
+La versión 6.0.0 incorpora Monocraft local, menú a la derecha con glitch ocasional,
+tres escenas finales, recuerdos para curarse, cuatro emotes, barra del jefe abajo
+y clasificación por tiempo activo con categoría de ayuda. Conserva los botones
+de mando editables, la lista musical en orden y las barreras obligatorias de los
+puzzles. Las pruebas automáticas de
 mandos utilizan dispositivos simulados; la comodidad de cada configuración
 y la compatibilidad física deben comprobarse en el equipo del evento.
 
