@@ -16,7 +16,7 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión local 6.0.1:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 6.0.2:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -196,12 +196,16 @@ MC.Save.clear()
 
 ## Arte, música y reaparición
 
-Todo el arte es procedural (formas dibujadas en canvas). Para sustituirlo por
+Todo el arte es procedural (formas dibujadas en canvas). La versión 6.0.2 mejora
+la definición de Riko, las caras y armaduras de los enemigos y el aleteo del cuervo.
+Los cinco fondos incorporan más detalle: fachadas, pinos, tuberías, neones anclados
+y vitrales, conservando Noche original, Noche clara y Día. Para sustituirlo por
 sprite-sheets reales, reemplaza las funciones de `js/sprites.js` cargando
 imágenes desde `assets/` — la lógica de juego no cambia. Los efectos se sintetizan
-con `Web Audio API`. Hay **38 canciones MP3 y cuatro clips cortos**: **ARCADE** en el menú,
+con `Web Audio API`. Hay **39 canciones MP3 y cuatro clips cortos**: **ARCADE** en el menú,
 **CHUTY VS ACZINO** durante el jefe, **LO QUE SOY** en los finales A y C y
-**FINAL MALO** en el final B.
+**FINAL MALO** en el final B de Fácil, Normal y Difícil.
+El final B de **Pesadilla** tiene la nueva pista exclusiva **FINAL MALO dificultad pesadilla**.
 Las otras **34 suenan en orden**, desde pista-01 y pista-02, después pista-04
 hasta pista-33, pista-35 y pista-36. Al terminar la lista vuelve a la primera.
 Todas las zonas y dificultades comparten el recorrido; el siguiente ID se
@@ -249,9 +253,11 @@ permanecen intactos; una copia antigua duplicada se omite. Consulta
   y tickets. El progreso, opciones y récords locales permanecen en el dispositivo.
 - Borrar los datos del navegador crea otra identidad. Todavía no hay cuenta,
   recuperación entre dispositivos ni guardado de progreso en la nube.
-- Sin conexión al comenzar, la partida es local. Si se pierde la conexión al
-  terminar una partida iniciada en línea, el envío se conserva hasta que expire
-  su ticket (6 horas por nivel, 24 horas por campaña) y se reintenta automáticamente.
+- Sin conexión al comenzar, la partida es local. Al terminar una partida iniciada
+  en línea, el resultado se guarda antes de esperar la respuesta del servidor.
+  Así también puede reintentarse si se cierra o recarga la página durante el envío.
+  Se conserva hasta que expire su ticket (6 horas por nivel, 24 horas por campaña)
+  y se reintenta automáticamente.
   Esa demora no suma al tiempo. La tabla almacenada sin conexión se etiqueta.
 - Pesadilla con la ayuda automática tras 25 muertes se publica en la categoría
   **Con ayuda**, separada de **Estándar**. El apodo conserva solo el nombre elegido.
@@ -289,7 +295,7 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
-La versión 6.0.1 incorpora Monocraft local, menú a la derecha con glitch ocasional,
+La versión 6.0.2 incorpora Monocraft local, menú a la derecha con ráfagas breves de glitch cada 1,4–3,2 segundos,
 tres escenas finales, recuerdos para curarse, cuatro emotes, barra del jefe abajo
 y clasificación por tiempo activo con categoría de ayuda. Conserva los botones
 de mando editables, la lista musical en orden y las barreras obligatorias de los
