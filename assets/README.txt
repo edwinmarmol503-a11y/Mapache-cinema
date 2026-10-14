@@ -2,11 +2,12 @@ ASSETS  -  MAPACHE CINEMA: LA ULTIMA NOCHE
 ==========================================
 
 El arte se genera por codigo (js/sprites.js dibuja formas en canvas).
-La carpeta audio contiene 41 archivos: 37 canciones y 4 clips cortos.
+El manifiesto activa 43 audios: 39 canciones y 4 clips cortos.
 Las 34 canciones de nivel recorren una lista en orden, guardada en el navegador.
-ARCADE queda para el menu, CHUTY VS ACZINO para el jefe y LO QUE SOY para el final.
-Tres burlas alternadas suenan durante el fondo negro despues de morir; la frase
-espera en silencio. Al pulsar un boton nuevo suena REAPARICION y despues empieza
+ARCADE queda para el menu, CHUTY VS ACZINO para el jefe y LO QUE SOY para los finales A y C. FINAL MALO acompana B en Facil, Normal y Dificil; FINAL MALO dificultad pesadilla solo B en Pesadilla.
+Tres burlas alternadas comienzan durante los 0.5 segundos de fondo negro despues
+de morir y continuan mientras aparece la frase. Al pulsar un boton nuevo se corta
+la burla, suena REAPARICION y despues empieza
 la siguiente cancion. Los clips usan Volumen efectos y no entran en la lista.
 Los efectos restantes se sintetizan con Web Audio API; la musica usa tus pistas.
 
@@ -19,7 +20,8 @@ Cuando tengas assets definitivos, colocalos asi:
     objects/     items.png           (llave, lata, bombilla, iman, cuerda, recuerdo)
     ui/          hud.png fonts...
     audio/       pista-01.mp3 ... pista-37.mp3, tracks.json
-                 burla-01.mp3 burla-02.mp3 burla-03.mp3 reaparicion.mp3
+                 final-malo.mp3 final-malo-pesadilla.mp3
+                 burla-01-v6.mp3 burla-02.mp3 burla-03.mp3 reaparicion.mp3
     fonts/       pixel.woff2
 
 COMO ENCHUFARLOS
