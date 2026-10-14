@@ -11,7 +11,7 @@ const { chromium } = await import(path.isAbsolute(modulePath) ? pathToFileURL(mo
 const root = path.resolve('.');
 const output = path.join(root, 'test-results/cache-upgrade');
 const scopePath = '/Mapache-cinema/';
-const version = '6.0.0';
+const version = '6.0.1';
 const styles = ['style', 'menu', 'game', 'ui', 'touch', 'controller-settings', 'death', 'typography', 'endings'];
 const legacyCache = 'mapache-cinema-v3.1.0-stale-review';
 const staleMarker = 'QA_STALE_MENU_WITH_REMOVED_SCALE';
@@ -173,7 +173,7 @@ try {
   assert.equal(await workerVersion(fresh.page), version);
   await assertPersisted(fresh.page, 'fresh installation');
   assert.equal(fresh.scenario.navigations, 1, 'first installation claims without reloading the page');
-  check('Fresh browser installs, activates and claims v6.0.0 before starting the game, without reload.');
+  check('Fresh browser installs, activates and claims v6.0.1 before starting the game, without reload.');
   await fresh.context.close();
 
   servingLegacy = true;
@@ -191,11 +191,21 @@ try {
   assert.ok(await upgrade.page.evaluate(async ({ legacyCache, staleMarker }) =>
     (await (await caches.open(legacyCache)).match('./js/menu.js')).text().then(source => source.includes(staleMarker)),
   { legacyCache, staleMarker }), 'fixture really has the old module that crashes against the new HTML');
+  await upgrade.page.waitForFunction(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return registration?.active?.state === 'activated' && !registration.installing && !registration.waiting;
+  });
   servingLegacy = false;
   await upgrade.page.goto(baseURL);
   await waitBoot(upgrade.page);
   assert.equal(await workerVersion(upgrade.page), version);
   await assertPersisted(upgrade.page, 'legacy upgrade');
+  // A worker can answer the version message while activation is finishing.
+  await upgrade.page.waitForFunction(async () => {
+    const registration = await navigator.serviceWorker.getRegistration();
+    return registration?.active?.state === 'activated' && !registration.installing && !registration.waiting;
+  });
+  await upgrade.page.waitForFunction(async key => !(await caches.keys()).includes(key), legacyCache);
   const upgraded = await upgrade.page.evaluate(async () => ({
     keys: await caches.keys(), legacyHits: window.__qaLegacyCacheHits,
     source: await (await fetch('./js/menu.js')).text(),
@@ -263,7 +273,7 @@ try {
     assert.equal(served.status, 200, `${module} module loads offline`);
     assert.equal(served.source, await readFile(path.join(root, 'js', module + '.js'), 'utf8'), `${module} loads from the installed build`);
   }
-  check('Installed v6.0.0 starts offline, including versioned bootstrap, fonts, styles and controller modules under the repository subdirectory.');
+  check('Installed v6.0.1 starts offline, including versioned bootstrap, fonts, styles and controller modules under the repository subdirectory.');
   await upgrade.context.close();
 
   const unsupported = await makeContext('Service Worker unsupported fallback', { unsupported: true });
