@@ -1,7 +1,7 @@
 /* ============================================================
    items.js  -  world pickups, memory motes, and projectiles
    ============================================================ */
-import { ITEM_DEFS } from './inventory.js';
+import { ITEM_DEFS, collectMemory } from './inventory.js';
 import { rectsOverlap } from './collision.js';
 import { moveActor } from './physics.js';
 import { px } from './sprites.js';
@@ -43,13 +43,13 @@ export class Pickup {
       // The inventory/memory and the taken ID form one save state. Persist only
       // after awarding the item so a reload cannot remove an unawarded key/bulb.
       if (this.type === 'memory') {
-        world.save.data.memories = (world.save.data.memories || 0) + 1;
+        collectMemory(world);
       } else {
         world.inventory.add(this.type);
       }
       if (world.markCollected) world.markCollected(this.id);
       if (this.type === 'memory') {
-        world.toast('Recuerdo recuperado  (' + world.save.data.memories + ')');
+        world.toast('Recuerdo recuperado (' + world.inventory.count('memory') + ') · 3 = 1 corazón');
         world.audio.sfx('light');
         world.particles.burst(this.x + 5, this.y + 5, 20, { color: '#f4c542', speed: 70, life: 0.7, glow: true, gravity: -10 });
       } else {
@@ -85,7 +85,7 @@ export class Pickup {
     // a friendly little floating hint above the item
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.font = '600 9px "Segoe UI", Arial, sans-serif';
+    ctx.font = '400 9px "Monocraft", monospace';
     _outMini(ctx, this.hint, cx, sy - 6, '#ffe07a');
     ctx.restore();
   }

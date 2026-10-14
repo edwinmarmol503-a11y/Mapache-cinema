@@ -5,12 +5,14 @@ export const DEFAULT_PAD_BINDINGS = Object.freeze({
   left: 14, right: 15, up: 12, down: 13,
   jump: 0, attack: 2, dodge: 1, parry: 4, interact: 3, throw: 5,
   cycleL: 6, cycleR: 7, pause: 9,
+  emote: 10,
 });
 export const PAD_ACTION_LABELS = Object.freeze({
   jump: 'Saltar', attack: 'Atacar', dodge: 'Esquivar', parry: 'Parada',
   interact: 'Interactuar', throw: 'Lanzar', cycleL: 'Objeto anterior',
   cycleR: 'Objeto siguiente', pause: 'Pausa', left: 'Izquierda',
   right: 'Derecha', up: 'Mirar arriba', down: 'Mirar abajo',
+  emote: 'Emote (cambia al pulsar)',
 });
 const BUTTON_NAMES = ['✕', '○', '□', '△', 'L1', 'R1', 'L2', 'R2', 'SHARE', 'OPTIONS', 'L3', 'R3', 'Cruceta ↑', 'Cruceta ↓', 'Cruceta ←', 'Cruceta →', 'PS'];
 export const prettyPadButton = (index) => BUTTON_NAMES[index] || 'Botón ' + (index + 1);

@@ -7,9 +7,16 @@ export const ITEM_DEFS = {
   bombilla: { name: 'Bombilla',      desc: 'Ilumina zonas o activa mecanismos de luz.', color: '#f4c542', consumable: true },
   iman:     { name: 'Imán',          desc: 'Mueve objetos metálicos.',                color: '#4a90d9', consumable: false },
   cuerda:   { name: 'Cuerda',        desc: 'Tiende puentes o activa mecanismos.',     color: '#c9a06a', consumable: true },
+  memory:   { name: 'Recuerdos',     desc: 'Selecciona y usa 3 para recuperar 1 corazón.', color: '#f4c542', consumable: true },
 };
 
-export const ITEM_ORDER = ['llave', 'lata', 'bombilla', 'iman', 'cuerda'];
+export const ITEM_ORDER = ['llave', 'lata', 'bombilla', 'iman', 'cuerda', 'memory'];
+export const MEMORY_HEAL_COST = 3;
+
+export function collectMemory(world, count = 1) {
+  world.inventory.add('memory', count);
+  world.save.data.memories = world.inventory.count('memory');
+}
 
 export class Inventory {
   constructor() {
@@ -27,7 +34,7 @@ export class Inventory {
 
   use(type, n = 1) {
     if (!ITEM_DEFS[type] || !ITEM_DEFS[type].consumable) return this.has(type); // reusable tools not spent
-    if (!this.has(type)) return false;
+    if (!Number.isInteger(n) || n < 1 || this.count(type) < n) return false;
     this.items[type] -= n;
     if (this.items[type] <= 0) {
       delete this.items[type];

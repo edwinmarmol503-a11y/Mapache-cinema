@@ -1,5 +1,5 @@
 const message = document.getElementById('boot-message');
-const RELEASE_VERSION = '5.0.0';
+const RELEASE_VERSION = '6.0.0';
 
 function withTimeout(promise, milliseconds) {
   let timer;

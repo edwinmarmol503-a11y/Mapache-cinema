@@ -24,6 +24,15 @@ export const Save = {
     try { this.data = JSON.parse(localStorage.getItem(SAVE_KEY)) || null; }
     catch (e) { this.data = null; }
     if (this.data && !this.data.difficulty) this.data.difficulty = 'normal';
+    if (this.data) {
+      this.data.items ||= {};
+      if (this.data.memoryInventoryVersion !== 1) {
+        this.data.items.memory = Math.max(0, Math.floor(this.data.memories || 0));
+        this.data.memoryInventoryVersion = 1;
+        this.persist();
+      }
+      this.data.memories = this.data.items.memory || 0;
+    }
     return this.data;
   },
 
@@ -43,6 +52,7 @@ export const Save = {
       hp: 3,
       maxHp: 3,
       memories: 0,
+      memoryInventoryVersion: 1,
       flags: {},
       ending: null,
       completed: false,

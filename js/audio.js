@@ -3,7 +3,8 @@
    Separate music / sfx buses. Missing music never interrupts SFX.
    ============================================================ */
 export const MUSIC_MANIFEST_URL = new URL('../assets/audio/tracks.json', import.meta.url).href;
-const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending'];
+const MUSIC_THEMES = ['menu', 'roofs', 'forest', 'sewers', 'district', 'tower', 'boss', 'ending', 'ending-bad'];
+const isEndingTheme = (theme) => theme === 'ending' || theme === 'ending-bad';
 const ORDER_STORAGE_KEY = 'mapache_cinema_music_order_v1';
 const volume = (v, fallback) => Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : fallback;
 
@@ -68,6 +69,8 @@ export const Audio = {
 
   resume() {
     if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume().catch(() => {});
+    const cue = this._cueState;
+    if (cue?.media && !cue.paused && cue.media.paused) this._playCueMedia(cue);
     if (this._media && this.currentTrack && this._externalTrack && this._media.paused && this._musicMode !== 'ended') {
       this._playMedia(this.currentTrack, this._playGeneration);
     }
@@ -208,16 +211,19 @@ export const Audio = {
     for (const [id, player] of this._cuePlayers) {
       if (!ids.has(id) || player.src !== this._tracks.get(id)?.src) this._cuePlayers.delete(id);
     }
-    // Four short recordings are decoded once. Replaying a fresh buffer source
+    // Short recordings are decoded once. Replaying a fresh buffer source
     // avoids the inaccurate MP3 duration / seek behavior of television media.
+    // Long replacements are lazy streams; they must never allocate huge PCM buffers.
     for (const id of ids) this._getCuePlayer(this._tracks.get(id));
   },
 
   _getCuePlayer(entry) {
     const existing = this._cuePlayers.get(entry.id);
     if (existing && !existing.failed) return existing;
-    const player = { src: entry.src, buffer: null, failed: false, promise: null };
+    const streaming = entry.playback === 'stream' || entry.durationSeconds > 15;
+    const player = { src: entry.src, mode: streaming ? 'stream' : 'buffer', buffer: null, failed: false, promise: null };
     this._cuePlayers.set(entry.id, player);
+    if (streaming) { player.promise = Promise.resolve(null); return player; }
     const fetchAudio = fetch.bind(globalThis);
     player.promise = Promise.resolve().then(() => fetchAudio(entry.src, { cache: 'force-cache' }))
       .then(response => { if (!response.ok) throw new Error('Cue unavailable'); return response.arrayBuffer(); })
@@ -227,7 +233,7 @@ export const Audio = {
     return player;
   },
 
-  /** Short death / respawn recordings use the effects volume, never the level queue. */
+  /** Death / respawn recordings use the effects volume, never the level queue. */
   playTransitionCue(name, { maxDuration } = {}) {
     this.cancelTransientCue();
     const ids = this._cues[name] || [];
@@ -240,19 +246,65 @@ export const Audio = {
     if (!entry || !this.ctx) return Promise.resolve({ name, id: id || '', status: 'unavailable' });
     const player = this._getCuePlayer(entry);
     return new Promise(resolve => {
-      const cap = Number.isFinite(maxDuration) && maxDuration > 0 ? Math.min(45, maxDuration) : null;
+      const cap = Number.isFinite(maxDuration) && maxDuration > 0 ? maxDuration : null;
       const state = { name, entry, player, resolve, paused: false, phase: 'loading', cap,
         remainingMs: cap ? cap * 1000 : 4000, timer: null, timerStartedAt: 0,
-        source: null, gain: null, offset: 0, startedAt: 0 };
+        source: null, gain: null, offset: 0, startedAt: 0, media: null, mediaNode: null, playRequest: 0 };
       this._cueState = state;
       this._scheduleCueTimer(state);
-      if (player.buffer) this._startCueBuffer(state);
+      if (player.mode === 'stream') this._startCueStream(state);
+      else if (player.buffer) this._startCueBuffer(state);
       else player.promise.then(buffer => {
         if (this._cueState !== state || state.paused) return;
         if (buffer) this._startCueBuffer(state);
         else this._finishCue(state, 'unavailable');
       });
     });
+  },
+
+  _startCueStream(state) {
+    if (this._cueState !== state || state.paused) return;
+    try {
+      if (!state.media) {
+        const media = new window.Audio();
+        media.preload = 'metadata'; media.crossOrigin = 'anonymous'; media.loop = false;
+        state.media = media;
+        state.mediaNode = this.ctx.createMediaElementSource(media);
+        state.gain = this.ctx.createGain();
+        state.mediaNode.connect(state.gain); state.gain.gain.value = state.entry.gain;
+        state.gain.connect(this.sfxGain);
+        media.onended = () => {
+          if (this._cueState === state && !state.paused && media.ended) this._finishCue(state, 'ended');
+        };
+        media.onerror = () => {
+          if (this._cueState === state && media.error) this._finishCue(state, 'unavailable');
+        };
+        media.onplaying = () => {
+          if (this._cueState !== state || state.paused || media.paused) return;
+          state.phase = 'playing';
+          // The source may run for minutes. The watchdog follows its duration,
+          // rather than cutting the user's new recording at an arbitrary 45 s.
+          if (!state.cap) {
+            const duration = Math.max(Number.isFinite(media.duration) ? media.duration : 0, state.entry.durationSeconds || 0);
+            state.remainingMs = (Math.max(0, duration - media.currentTime) + 4) * 1000 || 10000;
+          }
+          this._scheduleCueTimer(state);
+        };
+        media.src = state.entry.src;
+      }
+      this._playCueMedia(state);
+    } catch { this._finishCue(state, 'unavailable'); }
+  },
+
+  _playCueMedia(state) {
+    if (this._cueState !== state || state.paused || !state.media) return;
+    const request = ++state.playRequest;
+    const failed = (error) => {
+      if (this._cueState !== state || state.paused || request !== state.playRequest) return;
+      if (error?.name === 'NotAllowedError' || error?.name === 'AbortError') return;
+      this._finishCue(state, 'unavailable');
+    };
+    try { state.media.play()?.catch?.(failed); } catch (error) { failed(error); }
   },
 
   _startCueBuffer(state) {
@@ -289,14 +341,17 @@ export const Audio = {
   },
 
   _stopCueSource(state) {
+    if (state.media) { state.playRequest++; state.media.pause(); }
     if (state.source) {
       state.source.onended = null;
       try { state.source.stop(); } catch { /* A naturally finished node may already be stopped. */ }
       state.source.disconnect?.();
       state.source = null;
     }
-    state.gain?.disconnect?.();
-    state.gain = null;
+    if (!state.media) {
+      state.gain?.disconnect?.();
+      state.gain = null;
+    }
   },
 
   _finishCue(state, status) {
@@ -304,6 +359,12 @@ export const Audio = {
     this._cueState = null;
     clearTimeout(state.timer);
     this._stopCueSource(state);
+    if (state.media) {
+      state.media.onended = null; state.media.onerror = null; state.media.onplaying = null;
+      state.media.removeAttribute('src'); state.media.load();
+      state.mediaNode?.disconnect?.(); state.gain?.disconnect?.();
+      state.media = null; state.mediaNode = null; state.gain = null;
+    }
     state.resolve({ name: state.name, id: state.entry.id, title: state.entry.title || '', status });
   },
 
@@ -314,6 +375,7 @@ export const Audio = {
   pauseTransientCue() {
     const state = this._cueState;
     if (!state || state.paused) return;
+    if (state.media) state.offset = state.media.currentTime || 0;
     if (state.source) state.offset = Math.min(state.player.buffer.duration, state.offset + Math.max(0, this.ctx.currentTime - state.startedAt));
     state.paused = true;
     state.remainingMs = Math.max(1, state.remainingMs - (Date.now() - state.timerStartedAt));
@@ -325,15 +387,16 @@ export const Audio = {
     const state = this._cueState;
     if (!state || !state.paused) return;
     state.paused = false;
-    if (state.player.buffer || state.player.failed) this._startCueBuffer(state);
+    if (state.player.mode === 'stream') { this._scheduleCueTimer(state); this._startCueStream(state); }
+    else if (state.player.buffer || state.player.failed) this._startCueBuffer(state);
     else this._scheduleCueTimer(state);
   },
 
   getCueStatus() {
     const state = this._cueState;
     if (!state) return { name: '', id: '', title: '', mode: 'stopped', position: 0, duration: 0 };
-    const duration = state.player.buffer?.duration || state.entry.durationSeconds || 0;
-    const position = state.offset + (state.source ? Math.max(0, this.ctx.currentTime - state.startedAt) : 0);
+    const duration = state.player.buffer?.duration || state.entry.durationSeconds || (Number.isFinite(state.media?.duration) ? state.media.duration : 0);
+    const position = state.media ? state.media.currentTime || 0 : state.offset + (state.source ? Math.max(0, this.ctx.currentTime - state.startedAt) : 0);
     return { name: state.name, id: state.entry.id, title: state.entry.title || '',
       mode: state.paused ? 'paused' : state.phase, position: Math.min(duration, position), duration };
   },
@@ -532,7 +595,7 @@ export const Audio = {
       this._musicMode = 'loading';
       // Level songs repeat until death or passing a level. Only the victory
       // credits have a natural end; their caller returns to the main menu.
-      media.loop = theme !== 'ending';
+      media.loop = !isEndingTheme(theme);
       media.src = source;
       this._endedAttempt = -1;
       this._bindMediaEvents(theme, generation);
@@ -560,7 +623,7 @@ export const Audio = {
     };
     media.onended = () => {
       if (!media.ended || !this._isCurrentMedia(theme, generation, entry, media, source, attempt)) return;
-      if (theme !== 'ending') {
+      if (!isEndingTheme(theme)) {
         // Some television browsers emit ended even with loop enabled.
         // Restart this same source rather than advancing the ordered queue.
         media.currentTime = 0;

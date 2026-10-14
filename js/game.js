@@ -7,7 +7,7 @@ import { Input } from './input.js';
 import { Camera } from './camera.js';
 import { Particles } from './particles.js';
 import { Player } from './player.js';
-import { Inventory } from './inventory.js';
+import { Inventory, MEMORY_HEAL_COST } from './inventory.js';
 import { Pickup } from './items.js';
 import { makeEnemy } from './enemies.js';
 import { makePuzzle, Crate, LightNode, Door, Rope, Sequence, Magnet, Lever } from './puzzles.js';
@@ -20,6 +20,8 @@ import { drawHUD, drawBackground, currentLightning, outText, canvasFont, DAY_TIL
 import { Controls } from './control-mode.js';
 import { drawLantern, drawTrashcan, drawRikoSoul } from './sprites.js';
 import { clamp, choice } from './utils.js';
+import { getEndingDialogue, endingMusicTheme, drawEndingScene } from './endings.js';
+import { createRankingSession, restoreRankingSession } from './ranking-session.js';
 
 const STEP_FADE = 0.4;
 
@@ -113,9 +115,34 @@ export class Game {
     this._levelFinish = Promise.resolve();
     this._rankAssisted = this.diff.key === 'nightmare' && this.save.nightmareDeaths() >= NIGHTMARE_MERCY_DEATHS;
     this.ranking?.setNickname(this.save.data.nick);
+    const restored = continuing && restoreRankingSession(this.save.data.rankingSession, {
+      playerId: this.ranking?.getStatus?.().playerId, difficulty: this.diff.key,
+      levelIndex: this.levelIndex, completed: this.save.data.completed,
+    });
+    if (restored) {
+      this._rankLevelGeneration++;
+      this._campaignTicket = restored.campaignTicket;
+      this._campaignFresh = restored.campaignFresh;
+      this._campaignTicketPromise = Promise.resolve(this._campaignTicket);
+      this._levelTicket = restored.levelTicket;
+      this._levelTicketPromise = Promise.resolve(this._levelTicket);
+      this._levelScored = restored.levelScored;
+      // A checkpoint may have persisted slightly more playtime than the last
+      // periodic session snapshot. Keep those already played seconds too.
+      this._levelClockCarry = restored.levelElapsedMs + Math.max(0, Math.round(this.save.data.playtime * 1000) - restored.campaignActiveMs);
+      this._levelFinalMs = restored.levelScored ? this._levelClockCarry : null;
+      this._levelActiveStart = this.save.data.playtime;
+      this._levelClockStart = performance.now();
+      this._rankDeaths = restored.deaths;
+      this._rankAssisted ||= restored.assisted;
+      this._rankingStarting = false;
+      this.persistRankingSession();
+      this.toast(this._levelTicket ? 'Partida en línea recuperada · el reloj continúa donde lo dejaste' : 'Este checkpoint sigue local · los niveles nuevos sí pueden clasificarse');
+      return;
+    }
     this._campaignTicketPromise = (async () => {
-      if (!this.ranking || !this._campaignFresh || this._rankAssisted) return null;
-      const result = await this.ranking.beginRun({ difficulty: this.diff.key, kind: 'campaign', level: -1 });
+      if (!this.ranking || !this._campaignFresh) return null;
+      const result = await this.ranking.beginRun({ difficulty: this.diff.key, kind: 'campaign', level: -1, assisted: this._rankAssisted });
       if (generation !== this._rankGeneration) return null;
       this._campaignTicket = result.ok ? result.ticket : null;
       return this._campaignTicket;
@@ -124,7 +151,6 @@ export class Game {
   }
 
   _beginLevelRanking(after = Promise.resolve(), continuing = false) {
-    continuing = continuing || this._continuingRun;
     const generation = ++this._rankLevelGeneration;
     this._levelTicket = null;
     this._levelScored = false;
@@ -132,20 +158,22 @@ export class Game {
     this._levelClockCarry = continuing ? this.save.data.levelElapsedMs || 0 : 0;
     this._levelClockStart = performance.now();
     this._levelActiveStart = this.save.data.playtime;
-    this._rankingStarting = !!this.ranking && !continuing && !this._rankAssisted;
+    this._rankingStarting = !!this.ranking && !continuing;
     this._levelTicketPromise = (async () => {
       await after;
       if (generation !== this._rankLevelGeneration) return null;
-      if (!this.ranking || continuing || this._rankAssisted) return null;
-      const result = await this.ranking.beginRun({ difficulty: this.diff.key, kind: 'level', level: this.levelIndex, campaignId: this._campaignTicket?.id });
+      if (!this.ranking || continuing) return null;
+      const result = await this.ranking.beginRun({ difficulty: this.diff.key, kind: 'level', level: this.levelIndex, campaignId: this._campaignTicket?.id, assisted: this._rankAssisted });
       if (generation !== this._rankLevelGeneration) return null;
+      if (result.campaignLost) { this._campaignTicket = null; this._campaignFresh = false; }
       this._levelTicket = result.ok ? result.ticket : null;
       return this._levelTicket;
     })().catch(() => null).finally(() => {
       if (generation === this._rankLevelGeneration) {
         this._rankingStarting = false;
         this._levelClockStart = performance.now();
-        if (this.ranking) this.toast(this._levelTicket ? 'Clasificación conectada · el tiempo incluye pausas' : 'Partida local · sin envío a la clasificación');
+        this.persistRankingSession();
+        if (this.ranking) this.toast(this._levelTicket ? 'Clasificación conectada · el tiempo se detiene en pausa' : 'Partida local · sin envío a la clasificación');
       }
     });
   }
@@ -153,10 +181,11 @@ export class Game {
   _finishLevelRanking() {
     if (this._levelScored) return this._levelFinish;
     this._levelScored = true;
-    const timeMs = this._levelClockCarry + Math.max(0, performance.now() - (this._levelClockStart || performance.now()));
+    const timeMs = this.getLevelElapsedMs();
     this._levelFinalMs = timeMs;
-    const payload = { activeMs: Math.max(0, Math.round((this.save.data.playtime - this._levelActiveStart) * 1000)), deaths: this._rankDeaths, assisted: this._rankAssisted };
+    const payload = { activeMs: Math.round(timeMs), deaths: this._rankDeaths, assisted: this._rankAssisted };
     this.save.addScore({ nick: this.save.data.nick, diff: this.diff.key, kind: 'level', level: this.levelIndex, time: timeMs / 1000, timeMs, assisted: this._rankAssisted });
+    this.persistRankingSession();
     const ticketPromise = this._levelTicketPromise;
     this._levelFinish = (async () => {
       const ticket = await ticketPromise;
@@ -170,11 +199,26 @@ export class Game {
   suspendRun() {
     this.cancelDeathPresentation();
     if (this.save.data && !this._levelScored) {
-      this.save.update({ items: this.inventory.serialize(), levelElapsedMs: this._levelClockCarry + Math.max(0, performance.now() - this._levelClockStart) });
+      this.save.update({ items: this.inventory.serialize(), levelElapsedMs: this.getLevelElapsedMs() });
     }
+    this.persistRankingSession();
     this._rankGeneration++;
     this._rankLevelGeneration++;
     this._rankingStarting = false;
+  }
+
+  persistRankingSession() {
+    if (!this.save.data || !this.diff || this.save.data.level !== this.levelIndex) return null;
+    const levelElapsedMs = Math.round(this.getLevelElapsedMs());
+    const session = this.save.data.completed ? null : createRankingSession({
+      playerId: this.ranking?.getStatus?.().playerId, difficulty: this.diff.key, levelIndex: this.levelIndex,
+      campaignTicket: this._campaignTicket, levelTicket: this._levelTicket,
+      campaignFresh: this._campaignFresh, levelScored: this._levelScored,
+      levelElapsedMs, campaignActiveMs: Math.round((this.save.data.playtime || 0) * 1000),
+      deaths: this._rankDeaths || 0, assisted: this._rankAssisted,
+    });
+    this.save.update({ rankingSession: session, levelElapsedMs });
+    return session;
   }
 
   restartLevel() {
@@ -186,6 +230,25 @@ export class Game {
     this.loadLevel(this.levelIndex, false, { changeMusic: false });
     this.state = 'playing'; this.fadeAlpha = 0;
     this._beginLevelRanking(this._levelFinish);
+  }
+
+  getLevelElapsedMs() {
+    return this._levelFinalMs ?? Math.max(0, (this._levelClockCarry || 0) +
+      ((this.save.data?.playtime || 0) - (this._levelActiveStart || 0)) * 1000);
+  }
+
+  useMemories() {
+    if (this.inventory.selected !== 'memory') return false;
+    if (this.player.hp >= this.player.maxHp) this.toast('Ya tienes todos los corazones');
+    else if (this.inventory.count('memory') < MEMORY_HEAL_COST) this.toast('Necesitas 3 recuerdos para recuperar 1 corazón');
+    else if (this.inventory.use('memory', MEMORY_HEAL_COST)) {
+      this.player.heal(1);
+      this.save.update({ items: this.inventory.serialize(), memories: this.inventory.count('memory'), hp: this.player.hp });
+      this.audio.sfx('light');
+      this.particles.burst(this.player.cx, this.player.cy, 18, { color: '#f4c542', speed: 45, life: 0.7, glow: true, gravity: -20 });
+      this.toast('♥ +1 corazón · −3 recuerdos');
+    }
+    return true;
   }
 
   reset() {
@@ -633,7 +696,7 @@ export class Game {
     Input.clearFrame();
     const generation = this._deathGeneration;
     this._playDeathCue('death').then(() => {
-      if (generation === this._deathGeneration && this.state === 'death-black') this._deathCueDone = true;
+      if (generation === this._deathGeneration) this._deathCueDone = true;
     });
   }
 
@@ -756,29 +819,16 @@ export class Game {
   }
 
   _playEnding(val) {
-    const E = {
-      A: [
-        { speaker: 'Riko', text: 'Riko abrió la esfera. La luz se derramó y volvió a cada farol de Lumera.' },
-        { text: 'La ciudad recordó lo justo para seguir. Y por fin, algunas cosas pudieron olvidarse.' },
-        { text: 'FINAL A  -  DEVOLVER LA LUZ' },
-      ],
-      B: [
-        { speaker: 'Riko', text: 'Riko sostuvo la esfera. Tanta memoria, tan brillante, tan quieta.' },
-        { text: 'Lumera quedó perfecta e inmóvil: un cuadro hermoso que nadie volvería a pintar.' },
-        { text: 'FINAL B  -  CONSERVAR LA LUZ' },
-      ],
-      C: [
-        { speaker: 'Riko', text: 'Riko partió la esfera en mil chispas y las repartió por los tejados.' },
-        { text: 'Cada quien guardaría un poco. Lumera recordaría junta, y junta podría cambiar.' },
-        { text: 'FINAL C  -  COMPARTIR LA LUZ   (el final verdadero)' },
-      ],
-    };
+    this.endingKey = val;
+    this.endingStartedAt = performance.now();
+    this.audio.playMusic(endingMusicTheme(val), { restart: true });
     this.save.update({ ending: val, completed: true, items: this.inventory.serialize() });
+    this.persistRankingSession();
     this.save.markLevelBeaten((this.diff && this.diff.key) || 'normal', this.levelIndex);   // beat the tower
     if (this._campaignFresh) this.save.addScore({
       nick: this.save.data.nick,
-      time: (performance.now() - this._campaignStartedAt) / 1000,
-      timeMs: performance.now() - this._campaignStartedAt,
+      time: this.save.data.playtime,
+      timeMs: this.save.data.playtime * 1000,
       diff: (this.diff && this.diff.key) || 'normal',
       ending: val,
       assisted: this._rankAssisted,
@@ -791,7 +841,7 @@ export class Game {
         .catch(() => this.toast('Campaña guardada en este dispositivo'));
     }
     this.state = 'ending';
-    this.dialogue.start(E[val], () => this.hooks.onVictory && this.hooks.onVictory(val));
+    this.dialogue.start(getEndingDialogue(val), () => this.hooks.onVictory && this.hooks.onVictory(val));
   }
 
   /* ---------------- transitions ---------------- */
@@ -861,7 +911,7 @@ export class Game {
 
     if (this.state === 'death-black') {
       this._deathBlackT += dt;
-      if (this._deathBlackT >= 0.5 && this._deathCueDone) {
+      if (this._deathBlackT >= 0.5) {
         this.state = 'death-phrase';
         Input.clearFrame();
       }
@@ -1032,7 +1082,7 @@ export class Game {
         if (d < best) { best = d; this.interactTarget = el; }
       }
     }
-    if (this.interactTarget && Input.justPressed('interact')) {
+    if (Input.justPressed('interact') && !this.useMemories() && this.interactTarget) {
       this.interactTarget.interact(this);
     }
 
@@ -1070,7 +1120,14 @@ export class Game {
       }
     }
 
-    this.camera.follow(this.player, dt);
+    // Keep the entire arena in view: following Riko at floor level hides the
+    // Farolero and the first part of his projectiles above the screen.
+    const arena = this.bossActive && this.bossArena;
+    this.camera.follow(arena ? {
+      x: arena.x + arena.w / 2,
+      y: arena.y + arena.h - this.H / 2 + 30,
+      w: 0, h: 0,
+    } : this.player, dt);
     this.particles.update(dt);
     if (this.save.data) this.save.data.playtime += dt;
     if (this.diff.key === 'nightmare' && this.save.nightmareDeaths() >= NIGHTMARE_MERCY_DEATHS) this._rankAssisted = true;
@@ -1087,6 +1144,11 @@ export class Game {
     const ctx = this.ctx;
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, this.W, this.H);
+    if (this.state === 'ending') {
+      drawEndingScene(ctx, this.W, this.H, (performance.now() - this.endingStartedAt) / 1000, this.endingKey, this.visualMode, this.reducedEffects, this.canvas.clientHeight < 500);
+      this.dialogue.render(ctx, this.W, this.H);
+      return;
+    }
     if (this.state === 'death-black' || this.state === 'death-phrase') {
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, this.W, this.H);
@@ -1111,7 +1173,7 @@ export class Game {
     // checkpoints -- visible trash cans (Riko is a raccoon)
     for (const cp of this.checkpointRects) {
       const sx = cp.x - this.camera.renderX + cp.w / 2;
-      const sy = cp.y - this.camera.renderY + cp.h - 2;
+      const sy = cp.y - this.camera.renderY + cp.h - 8;
       const since = cp.activatedAt ? (performance.now() - cp.activatedAt) / 1000 : 999;
       drawTrashcan(ctx, sx, sy, cp.active, since < 0.45 ? since / 0.45 : 0);
     }
@@ -1563,24 +1625,24 @@ export class Game {
   }
 
   _renderBossBar(ctx) {
-    // Leave the elapsed clock visible above the boss's health and phase.
-    const w = 168, x = (this.W - w) / 2, y = 42;
+    // Keep the projectile entry area clear; health stays beside the arena floor.
+    const w = 168, x = (this.W - w) / 2, y = this.H - 10;
     ctx.save();
     ctx.fillStyle = 'rgba(4,7,16,0.9)';
-    ctx.fillRect(x - 3, y - 3, w + 6, 13);
+    ctx.fillRect(x - 3, y - 2, w + 6, 10);
     ctx.strokeStyle = '#5aa0e8';
-    ctx.strokeRect(x - 3.5, y - 3.5, w + 6, 13);
+    ctx.strokeRect(x - 3.5, y - 2.5, w + 6, 10);
     const frac = this.boss.hp / this.boss.maxHp;
     ctx.fillStyle = 'rgba(0,0,0,0.4)';
-    ctx.fillRect(x, y, w, 8);
+    ctx.fillRect(x, y, w, 6);
     ctx.fillStyle = this.boss.vulnerable ? '#f4c542' : '#8fb8ff';
-    ctx.fillRect(x, y, w * clamp(frac, 0, 1), 8);
+    ctx.fillRect(x, y, w * clamp(frac, 0, 1), 6);
     ctx.textAlign = 'center';
-    ctx.font = canvasFont(10);
+    ctx.font = canvasFont(9);
     outText(ctx,
-      'EL FAROLERO   ·   Fase ' + this.boss.phase +
-      (this.boss.vulnerable ? '  ·  ¡AHORA! golpéalo o cae sobre él' : '  ·  espera a que baje'),
-      this.W / 2, y + 23, this.boss.vulnerable ? '#ffe07a' : '#c3d0e4');
+      'FAROLERO · FASE ' + this.boss.phase +
+      (this.boss.vulnerable ? ' · ¡AHORA!' : ' · EN GUARDIA'),
+      this.W / 2, y - 10, this.boss.vulnerable ? '#ffe07a' : '#c3d0e4');
     ctx.restore();
   }
 }

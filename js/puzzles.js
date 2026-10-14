@@ -7,7 +7,7 @@
    ============================================================ */
 import { rectsOverlap } from './collision.js';
 import { moveActor } from './physics.js';
-import { ITEM_DEFS } from './inventory.js';
+import { ITEM_DEFS, collectMemory } from './inventory.js';
 import { px, drawLantern } from './sprites.js';
 import { Input } from './input.js';
 
@@ -349,7 +349,7 @@ export class LightNode extends PuzzleEl {
   interact(world) {
     if (!this.canInteract(world) || !world.inventory.use('bombilla')) return;
     this.lit = true;
-    if (this.memory) world.save.data.memories = (world.save.data.memories || 0) + 1;
+    if (this.memory) collectMemory(world);
     if (this.id) world.markProgress('lit:' + this.id, true);
     world.audio.sfx('light');
     if (world.announceLantern) world.announceLantern();

@@ -8,7 +8,7 @@ import { Controls } from './control-mode.js';
 
 // Browser-rendered glyphs stay smooth on the higher-resolution canvas while
 // the scenery keeps its stepped pixel-art shapes.
-export const canvasFont = (size = 11, weight = 600) => `${weight} ${size}px "Segoe UI", Arial, sans-serif`;
+export const canvasFont = (size = 11, weight = 400) => `${weight >= 600 ? 700 : 400} ${size}px "Monocraft", monospace`;
 
 /* ---------------- HUD ---------------- */
 export function drawHUD(ctx, world) {
@@ -86,11 +86,8 @@ export function drawHUD(ctx, world) {
   drawItemIcon(ctx, 'memory', world.W - 36, 6);
   outText(ctx, 'x' + mem, world.W - 23, 15, '#ffd66a');
 
-  // The ranked clock uses elapsed wall time, matching the server's run timer.
-  // Pausing cannot make a competitive record artificially faster.
-  const clockStart = Number.isFinite(world._levelClockStart) ? world._levelClockStart : performance.now();
-  const elapsedMs = world._rankingStarting ? 0 : world._levelFinalMs ??
-    Math.max(0, (world._levelClockCarry || 0) + performance.now() - clockStart);
+  // The same active clock is saved locally and submitted to D1.
+  const elapsedMs = world.getLevelElapsedMs();
   const minutes = String(Math.floor(elapsedMs / 60000)).padStart(2, '0');
   const seconds = String(Math.floor(elapsedMs / 1000) % 60).padStart(2, '0');
   const hundredths = String(Math.floor(elapsedMs / 10) % 100).padStart(2, '0');
@@ -797,14 +794,23 @@ function drawLevelScenery(ctx, world, day) {
       ctx.fillStyle = edge; ctx.fillRect(x + 1, y - 22, 1, 20); ctx.fillRect(x + 2, y - 28, 24, 1);
       ctx.fillStyle = day ? '#a7b6a2' : '#425f5b'; ctx.fillRect(x - 2, y - 17, 11, 3);
     } else if (item.type === 'banner') {
-      ctx.fillStyle = metal; ctx.fillRect(x, y - 64, 2, 60); ctx.fillRect(x, y - 64, 21, 2);
+      ctx.fillStyle = metal;
+      if (item.mount === 'wall') {
+        const wallX = Math.round((item.side === 'right' ? world.map.w - 3 : 3) * ts - cx);
+        const rodEnd = item.side === 'right' ? x : x + 21;
+        ctx.fillRect(Math.min(wallX, rodEnd), y - 64, Math.abs(wallX - rodEnd) + 2, 3);
+        ctx.fillStyle = edge;
+        ctx.fillRect(item.side === 'right' ? wallX - 4 : wallX, y - 67, 4, 9);
+      } else {
+        ctx.fillRect(x, y - 64, 2, 64); ctx.fillRect(x, y - 64, 21, 2);
+      }
       ctx.fillStyle = day ? '#a97693' : '#493356'; ctx.fillRect(x + 4, y - 61, 15, 37);
       ctx.fillStyle = day ? '#efd9b8' : '#ac905d'; ctx.fillRect(x + 10, y - 53, 3, 17); ctx.fillRect(x + 6, y - 48, 11, 3);
       ctx.fillRect(x + 4, y - 25, 5, 3); ctx.fillRect(x + 14, y - 25, 5, 3);
     } else if (item.type === 'sign') {
-      ctx.fillStyle = wood; ctx.fillRect(x + 12, y - 20, 3, 20);
       ctx.font = canvasFont(9); ctx.textAlign = 'center';
       const width = Math.max(32, Math.ceil(ctx.measureText(item.label || '>>').width) + 10);
+      ctx.fillStyle = wood; ctx.fillRect(x + Math.floor(width / 2) - 1, y - 20, 3, 20);
       ctx.fillStyle = day ? '#47746e' : '#203b41'; ctx.fillRect(x, y - 29, width, 13);
       ctx.strokeStyle = day ? '#c7d9bc' : '#658b7e'; ctx.strokeRect(x + 0.5, y - 28.5, width - 1, 12);
       ctx.fillStyle = day ? '#f8f0cd' : '#cddac0'; ctx.fillText(item.label || '>>', x + width / 2, y - 20);
@@ -813,6 +819,28 @@ function drawLevelScenery(ctx, world, day) {
       ctx.fillStyle = day ? 'rgba(151,208,211,0.72)' : 'rgba(49,82,111,0.62)'; ctx.fillRect(x, y - 2, width, 2);
       ctx.fillStyle = day ? 'rgba(246,245,200,0.74)' : 'rgba(166,202,232,0.45)';
       ctx.fillRect(x + 4, y - 2, width / 3 | 0, 1); ctx.fillRect(x + width - 7, y - 1, 4, 1);
+    }
+    ctx.restore();
+  }
+  // Ambient lights are physical props: a small foot touches the supporting
+  // platform, or an iron bracket joins a wall-mounted lantern to real masonry.
+  for (const lamp of world.levelDef.lights || []) {
+    const x = Math.round((lamp.tx + .5) * ts - cx), y = Math.round((lamp.ty + .5) * ts - cy);
+    if (x < -40 || x > world.W + 40 || y < -30 || y > world.H + 12) continue;
+    ctx.save();
+    ctx.fillStyle = metal;
+    if (lamp.mount === 'wall') {
+      const wallX = Math.round((lamp.side === 'right' ? world.map.w - 3 : 3) * ts - cx);
+      const innerX = lamp.side === 'right' ? wallX - 4 : wallX;
+      ctx.fillRect(Math.min(wallX, x), y - 13, Math.abs(wallX - x) + 1, 2);
+      ctx.fillRect(x - 1, y - 13, 2, 5);
+      ctx.fillStyle = edge; ctx.fillRect(innerX, y - 17, 4, 11);
+    } else {
+      const below = world.map.tile(lamp.tx, lamp.ty + 1);
+      if (below === '#' || below === '=') {
+        ctx.fillRect(x - 5, y + 5, 10, 3);
+        ctx.fillStyle = edge; ctx.fillRect(x - 4, y + 5, 8, 1);
+      }
     }
     ctx.restore();
   }
@@ -961,7 +989,7 @@ function celebrationFireworks(ctx, W, H, time, day, reducedEffects) {
   ctx.restore();
 }
 
-function celebrationSky(ctx, W, H, time, day, reducedEffects) {
+export function celebrationSky(ctx, W, H, time, day, reducedEffects) {
   // Skyward beams belong to the celebration, rather than the street lights.
   if (!reducedEffects) {
     ctx.save();

@@ -8,6 +8,7 @@ import { moveActor } from './physics.js';
 import { clamp, dist } from './utils.js';
 import { drawRiko } from './sprites.js';
 import { Projectile } from './items.js';
+import { EMOTES, drawEmote } from './emotes.js';
 
 export class Player {
   constructor(x, y) {
@@ -65,6 +66,8 @@ export class Player {
     this.state = 'idle';
     this.animT = 0;
     this.frame = 0;
+    this.emote = null;
+    this.nextEmote = 0;
   }
 
   get cx() { return this.x + this.w / 2; }
@@ -125,6 +128,7 @@ export class Player {
 
   hurt(dmg, fromX) {
     if (this.invuln > 0 || this.dead) return false;
+    this.emote = null;
     this.hp -= dmg;
     this.hurtFlash = 0.3;
     if (fromX === 'fall') {
@@ -163,6 +167,17 @@ export class Player {
     const left = Input.down('left');
     const right = Input.down('right');
     let move = (right ? 1 : 0) - (left ? 1 : 0);
+    const action = ['jump', 'attack', 'dodge', 'parry', 'interact', 'throw'].some(key => Input.down(key));
+    if (move || action || !this.onGround || this.hurtFlash > 0) this.emote = null;
+    else if (Input.justPressed('emote') && this.attackT <= 0 && this.dodgeT <= 0 && this.parryT <= 0) {
+      this.emote = { ...EMOTES[this.nextEmote % EMOTES.length], elapsed: 0 };
+      this.nextEmote = (this.nextEmote + 1) % EMOTES.length;
+      world.toast(this.emote.label);
+    }
+    if (this.emote) {
+      this.emote.elapsed += dt;
+      if (this.emote.elapsed >= this.emote.duration) this.emote = null;
+    }
     if (move !== 0 && this.dodgeT <= 0) this.facing = move;
 
     /* ---- dodge ---- */
@@ -372,7 +387,7 @@ export class Player {
     ctx.translate(rAnchorX, rAnchorY);
     ctx.scale(rScale, rScale);
     ctx.translate(-rAnchorX, -rAnchorY);
-    drawRiko(ctx, sx, sy, this.w, this.h, this.facing, this.state, this.frame, this.hurtFlash > 0.05, this.holdingBulb);
+    if (!drawEmote(ctx, this, sx, sy)) drawRiko(ctx, sx, sy, this.w, this.h, this.facing, this.state, this.frame, this.hurtFlash > 0.05, this.holdingBulb);
     ctx.restore();
 
     if (this.attackT > 0) {

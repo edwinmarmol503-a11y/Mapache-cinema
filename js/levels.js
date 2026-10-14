@@ -311,7 +311,7 @@ export const LEVELS = [
       { type: 'bench', tx: 10, ty: 17 }, { type: 'sign', tx: 23, ty: 17, label: 'CUERDA' },
       { type: 'puddle', tx: 41, ty: 17, w: 44 }, { type: 'planter', tx: 57, ty: 17 },
       { type: 'sign', tx: 76, ty: 17, label: 'CUERDA' }, { type: 'puddle', tx: 93, ty: 17, w: 34 },
-      { type: 'bench', tx: 107, ty: 17 }, { type: 'sign', tx: 123, ty: 17, label: 'TORRE >>' },
+      { type: 'bench', tx: 107, ty: 17 }, { type: 'sign', tx: 121, ty: 17, label: 'TORRE >>' },
     ],
     def: {
       W: 132, H: 22, groundY: 17,
@@ -375,9 +375,14 @@ export const LEVELS = [
     music: 'tower',
     darkness: 0.52,
     scenery: [
-      { type: 'banner', tx: 4, ty: 59 }, { type: 'banner', tx: 24, ty: 45 },
-      { type: 'banner', tx: 4, ty: 29 }, { type: 'banner', tx: 24, ty: 18 },
-      { type: 'banner', tx: 5, ty: 12 }, { type: 'banner', tx: 22, ty: 12 },
+      // These banners hang from the tower walls, not from invisible floor poles.
+      // The arena pair stays between the two rows of wall lamps.
+      { type: 'banner', tx: 3, ty: 59, mount: 'wall', side: 'left' },
+      { type: 'banner', tx: 25, ty: 45, mount: 'wall', side: 'right' },
+      { type: 'banner', tx: 3, ty: 29, mount: 'wall', side: 'left' },
+      { type: 'banner', tx: 25, ty: 25, mount: 'wall', side: 'right' },
+      { type: 'banner', tx: 3, ty: 12, mount: 'wall', side: 'left' },
+      { type: 'banner', tx: 25, ty: 12, mount: 'wall', side: 'right' },
     ],
     def: {
       W: 30, H: 66, groundY: 64,
@@ -386,13 +391,15 @@ export const LEVELS = [
     },
     spawn: { tx: 6, ty: 62 },
     exit: null,
-    checkpoints: [{ tx: 14, ty: 40 }, { tx: 6, ty: 22 }],
+    checkpoints: [{ tx: 14, ty: 39 }, { tx: 6, ty: 21 }],
     lights: [
-      { tx: 6, ty: 60, r: 44, c: '#ffcf8a' }, { tx: 18, ty: 44, r: 40, c: '#ffcf8a' },
-      { tx: 8, ty: 26, r: 40, c: '#ffcf8a' },
-      /* arena is lit by four wall lanterns */
-      { tx: 5, ty: 15, r: 54, c: '#ffe08a' }, { tx: 24, ty: 15, r: 54, c: '#ffe08a' },
-      { tx: 10, ty: 7, r: 60, c: '#ffe08a' }, { tx: 19, ty: 7, r: 60, c: '#ffe08a' },
+      { tx: 6, ty: 61, r: 44, c: '#ffcf8a' }, { tx: 18, ty: 43, r: 40, c: '#ffcf8a' },
+      { tx: 8, ty: 25, r: 40, c: '#ffcf8a' },
+      /* Arena sconces have brackets attached to the actual side walls. */
+      { tx: 4, ty: 15, r: 54, c: '#ffe08a', mount: 'wall', side: 'left' },
+      { tx: 25, ty: 15, r: 54, c: '#ffe08a', mount: 'wall', side: 'right' },
+      { tx: 4, ty: 6, r: 60, c: '#ffe08a', mount: 'wall', side: 'left' },
+      { tx: 25, ty: 6, r: 60, c: '#ffe08a', mount: 'wall', side: 'right' },
     ],
     items: [
       { type: 'bombilla', tx: 16, ty: 51 },

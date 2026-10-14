@@ -226,6 +226,7 @@ export function initTouch({ force = false } = {}) {
     makeButton('LANZA', 'throw', 'tc-s-throw', 'Lanzar el objeto seleccionado'),
     makeButton('◀', 'cycleL', 'tc-s-cycle', 'Seleccionar objeto anterior'),
     makeButton('▶', 'cycleR', 'tc-s-cycle', 'Seleccionar objeto siguiente'),
+    makeButton('GESTO', 'emote', 'tc-s-emote', 'Emote: acostarse, voltereta, saludar o bailar'),
   );
   const more = document.createElement('button');
   more.type = 'button';

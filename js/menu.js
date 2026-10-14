@@ -11,11 +11,13 @@ import { Ranking } from './ranking.js';
 import { Controls } from './control-mode.js';
 import { createDeveloperControls } from './developer-controls.js';
 import { createControllerSettings } from './controller-settings.js';
+import { ENDINGS } from './endings.js';
 
 const CONTROL_LABELS = {
   left: 'Izquierda', right: 'Derecha', jump: 'Saltar', attack: 'Atacar',
   dodge: 'Esquivar', parry: 'Parada', interact: 'Interactuar', throw: 'Lanzar',
   pause: 'Pausa', cycleL: 'Objeto <', cycleR: 'Objeto >',
+  emote: 'Emote (cambia al pulsar)',
 };
 
 const CREDITS = [
@@ -23,6 +25,7 @@ const CREDITS = [
   { role: 'Game Design', who: 'Estudio Lumera' },
   { role: 'Programming', who: 'Estudio Lumera' },
   { role: 'Pixel Art', who: 'Estudio Lumera  (placeholders procedurales)' },
+  { role: 'Tipografía', who: 'Monocraft · Idrees Hassan · SIL Open Font License 1.1' },
   { role: 'Level Design', who: 'Estudio Lumera' },
   { role: 'Audio', who: '37 canciones · 4 clips de muerte y reaparición · efectos con Web Audio API' },
   { role: 'Story', who: 'La ciudad que recordaba demasiado' },
@@ -73,10 +76,64 @@ export class Menu {
 
   /* ---------------- MAIN MENU ---------------- */
   _wireMenu() {
+    const content = this.elMenu.querySelector('.menu-content');
+    const heading = document.createElement('header');
+    heading.className = 'menu-heading';
+    content.querySelectorAll('.title, .subtitle, .menu-tagline, .network-badge').forEach((el) => heading.append(el));
+    content.prepend(heading);
+    const footer = document.createElement('footer');
+    footer.className = 'menu-footer';
+    content.querySelectorAll('.hint, .version').forEach((el) => footer.append(el));
+    content.append(footer);
+    this._menuGlitchLayer = document.createElement('div');
+    this._menuGlitchLayer.className = 'menu-glitch-layer';
+    this._menuGlitchLayer.setAttribute('aria-hidden', 'true');
+    this.elMenu.prepend(this._menuGlitchLayer);
+    this._syncMenuBounds = () => {
+      const canvas = document.getElementById('gs').getBoundingClientRect();
+      const screen = this.elMenu.getBoundingClientRect();
+      if (!canvas.width || !screen.width) return;
+      content.style.left = (canvas.left - screen.left) + 'px';
+      content.style.top = (canvas.top - screen.top) + 'px';
+      content.style.width = canvas.width + 'px';
+      content.style.height = canvas.height + 'px';
+    };
+    if (typeof ResizeObserver === 'function') {
+      this._menuResizeObserver = new ResizeObserver(this._syncMenuBounds);
+      this._menuResizeObserver.observe(document.getElementById('gs'));
+    }
+    window.addEventListener('resize', this._syncMenuBounds);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) this._clearMenuGlitch(); });
     this.elMenu.querySelectorAll('#menu-nav button').forEach((b) => {
       b.addEventListener('click', () => this._menuAction(b.dataset.act));
       b.addEventListener('mouseenter', () => { Audio.sfx('menu'); });
     });
+  }
+
+  _clearMenuGlitch() {
+    clearTimeout(this._menuGlitchEnd);
+    this.elMenu.classList.remove('menu-glitch');
+    document.getElementById('app').classList.remove('menu-interference');
+  }
+
+  _scheduleMenuGlitch() {
+    clearTimeout(this._menuGlitchTimer);
+    // One faint interference burst, with a fresh random delay and location.
+    // It never flashes the full screen or affects navigation/click targets.
+    this._menuGlitchTimer = setTimeout(() => {
+      if (this.elMenu.classList.contains('hidden')) return;
+      const reduced = document.documentElement.classList.contains('reduced-effects')
+        || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+      if (!reduced && !document.hidden) {
+        this.elMenu.style.setProperty('--glitch-y', (12 + Math.random() * 70).toFixed(1) + '%');
+        this.elMenu.style.setProperty('--glitch-h', (2 + Math.random() * 4).toFixed(1) + '%');
+        this.elMenu.style.setProperty('--glitch-shift', (Math.random() < .5 ? -1 : 1) + 'px');
+        this.elMenu.classList.add('menu-glitch');
+        document.getElementById('app').classList.add('menu-interference');
+        this._menuGlitchEnd = setTimeout(() => this._clearMenuGlitch(), 110 + Math.random() * 110);
+      }
+      this._scheduleMenuGlitch();
+    }, 5500 + Math.random() * 14000);
   }
 
   _menuAction(act) {
@@ -107,9 +164,13 @@ export class Menu {
     const cont = document.getElementById('btn-continue');
     cont.disabled = !Save.hasSave();
     this._refreshMenuSel();
+    this._syncMenuBounds();
+    this._scheduleMenuGlitch();
   }
 
   hideAll() {
+    clearTimeout(this._menuGlitchTimer);
+    this._clearMenuGlitch();
     [this.elMenu, this.elOptions, this.elCredits, this.elVictory, this.elLevels, this.elScores, this.elNick, this.elPause].forEach((el) => el.classList.add('hidden'));
     this.elMenu.style.display = 'none';
   }
@@ -152,6 +213,13 @@ export class Menu {
 
   /* ---------------- RÉCORDS ---------------- */
   _wireScores() {
+    const assistance = document.createElement('select');
+    assistance.id = 'score-assisted';
+    assistance.setAttribute('aria-label', 'Tipo de partida en la clasificación');
+    for (const [value, label] of [['standard', 'Estándar'], ['assisted', 'Con ayuda']]) {
+      const option = document.createElement('option'); option.value = value; option.textContent = label; assistance.append(option);
+    }
+    document.getElementById('scores-refresh').before(assistance);
     this.elScores.querySelector('[data-act="back"]').addEventListener('click', () => {
       Audio.sfx('cancel');
       this.elScores.classList.add('hidden');
@@ -168,7 +236,7 @@ export class Menu {
       const option = document.createElement('option'); option.value = i; option.textContent = (i + 1) + ' · ' + L.name;
       level.appendChild(option);
     });
-    for (const id of ['score-scope', 'score-level']) document.getElementById(id).addEventListener('change', () => this._renderScores());
+    for (const id of ['score-scope', 'score-level', 'score-assisted']) document.getElementById(id).addEventListener('change', () => this._renderScores());
     document.getElementById('scores-refresh').addEventListener('click', () => this._renderScores());
     Ranking.subscribe(() => {
       const s = Ranking.getStatus();
@@ -194,6 +262,7 @@ export class Menu {
     const player = document.getElementById('score-player');
     const scope = document.getElementById('score-scope').value;
     const level = +document.getElementById('score-level').value;
+    const assisted = document.getElementById('score-assisted').value === 'assisted';
     const kind = level < 0 ? 'campaign' : 'level';
     const tabs = document.getElementById('score-diff-tabs'); tabs.replaceChildren();
     for (const key of DIFF_ORDER) {
@@ -207,11 +276,11 @@ export class Menu {
     if (!quiet) { box.innerHTML = '<div class="score-empty">Consultando tiempos…</div>'; status.textContent = scope === 'global' ? 'Conectando con Lumera…' : 'Récords guardados en este dispositivo.'; }
     let list;
     if (scope === 'local') {
-      list = Save.loadScores().filter(s => s.diff === this._scoreDiff && (s.kind || 'campaign') === kind && (s.level ?? -1) === level).sort((a, b) => (a.timeMs ?? a.time * 1000) - (b.timeMs ?? b.time * 1000));
+      list = Save.loadScores().filter(s => s.diff === this._scoreDiff && !!s.assisted === assisted && (s.kind || 'campaign') === kind && (s.level ?? -1) === level).sort((a, b) => (a.timeMs ?? a.time * 1000) - (b.timeMs ?? b.time * 1000));
       status.textContent = 'Solo este dispositivo · no son posiciones mundiales.';
     } else {
       try {
-        const result = await Ranking.getLeaderboard({ difficulty: this._scoreDiff, kind, level });
+        const result = await Ranking.getLeaderboard({ difficulty: this._scoreDiff, kind, level, assisted });
         if (revision !== this._scoresRevision || this.elScores.classList.contains('hidden')) return;
         list = result.entries || [];
         status.textContent = result.cached ? 'Sin conexión · última tabla guardada; puede haber cambiado.' : result.status === 'ready' ? 'Mundial · se actualiza cada 30 segundos.' : result.reason || 'No se pudo conectar con la clasificación. Puedes jugar y ver tus récords locales.';
@@ -235,7 +304,7 @@ export class Menu {
       const row = document.createElement('div');
       row.className = 'score-row';
       if (s.isMe || s.playerId === Ranking.getStatus().playerId) row.classList.add('is-me');
-      const values = [s.rank || i + 1, (s.nickname || s.nick || 'RIKO') + (s.assisted ? ' · ayuda' : ''), formatTime(s.elapsedMs ?? s.timeMs ?? s.time * 1000), s.ending || '—'];
+      const values = [s.rank || i + 1, s.nickname || s.nick || 'RIKO', formatTime(s.elapsedMs ?? s.timeMs ?? s.time * 1000), s.ending || '—'];
       ['s-rank', 's-name', 's-time', 's-end'].forEach((cls, index) => {
         const cell = document.createElement('span'); cell.className = cls; cell.textContent = values[index]; row.append(cell);
       });
@@ -466,7 +535,10 @@ export class Menu {
       body.appendChild(d);
     }
     this.developerControls?.destroy();
-    this.developerControls = createDeveloperControls(body, { onConfigure: () => { this.optionsReturn = 'menu'; this.showOptions(); } });
+    this.developerControls = createDeveloperControls(body, {
+      onConfigure: () => { this.optionsReturn = 'menu'; this.showOptions(); },
+      onPreviewEnding: (ending) => this.hooks.onPreviewEnding?.(ending),
+    });
   }
 
   showCredits(ending) {
@@ -493,17 +565,28 @@ export class Menu {
     });
   }
 
-  showVictory(ending) {
+  showVictory(ending, { preview = false } = {}) {
     this.hideAll();
     this.elVictory.classList.remove('hidden');
-    const ENDING_SUB = {
-      A: 'Devolviste la luz a Lumera. La ciudad recordó lo justo para seguir.',
-      B: 'Conservaste la luz. Lumera quedó perfecta, inmóvil, para siempre.',
-      C: 'Compartiste la luz con todos. El final verdadero.',
-    };
-    document.getElementById('victory-sub').textContent =
-      (ENDING_SUB[ending] || 'Terminaste Mapache Cinema: La Última Noche.')
-      + '   ·   Final ' + (ending || '?');
+    const key = ENDINGS[ending] ? ending : 'A';
+    const metadata = ENDINGS[key];
+    this.elVictory.dataset.ending = key;
+    this.elVictory.classList.toggle('ending-preview', preview);
+    document.getElementById('victory-title').textContent = metadata.title;
+    document.getElementById('victory-sub').textContent = metadata.subtitle + ' · Final ' + key;
+    let narration = document.getElementById('victory-narration');
+    if (!narration) {
+      narration = document.createElement('p'); narration.id = 'victory-narration';
+      this.elVictory.append(narration);
+    }
+    narration.textContent = metadata.narration;
+    let previewLabel = document.getElementById('victory-preview');
+    if (!previewLabel) {
+      previewLabel = document.createElement('span'); previewLabel.id = 'victory-preview';
+      previewLabel.className = 'ending-preview-badge'; previewLabel.textContent = 'VISTA PREVIA';
+      this.elVictory.querySelector('.victory-box').append(previewLabel);
+    }
+    previewLabel.classList.toggle('hidden', !preview);
   }
 
   /* ---------------- keyboard nav ---------------- */

@@ -17,9 +17,10 @@ export const DEFAULT_BINDINGS = {
   cancel:   ['Escape', 'Backspace'],
   cycleL:   ['KeyQ'],
   cycleR:   ['KeyR'],
+  emote:    ['KeyG'],
 };
 
-const GAMEPLAY_ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dodge', 'parry', 'interact', 'throw', 'cycleL', 'cycleR', 'confirm', 'cancel'];
+const GAMEPLAY_ACTIONS = ['left', 'right', 'up', 'down', 'jump', 'attack', 'dodge', 'parry', 'interact', 'throw', 'cycleL', 'cycleR', 'emote', 'confirm', 'cancel'];
 const DIRECTIONS = ['left', 'right', 'up', 'down'];
 export const BINDING_VERSION = 4;
 

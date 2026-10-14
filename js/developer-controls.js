@@ -1,15 +1,17 @@
 /* Private exhibition controls are enabled locally through the code in Credits. */
 import { Controls } from './control-mode.js';
 import { PadBindings } from './controller-bindings.js';
+import { ENDINGS, createEndingAccess, isEnding } from './endings.js';
 
-export function createDeveloperControls(anchor, { onConfigure = () => {} } = {}) {
+export function createDeveloperControls(anchor, { onConfigure = () => {}, onPreviewEnding = () => {} } = {}) {
+  const endingAccess = createEndingAccess();
   const panel = document.createElement('details');
   panel.id = 'developer-controls';
   panel.className = 'developer-controls';
   panel.innerHTML = `
     <summary>Código</summary>
     <form class="developer-unlock" autocomplete="off">
-      <label for="developer-code">Código para habilitar mando</label>
+      <label for="developer-code">Código de desarrollador</label>
       <div class="developer-code-row">
         <input id="developer-code" type="password" autocomplete="off" spellcheck="false" autocapitalize="none" maxlength="128" />
         <button class="mini" type="submit">Activar</button>
@@ -34,6 +36,12 @@ export function createDeveloperControls(anchor, { onConfigure = () => {} } = {})
       <p class="option-note">En los menús: arriba y abajo recorren los controles; izquierda y derecha cambian opciones y volumen. Puedes empezar con el apodo guardado o RIKO.</p>
       <button class="mini developer-configure" type="button">Configurar botones del mando</button>
       <button class="mini developer-lock" type="button">Cerrar acceso de desarrollador</button>
+    </div>
+    <div class="developer-endings hidden">
+      <p class="option-note"><strong>Galería de finales</strong></p>
+      <p class="option-note">Vista previa de las tres decisiones. No modifica tu partida ni la clasificación.</p>
+      <div class="developer-ending-grid">${Object.entries(ENDINGS).map(([key, ending]) => `<button type="button" class="mini" data-preview-ending="${key}"><strong>FINAL ${key}</strong><span>${ending.choice}</span></button>`).join('')}</div>
+      <button class="mini developer-endings-lock" type="button">Cerrar galería</button>
     </div>`;
   anchor.after(panel);
 
@@ -43,14 +51,16 @@ export function createDeveloperControls(anchor, { onConfigure = () => {} } = {})
   const message = panel.querySelector('#developer-code-status');
   const choices = panel.querySelector('.developer-choices');
   const status = panel.querySelector('.developer-pad-status');
+  const endings = panel.querySelector('.developer-endings');
   let request = 0;
   let busy = false;
 
   function refresh() {
     const unlocked = Controls.isUnlocked();
-    form.classList.toggle('hidden', unlocked);
+    // Keep the code field reachable after unlocking either independent tool.
+    form.classList.remove('hidden');
     choices.classList.toggle('hidden', !unlocked);
-    if (unlocked) message.textContent = 'Mando activo en esta sesión. Puedes editar sus botones en Opciones.';
+    endings.classList.toggle('hidden', !endingAccess.isUnlocked());
     for (const label of panel.querySelectorAll('[data-pad-action]')) label.textContent = PadBindings.getHint(label.dataset.padAction);
     const pad = Controls.getGamepadStatus();
     status.classList.toggle('connected', !!pad.connected && !!pad.ready);
@@ -69,10 +79,17 @@ export function createDeveloperControls(anchor, { onConfigure = () => {} } = {})
     busy = true; submit.disabled = true;
     message.textContent = 'Comprobando código…';
     try {
-      const accepted = await Controls.unlock(input.value.trim());
+      const value = input.value.trim();
+      const previewAccepted = await endingAccess.unlock(value);
+      if (revision !== request) return;
+      const accepted = previewAccepted || await Controls.unlock(value);
       if (revision !== request) return;
       input.value = '';
-      if (accepted) { refresh(); panel.querySelector('.developer-configure').focus(); }
+      if (accepted) {
+        refresh();
+        message.textContent = previewAccepted ? 'Galería de finales habilitada en esta sesión.' : 'Mando activo en esta sesión. Puedes editar sus botones en Opciones.';
+        panel.querySelector(previewAccepted ? '[data-preview-ending]' : '.developer-configure').focus();
+      }
       else { message.textContent = Controls.canUnlock() ? 'Código incorrecto.' : 'Este navegador no puede validar el código. Abre el juego mediante HTTPS en un navegador actualizado.'; input.focus(); }
     } catch {
       if (revision === request) message.textContent = 'No se pudo comprobar el código en este navegador.';
@@ -81,13 +98,26 @@ export function createDeveloperControls(anchor, { onConfigure = () => {} } = {})
     }
   });
   panel.querySelector('.developer-configure').addEventListener('click', () => { if (Controls.isUnlocked()) onConfigure(); });
+  for (const button of panel.querySelectorAll('[data-preview-ending]')) {
+    button.addEventListener('click', () => {
+      const ending = button.dataset.previewEnding;
+      if (endingAccess.isUnlocked() && isEnding(ending)) onPreviewEnding(ending);
+    });
+  }
+  panel.querySelector('.developer-endings-lock').addEventListener('click', () => {
+    request++; busy = false; submit.disabled = false; input.value = '';
+    endingAccess.lock(); refresh();
+    message.textContent = 'Galería cerrada.';
+    panel.querySelector('summary').focus();
+  });
   panel.querySelector('.developer-lock').addEventListener('click', () => {
     request++; busy = false; submit.disabled = false; input.value = '';
+    endingAccess.lock();
     Controls.lock();
     message.textContent = 'Acceso cerrado.';
     panel.querySelector('summary').focus();
   });
   const unsubscribe = Controls.subscribe(refresh);
   refresh();
-  return { element: panel, refresh, destroy() { request++; unsubscribe?.(); panel.remove(); } };
+  return { element: panel, refresh, destroy() { request++; endingAccess.lock(); unsubscribe?.(); panel.remove(); } };
 }

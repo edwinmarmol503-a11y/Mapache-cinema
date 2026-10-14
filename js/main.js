@@ -9,7 +9,8 @@ import { Dialogue } from './dialogue.js';
 import { Game } from './game.js';
 import { Menu } from './menu.js';
 import { Pause } from './pause.js';
-import { drawMenuScene, drawCreditsScene } from './ui.js';
+import { drawMenuScene } from './ui.js';
+import { drawEndingScene, endingMusicTheme, isEnding } from './endings.js';
 import { initTouch, isTouchDevice, setTouchEnabled, releaseTouchInputs } from './touch.js';
 import { Ranking } from './ranking.js';
 import { Controls } from './control-mode.js';
@@ -56,6 +57,12 @@ let renderScale = 1;
 
 let appState = 'menu';
 let creditsStartedAt = 0;
+let creditsEnding = 'A';
+
+// Load the local pixel font before measuring text on the high-DPI canvas.
+if (document.fonts?.load) await Promise.allSettled([
+  document.fonts.load('400 12px "Monocraft"'), document.fonts.load('700 12px "Monocraft"'),
+]);
 
 /* ---------------- systems ---------------- */
 Input.init();
@@ -87,6 +94,7 @@ const menu = new Menu({
   },
   onCreditsClosed: () => returnToMenu(),
   onVictoryClosed: () => returnToMenu(),
+  onPreviewEnding: ending => beginEndingCredits(ending, { preview: true }),
   applyVisual: (mode) => { game.setVisualMode(mode); document.documentElement.dataset.visual = mode; },
   applyEffects: (reduced) => { game.reducedEffects = reduced; document.documentElement.classList.toggle('reduced-effects', reduced); },
 });
@@ -120,6 +128,7 @@ const gamepad = new GamepadController({
   onActivity: () => firstGesture(),
   onDisconnect: () => {
     if (appState === 'game' && !pause.active && game.state === 'playing') pause.open();
+    if (appState === 'game') game.persistRankingSession();
   },
 });
 gamepad.init();
@@ -129,7 +138,7 @@ Controls.subscribe(({ mode }) => {
   if (hint) hint.textContent = mode === 'gamepad'
     ? 'Stick / cruceta: mover · ' + Controls.getHint('jump') + ': saltar · ' + Controls.getHint('attack') + ': atacar · ' + Controls.getHint('dodge') + ': esquivar · ' + Controls.getHint('interact') + ': usar · ' + Controls.getHint('pause') + ': pausa'
     : mode === 'touch' ? 'Joystick: mover · Arriba: saltar · botones de acción a la derecha'
-      : 'A/D o flechas: mover · W/↑: saltar · J: atacar · E: usar · Esc: pausa';
+      : 'A/D o flechas: mover · W/↑: saltar · J: atacar · E: usar · G: emotes · Esc: pausa';
   const victoryHint = document.getElementById('victory-pad-hint');
   if (victoryHint) {
     victoryHint.classList.toggle('hidden', mode !== 'gamepad');
@@ -168,17 +177,19 @@ function returnToMenu() {
   syncDeathPresentation();
 }
 
-function beginEndingCredits(ending) {
+function beginEndingCredits(ending, { preview = false } = {}) {
+  if (!isEnding(ending)) return;
+  creditsEnding = ending;
   appState = 'credits';
   creditsStartedAt = performance.now();
   document.getElementById('app').classList.remove('playing', 'paused');
-  menu.showVictory(ending);
-  Audio.playMusic('ending', { restart: true });
+  menu.showVictory(ending, { preview });
+  Audio.playMusic(endingMusicTheme(ending), { restart: preview });
   Input.reset();
 }
 
 Audio.subscribeTrackEnd(({ theme }) => {
-  if (theme === 'ending' && appState === 'credits') returnToMenu();
+  if (theme === endingMusicTheme(creditsEnding) && appState === 'credits') returnToMenu();
 });
 
 /* ---------------- scaling ---------------- */
@@ -288,8 +299,8 @@ function draw() {
   if (appState === 'game') {
     game.render();
   } else if (appState === 'credits') {
-    drawCreditsScene(ctx, IW, IH, Math.max(0, (performance.now() - creditsStartedAt) / 1000), game.visualMode,
-      game.reducedEffects || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches);
+    drawEndingScene(ctx, IW, IH, Math.max(0, (performance.now() - creditsStartedAt) / 1000), creditsEnding, game.visualMode,
+      game.reducedEffects || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches, canvas.clientHeight < 500);
   } else {
     drawMenuScene(ctx, IW, IH, game.visualMode, game.reducedEffects);
   }
@@ -304,6 +315,7 @@ document.addEventListener('visibilitychange', () => {
     Audio.pauseTransientCue?.();
     if (Audio.ctx && Audio.ctx.state === 'running') Audio.ctx.suspend();
     if (appState === 'game' && !pause.active && game.state === 'playing') pause.open();
+    if (appState === 'game') game.persistRankingSession();
   } else if (wasHidden) {
     wasHidden = false;
     last = performance.now();   // don't dump a huge dt into the loop
@@ -328,7 +340,8 @@ Ranking.init?.().catch(() => {});
 // Persist only every ten seconds, keeping disk writes out of the simulation loop.
 setInterval(() => {
   if (appState !== 'game' || !Save.data || !game.player) return;
-  Save.update({ items: game.inventory.serialize(), levelElapsedMs: game._levelClockCarry + Math.max(0, performance.now() - game._levelClockStart) });
+  Save.update({ items: game.inventory.serialize(), levelElapsedMs: game.getLevelElapsedMs() });
+  game.persistRankingSession?.();
 }, 10000);
 requestAnimationFrame(frame);
 

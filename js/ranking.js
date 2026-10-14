@@ -4,7 +4,7 @@ const ID_KEY = 'mapache_ranking_identity_v2';
 const QUEUE_KEY = 'mapache_ranking_pending_v2';
 const CACHE_KEY = 'mapache_ranking_cache_v2';
 const RULESET = 'lumera-2026-10-v2';
-const QUEUE_TTL_MS = 15 * 60 * 1000;
+const QUEUE_LIMIT = 100;
 const DIFFS = ['easy', 'normal', 'hard', 'nightmare'];
 
 function safeRead(storage, key, fallback) {
@@ -19,7 +19,7 @@ function validBoard(selection) {
     ? Number.isInteger(selection.level) && selection.level >= 0 && selection.level < 5
     : selection.kind === 'campaign' && selection.level === -1);
 }
-function boardKey(selection) { return `${selection.difficulty}:${selection.kind}:${selection.level}`; }
+function boardKey(selection) { return `${selection.difficulty}:${selection.kind}:${selection.level}:${selection.assisted ? 'assisted' : 'standard'}`; }
 function localResult(reason) { return { ok: false, status: 'local', reason, message: reason, ticket: null }; }
 
 class RequestError extends Error {
@@ -44,6 +44,10 @@ export class RankingClient {
     this._player = null;
     this._playerPromise = null;
     this._syncPromise = null;
+    this._retryTimer = null;
+    this._retryDelay = 15000;
+    this._setRetryTimeout = options.setRetryTimeout || ((callback, delay) => setTimeout(callback, delay));
+    this._autoRetry = options.autoEvents !== false && typeof window !== 'undefined';
     this.online = false;
     this.lastNotice = '';
     this.base = '';
@@ -62,9 +66,11 @@ export class RankingClient {
     }
     this.state = this.base ? 'checking' : 'disabled';
     this._pruneQueue();
-    if (options.autoEvents !== false && typeof window !== 'undefined') {
+    if (this._autoRetry) {
       window.addEventListener('online', () => { this.sync(); });
       window.addEventListener('offline', () => { this._setState('offline'); });
+      globalThis.document?.addEventListener('visibilitychange', () => { if (!document.hidden) this.sync(); });
+      this._scheduleRetry();
     }
   }
 
@@ -155,11 +161,19 @@ export class RankingClient {
 
   async beginRun(selection) {
     if (!validBoard(selection)) return localResult('La selección del ranking no es válida.');
-    if (selection.assisted) return localResult('Partida con ayuda: cuenta como récord local.');
     if (!this.base) return localResult('El ranking en línea todavía no está configurado.');
     try {
       await this._ensurePlayer();
-      return await this._request('/runs', 'POST', { ...selection, ruleset: RULESET });
+      try { return await this._request('/runs', 'POST', { ...selection, ruleset: RULESET }); }
+      catch (error) {
+        if (selection.kind !== 'level' || !selection.campaignId || !['campaign', 'level_order'].includes(error.code)) throw error;
+        // Earlier offline progress cannot become a verified campaign, but a
+        // newly entered level can still earn an independent world record.
+        const standalone = { ...selection, ruleset: RULESET };
+        delete standalone.campaignId;
+        const result = await this._request('/runs', 'POST', standalone);
+        return { ...result, campaignLost: true };
+      }
     } catch (error) {
       this.lastNotice = error.message;
       this._emit('run-local', { reason: error.message });
@@ -171,16 +185,23 @@ export class RankingClient {
     const before = this.queue.length;
     const now = this.clock();
     this.queue = this.queue.filter((entry) => entry && entry.ticket?.id && entry.ticket?.token
-      && entry.expiresAt > now && entry.ticket.expiresAt > now).slice(-15);
+      && entry.ticket.expiresAt > now).map(entry => ({ ...entry, expiresAt: entry.ticket.expiresAt })).slice(-QUEUE_LIMIT);
     if (before !== this.queue.length) {
       this.lastNotice = 'Un envío pendiente expiró. Tu récord local se conserva.';
       this._persist(QUEUE_KEY, this.queue);
     }
   }
 
+  _scheduleRetry() {
+    if (!this._autoRetry || this._retryTimer || !this.queue.length) return;
+    this._retryTimer = this._setRetryTimeout(async () => {
+      this._retryTimer = null;
+      await this.sync();
+    }, this._retryDelay);
+  }
+
   async finishRun(ticket, detail = {}) {
     if (!ticket?.id || !ticket?.token) return localResult('Partida local: se necesita conexión al empezar para entrar al ranking global.');
-    if (detail.assisted) return localResult('Partida con ayuda: cuenta como récord local.');
     const now = this.clock();
     if (ticket.expiresAt <= now) return { ok: false, status: 'rejected', reason: 'El ticket en línea expiró; tu récord local se conserva.' };
     const payload = { ...detail, token: ticket.token };
@@ -188,19 +209,21 @@ export class RankingClient {
       const result = await this._request(`/runs/${encodeURIComponent(ticket.id)}/finish`, 'POST', payload);
       this.queue = this.queue.filter((entry) => entry.ticket.id !== ticket.id);
       this._persist(QUEUE_KEY, this.queue);
+      this._retryDelay = 15000;
       this._emit('submitted', result);
       return result;
     } catch (error) {
       if (error.status === 0 || error.status >= 500 || error.status === 429 || error.code === 'campaign_incomplete') {
         this._pruneQueue();
         if (!this.queue.some((entry) => entry.ticket.id === ticket.id)) {
-          this.queue.push({ ticket, detail, queuedAt: now, expiresAt: Math.min(now + QUEUE_TTL_MS, ticket.expiresAt) });
-          this.queue = this.queue.slice(-15);
+          this.queue.push({ ticket: { ...ticket }, detail: { ...detail }, queuedAt: now, expiresAt: ticket.expiresAt });
+          this.queue = this.queue.slice(-QUEUE_LIMIT);
           this._persist(QUEUE_KEY, this.queue);
         }
-        this.lastNotice = 'Envío pendiente (hasta 15 min). El ranking usa el tiempo real del servidor e incluye la demora sin conexión.';
-        const result = { ok: false, status: 'queued', reason: this.lastNotice, message: this.lastNotice };
+        this.lastNotice = 'Tiempo pendiente de conexión. Se enviará automáticamente mientras el ticket siga vigente, sin sumar la espera.';
+        const result = { ok: false, status: 'queued', code: error.code, reason: this.lastNotice, message: this.lastNotice };
         this._emit('queued', result);
+        this._scheduleRetry();
         return result;
       }
       this.lastNotice = error.message;
@@ -217,19 +240,24 @@ export class RankingClient {
       if (!this.base || this.queue.length === 0) return this.getStatus();
       try { await this._ensurePlayer(); } catch { return this.getStatus(); }
       // Preserve level completion order, followed by its campaign result.
-      const pending = [...this.queue].sort((a, b) => a.queuedAt - b.queuedAt || (a.ticket.kind === 'campaign' ? 1 : -1));
+      const pending = [...this.queue].sort((a, b) => Number(a.ticket.kind === 'campaign') - Number(b.ticket.kind === 'campaign') || a.queuedAt - b.queuedAt);
       for (const entry of pending) {
         if (!this.queue.some((item) => item.ticket.id === entry.ticket.id)) continue;
         const result = await this.finishRun(entry.ticket, entry.detail);
         if (result.status === 'rejected') {
           this.queue = this.queue.filter((item) => item.ticket.id !== entry.ticket.id);
           this._persist(QUEUE_KEY, this.queue);
-        } else if (result.status === 'queued') break;
+        } else if (result.status === 'queued' && result.code !== 'campaign_incomplete') break;
       }
       this._emit('sync');
       return this.getStatus();
     })();
-    try { return await this._syncPromise; } finally { this._syncPromise = null; }
+    try { return await this._syncPromise; }
+    finally {
+      this._syncPromise = null;
+      if (this.queue.length) this._retryDelay = Math.min(120000, this._retryDelay * 2);
+      this._scheduleRetry();
+    }
   }
 
   async getLeaderboard(selection) {
@@ -242,8 +270,9 @@ export class RankingClient {
       // Leaderboards remain readable even if creating the guest identity fails.
       try { await this._ensurePlayer(); } catch {}
       await this.sync();
-      const query = new URLSearchParams({ difficulty: selection.difficulty, kind: selection.kind, level: String(selection.level) });
+      const query = new URLSearchParams({ difficulty: selection.difficulty, kind: selection.kind, level: String(selection.level), assisted: String(!!selection.assisted) });
       const result = await this._request(`/leaderboard?${query}`, 'GET');
+      if (selection.assisted && result.assisted !== true) return fallback('La categoría Con ayuda espera la actualización del servidor.');
       this.cache[key] = result;
       this._persist(CACHE_KEY, this.cache);
       return { ...result, status: 'ready', cached: false };
