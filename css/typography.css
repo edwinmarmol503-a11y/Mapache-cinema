@@ -1,0 +1,40 @@
+/* Locally hosted, licensed pixel type. Keep this after the UI styles so every
+   screen, form and touch label shares the same readable letter shapes. */
+@font-face {
+  font-family: "Monocraft";
+  src: url("../assets/fonts/Monocraft-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Monocraft";
+  src: url("../assets/fonts/Monocraft-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+:root { --font-game: "Monocraft", "Courier New", monospace; }
+html, body, button, input, select, textarea,
+.title, .subtitle, .version, .tv-brand, .tc-btn, #rotate-overlay {
+  font-family: var(--font-game);
+  font-variant-ligatures: none;
+  font-kerning: none;
+}
+.title, .panel h2, #victory-title { font-weight: 700; }
+.title { transform: none; letter-spacing: .025em; }
+.score-table, .score-toolbar, .option-note, .credits-body,
+.opt-row, .audio-note { letter-spacing: 0; }
+.score-toolbar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.score-toolbar select { width: 100%; min-width: 0; }
+.score-row { grid-template-columns: 26px minmax(0, 1fr) 102px 44px; column-gap: 12px; }
+.score-row.head { letter-spacing: 0; }
+.score-row .s-name { overflow-wrap: anywhere; }
+.panel h2 { line-height: 1.3; }
+.developer-pad-guide, .option-note, .audio-note, .credits-body { line-height: 1.8; }
+.tc-btn { letter-spacing: 0; }
+@media (max-width: 600px) {
+  .score-row { grid-template-columns: 24px minmax(0, 1fr) 84px 32px; column-gap: 6px; font-size: 10px; }
+  .score-toolbar select { font-size: 10px; }
+  .panel h2 { letter-spacing: 1px; }
+}

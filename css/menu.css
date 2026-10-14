@@ -432,7 +432,140 @@ html[data-visual="day"] .menu-content { background: radial-gradient(ellipse at c
 .reduced-effects .victory-box, .reduced-effects #victory-title,
 .reduced-effects #victory-title::before, .reduced-effects #victory-title::after { animation: none; }
 .reduced-effects #victory-title { background-position: 50% 50%; }
+
+/* The main menu uses the actual canvas bounds, leaving Riko and Lumera visible.
+   These dimensions are synchronized by Menu's ResizeObserver. */
+#screen-menu .menu-content {
+  position: absolute;
+  max-width: none;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+}
+#screen-menu .menu-heading {
+  position: absolute;
+  left: 9%; right: 9%; top: 9%;
+  text-align: center;
+}
+#screen-menu .title {
+  font-size: clamp(36px, 5vw, 82px);
+  line-height: 1.06;
+  font-weight: 700;
+  letter-spacing: 1px;
+  transform: none;
+  text-shadow: 2px 2px 0 #a9c8e8, 4px 4px 0 #315680, 7px 7px 0 #020a19, 0 0 22px #7dabf747;
+  animation: none;
+}
+#screen-menu .subtitle { font-size: clamp(11px, 1.1vw, 18px); letter-spacing: .3em; margin-top: 18px; }
+#screen-menu .menu-tagline { font-size: clamp(10px, .85vw, 15px); margin-top: 14px; }
+#screen-menu .network-badge { font-size: clamp(8px, .7vw, 12px); letter-spacing: 0; margin-top: 16px; }
+#screen-menu #menu-nav {
+  position: absolute;
+  top: 40%; right: 4%;
+  width: 28%;
+  margin: 0;
+  align-items: stretch;
+  gap: clamp(3px, .7vh, 8px);
+}
+#screen-menu #menu-nav button {
+  position: relative;
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  font-size: clamp(15px, 1.35vw, 25px);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-align: right;
+  color: #d9e7f5;
+  text-shadow: 2px 2px 0 #061225, 0 0 12px #030916;
+}
+#screen-menu #menu-nav button.sel,
+#screen-menu #menu-nav button:hover {
+  color: #ffe182;
+  text-shadow: 2px 2px 0 #3c2805, 0 0 15px #f4c54255;
+  transform: translateX(-4px);
+}
+#screen-menu #menu-nav button:disabled { color: #8390a4; }
+#screen-menu .menu-footer {
+  position: absolute;
+  bottom: 2.4%; left: 7%; right: 7%;
+  text-align: center;
+}
+#screen-menu .menu-footer .hint {
+  margin: 0 auto;
+  max-width: 90%;
+  font-size: clamp(9px, .73vw, 13px);
+  line-height: 1.7;
+  letter-spacing: 0;
+  color: #bacbe0;
+}
+#screen-menu .menu-footer .version { color: #768ba9; font-size: clamp(8px, .65vw, 11px); letter-spacing: 1px; margin-top: 8px; }
+html[data-visual="day"] #screen-menu .menu-content { background: none; }
+html[data-visual="day"] #screen-menu .menu-heading { text-shadow: 0 2px 5px #03152c; }
+html[data-visual="day"] #screen-menu #menu-nav { background: #08172b6b; border-radius: 5px; padding: 6px; }
+
+.menu-glitch-layer {
+  display: none;
+  position: absolute;
+  left: 0; right: 0;
+  top: var(--glitch-y, 50%);
+  height: var(--glitch-h, 3%);
+  z-index: 4;
+  pointer-events: none;
+  opacity: .2;
+  background: repeating-linear-gradient(0deg, #8cc8e81c 0 1px, transparent 1px 3px), linear-gradient(90deg, transparent 12%, #65abd155 46%, #bc83b638 70%, transparent 93%);
+  border-top: 1px solid #80c2ea30;
+  border-bottom: 1px solid #7aa6d230;
+}
+.menu-glitch .menu-glitch-layer { display: block; transform: translateX(var(--glitch-shift)); }
+#screen-menu.menu-glitch .title { text-shadow: -2px 0 #74dffb99, 2px 0 #c276cf77, 4px 4px 0 #102747; }
+#app.menu-interference:not(.playing) #gs { filter: saturate(.88); }
+.reduced-effects .menu-glitch-layer { display: none; }
+.reduced-effects #app.menu-interference #gs { filter: none; }
+
+@media (max-height: 560px) and (orientation: landscape) {
+  #screen-menu .menu-heading { left: 3%; right: 38%; top: 11%; }
+  #app.touch-mode #screen-menu .title, #screen-menu .title { display: block; font-size: clamp(28px, 4.8vw, 48px); line-height: 1.07; }
+  #app.touch-mode #screen-menu .title br { display: initial; }
+  #screen-menu .subtitle { margin-top: 13px; font-size: 10px; letter-spacing: 2px; }
+  #screen-menu .menu-tagline { margin-top: 13px; font-size: 9px; line-height: 1.7; }
+  #screen-menu .network-badge { font-size: 8px; margin-top: 12px; padding: 6px 8px; }
+  #screen-menu #menu-nav { top: 12%; right: 3%; width: 32%; gap: 2px; }
+  #app.touch-mode #screen-menu #menu-nav button, #screen-menu #menu-nav button { min-height: 30px; padding: 6px 4px; font-size: clamp(12px, 1.75vw, 17px); text-align: right; }
+  #app.touch-mode #screen-menu .menu-footer .version { display: block; }
+  #screen-menu .menu-footer { bottom: 3%; }
+  #screen-menu .menu-footer .hint { font-size: 8px; }
+  #screen-menu .menu-footer .version { margin-top: 4px; font-size: 8px; }
+}
+@media (orientation: portrait) {
+  #screen-menu .menu-content, #app.touch-mode #screen-menu .menu-content {
+    left: 0 !important; top: 0 !important; width: 100% !important; height: 100% !important;
+    min-height: 0; padding: 0;
+  }
+  #screen-menu .menu-heading { top: max(8%, 30px); left: 6%; right: 6%; }
+  #app.touch-mode #screen-menu .title, #screen-menu .title { display: block; font-size: clamp(32px, 8.8vw, 68px); line-height: 1.08; }
+  #app.touch-mode #screen-menu .title br { display: initial; }
+  #screen-menu .subtitle { font-size: clamp(10px, 2.7vw, 16px); margin-top: 16px; letter-spacing: 2px; }
+  #screen-menu .menu-tagline { font-size: 10px; line-height: 1.7; }
+  #screen-menu .network-badge { font-size: 8px; margin-top: 12px; }
+  #screen-menu #menu-nav { top: 42%; left: 12%; right: 12%; width: auto; gap: 4px; }
+  #app.touch-mode #screen-menu #menu-nav button, #screen-menu #menu-nav button { text-align: center; min-height: 43px; padding: 10px 2px; font-size: clamp(14px, 3.6vw, 22px); }
+  #screen-menu .menu-footer { bottom: max(3%, 20px); left: 5%; right: 5%; }
+  #screen-menu .menu-footer .hint { display: none; }
+  #app.touch-mode #screen-menu .menu-footer .version { display: block; font-size: 8px; line-height: 1.8; }
+}
+@media (orientation: portrait) and (max-height: 680px) {
+  #screen-menu .menu-heading { top: 5%; }
+  #screen-menu #menu-nav { top: 41%; gap: 1px; }
+  #app.touch-mode #screen-menu #menu-nav button, #screen-menu #menu-nav button { min-height: 35px; padding: 7px 2px; font-size: 13px; }
+  #screen-menu .menu-tagline { margin-top: 9px; }
+}
 @media (prefers-reduced-motion: reduce) {
+  .menu-glitch-layer { display: none; }
+  #app.menu-interference:not(.playing) #gs { filter: none; }
+  #screen-menu.menu-glitch .title { text-shadow: 2px 2px 0 #a9c8e8, 4px 4px 0 #315680, 7px 7px 0 #020a19; }
   .title { animation: none; }
   .panel { animation: none; }
   .menu-nav button, #screen-menu .menu-nav button, .mini, .back,

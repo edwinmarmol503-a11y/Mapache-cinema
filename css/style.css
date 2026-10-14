@@ -22,7 +22,7 @@ html, body {
   width: 100%; height: 100%;
   background: #000;
   overflow: hidden;
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: var(--font-game, "Monocraft", monospace);
   color: var(--c-ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -201,5 +201,5 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 button:disabled { cursor: not-allowed; }
 
-/* Keep the original title treatment; smaller interface copy uses native type. */
-.title, .subtitle, .version { font-family: "Courier New", "Consolas", monospace; }
+/* Typography is shared by titles, dialogs, options and the game canvas. */
+.title, .subtitle, .version { font-family: var(--font-game, "Monocraft", monospace); }

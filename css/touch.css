@@ -200,6 +200,7 @@
   pointer-events: none;
 }
 .tc-secondary[hidden] { display: none; }
+.tc-secondary { flex-wrap: wrap; }
 .tc-secondary .tc-btn { position: static; flex: 0 0 44px; width: 44px; height: 44px; font-size: 10px; }
 .tc-s-parry { border-color: rgba(244,197,66,.78); }
 .tc-pause {

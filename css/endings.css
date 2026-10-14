@@ -1,0 +1,74 @@
+/* Keep the animated decision visible between the headline and story bar. */
+#screen-victory { background: none; }
+#screen-victory .victory-box {
+  position: absolute;
+  top: max(64px, 10vh);
+  left: 50%; transform: translateX(-50%);
+  width: min(1100px, 84%); max-width: none;
+  padding: 0; animation: ending-heading-in .8s ease-out;
+}
+#screen-victory #victory-title {
+  font-size: clamp(28px, 5.8vw, 88px);
+  margin: 0 0 6px; line-height: 1.18;
+  letter-spacing: clamp(1px, .2vw, 4px);
+}
+#screen-victory #victory-sub {
+  max-width: 100%; margin: 0 auto; font-size: clamp(13px, 1.35vw, 20px);
+  line-height: 1.5;
+}
+#screen-victory #victory-narration {
+  position: fixed;
+  left: 50%; bottom: max(102px, 11vh); transform: translateX(-50%);
+  width: min(1120px, 81vw); margin: 0;
+  padding: 12px 20px;
+  background: rgba(5, 12, 25, .93);
+  border: 1px solid #a78e56; border-left: 4px solid #f0cf83;
+  border-radius: 3px;
+  color: #f2e5c9; font-size: clamp(13px, 1.25vw, 18px);
+  line-height: 1.6; text-align: left;
+  text-shadow: 0 1px 2px #030611;
+  box-shadow: 0 7px 24px #02041166;
+}
+/* The story bar is appended directly to the screen, outside the translated heading. */
+#screen-victory > #victory-narration { position: absolute; }
+#screen-victory[data-ending="B"] #victory-title {
+  background-image: linear-gradient(105deg, #b990d0, #f8d296 32%, #fff0d7 45%, #bb88d7 75%, #efb373);
+  filter: drop-shadow(0 3px 0 #41223c) drop-shadow(0 0 14px #b478d566);
+}
+#screen-victory[data-ending="B"] #victory-title::before,
+#screen-victory[data-ending="B"] #victory-title::after { display: none; }
+#screen-victory[data-ending="B"] #victory-narration {
+  border-color: #866394; border-left-color: #c5a0e3; color: #f0dfee;
+  background: rgba(13, 9, 25, .94);
+}
+#screen-victory[data-ending="C"] #victory-narration { border-color: #7ca9b2; border-left-color: #a9e9e9; }
+.ending-preview-badge { color: #badce9; font-size: 12px; letter-spacing: 2px; margin: 8px 0 0; }
+.ending-preview-badge.hidden { display: none; }
+.developer-ending-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 10px 0 16px; }
+.developer-ending-grid .mini { display: flex; flex-direction: column; justify-content: center; min-height: 86px; gap: 8px; margin: 0; padding: 10px; }
+.developer-ending-grid strong { color: #f5d582; }
+.developer-ending-grid span { font-size: 12px; line-height: 1.5; letter-spacing: 0; }
+.developer-endings { border-top: 1px solid #334766; margin-top: 16px; padding-top: 8px; }
+@keyframes ending-heading-in { from { opacity: 0; } to { opacity: 1; } }
+@media (max-height: 600px) {
+  #screen-victory .victory-box { top: max(30px, calc(var(--screen-inset) + 4px), 8vh); width: 86%; }
+  #screen-victory #victory-title { font-size: clamp(25px, 7vh, 48px); }
+  #screen-victory #victory-sub { font-size: clamp(10px, 2.6vh, 14px); line-height: 1.3; }
+  #screen-victory #victory-narration { bottom: calc(var(--screen-inset) + 48px); padding: 8px 12px; font-size: clamp(10px, 2.5vh, 13px); line-height: 1.42; width: 86vw; }
+  #screen-victory .ending-mark { font-size: 15px; top: calc(var(--screen-inset) + 4px); }
+  #screen-victory .ending-mark-left { left: calc(var(--screen-inset) + 8px); }
+  #screen-victory .ending-mark-right { right: calc(var(--screen-inset) + 8px); }
+  #screen-victory #victory-menu { min-height: 34px; padding: 7px 11px; font-size: 11px; bottom: calc(var(--screen-inset) + 6px); right: calc(var(--screen-inset) + 8px); }
+  .ending-preview-badge { font-size: 9px; margin-top: 3px; }
+}
+@media (max-width: 640px) and (min-height: 601px) {
+  #screen-victory .victory-box { top: 15vh; width: 90%; }
+  #screen-victory #victory-title { font-size: 28px; }
+  #screen-victory #victory-narration { bottom: 100px; width: 90vw; padding: 10px 12px; font-size: 12px; }
+}
+@media (max-width: 480px) {
+  .developer-ending-grid { grid-template-columns: 1fr; }
+  .developer-ending-grid .mini { min-height: 58px; }
+}
+@media (prefers-reduced-motion: reduce) { #screen-victory .victory-box { animation: none; } }
+.reduced-effects #screen-victory .victory-box { animation: none; }
