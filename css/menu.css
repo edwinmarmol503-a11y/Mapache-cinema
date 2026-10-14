@@ -509,21 +509,16 @@ html[data-visual="day"] #screen-menu #menu-nav { background: #08172b6b; border-r
 .menu-glitch-layer {
   display: none;
   position: absolute;
-  left: 0; right: 0;
-  top: var(--glitch-y, 50%);
-  height: var(--glitch-h, 3%);
-  z-index: 4;
+  z-index: 1;
   pointer-events: none;
-  opacity: .2;
-  background: repeating-linear-gradient(0deg, #8cc8e81c 0 1px, transparent 1px 3px), linear-gradient(90deg, transparent 12%, #65abd155 46%, #bc83b638 70%, transparent 93%);
-  border-top: 1px solid #80c2ea30;
-  border-bottom: 1px solid #7aa6d230;
+  image-rendering: pixelated;
 }
-.menu-glitch .menu-glitch-layer { display: block; transform: translateX(var(--glitch-shift)); }
-#screen-menu.menu-glitch .title { text-shadow: -2px 0 #74dffb99, 2px 0 #c276cf77, 4px 4px 0 #102747; }
-#app.menu-interference:not(.playing) #gs { filter: saturate(.88); }
+.menu-glitch .menu-glitch-layer { display: block; }
+#screen-menu.menu-glitch .title { text-shadow: -5px 0 #59e1fbbb, 5px 1px #df67b1aa, 4px 4px 0 #102747; }
+#screen-menu.menu-glitch #menu-nav button { text-shadow: -2px 0 #59e1fb99, 2px 0 #df67b188, 2px 2px 0 #061225; }
 .reduced-effects .menu-glitch-layer { display: none; }
-.reduced-effects #app.menu-interference #gs { filter: none; }
+.reduced-effects #screen-menu.menu-glitch .title { text-shadow: 2px 2px 0 #a9c8e8, 4px 4px 0 #315680, 7px 7px 0 #020a19; }
+.reduced-effects #screen-menu.menu-glitch #menu-nav button { text-shadow: 2px 2px 0 #061225; }
 
 @media (max-height: 560px) and (orientation: landscape) {
   #screen-menu .menu-heading { left: 3%; right: 38%; top: 11%; }
@@ -566,6 +561,7 @@ html[data-visual="day"] #screen-menu #menu-nav { background: #08172b6b; border-r
   .menu-glitch-layer { display: none; }
   #app.menu-interference:not(.playing) #gs { filter: none; }
   #screen-menu.menu-glitch .title { text-shadow: 2px 2px 0 #a9c8e8, 4px 4px 0 #315680, 7px 7px 0 #020a19; }
+  #screen-menu.menu-glitch #menu-nav button { text-shadow: 2px 2px 0 #061225; }
   .title { animation: none; }
   .panel { animation: none; }
   .menu-nav button, #screen-menu .menu-nav button, .mini, .back,
