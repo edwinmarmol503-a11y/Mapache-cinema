@@ -1,6 +1,8 @@
 export const DIFFICULTIES = ['easy', 'normal', 'hard', 'nightmare'];
 export const LEVEL_COUNT = 5;
 export const RULESET = 'lumera-2026-10-v2';
+export const TIMING = 'active-v1';
+export function scoreRuleset(assisted = false) { return RULESET + (assisted ? ':assisted' : ''); }
 export const LEVEL_TTL_MS = 6 * 60 * 60 * 1000;
 export const CAMPAIGN_TTL_MS = 24 * 60 * 60 * 1000;
 export const MIN_LEVEL_MS = 5000;
@@ -32,7 +34,8 @@ export function board(value) {
       || (kind === 'campaign' ? level !== -1 : level < 0 || level >= LEVEL_COUNT)) {
     throw new ApiError(400, 'board', 'Selecciona un nivel o la campaña completa.');
   }
-  return { difficulty: value.difficulty, kind, level };
+  const assisted = value.assisted === true || value.assisted === 'true';
+  return { difficulty: value.difficulty, kind, level, ...(assisted ? { assisted: true } : {}) };
 }
 
 export function credential(value) { return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value); }
@@ -41,14 +44,13 @@ export function uuid(value) { return typeof value === 'string' && /^[a-f0-9]{8}-
 export function finishValidation(run, payload, now) {
   if (run.ruleset !== RULESET) throw new ApiError(409, 'ruleset', 'Esta partida pertenece a una versión anterior.');
   if (now > run.expires_at) throw new ApiError(410, 'expired', 'La partida en línea expiró. Tu récord local se conserva.');
-  if (payload.assisted === true || run.assisted) throw new ApiError(409, 'assisted', 'Las partidas con ayuda quedan como récords locales.');
-  const elapsedMs = now - run.started_at;
+  const wallMs = now - run.started_at;
   const min = run.kind === 'campaign' ? MIN_CAMPAIGN_MS : MIN_LEVEL_MS;
-  if (!Number.isSafeInteger(elapsedMs) || elapsedMs < min) {
+  if (!Number.isSafeInteger(wallMs) || wallMs < min) {
     throw new ApiError(400, 'too_fast', 'El tiempo de la partida no es válido.');
   }
   if (payload.activeMs !== undefined && (!Number.isSafeInteger(payload.activeMs)
-      || payload.activeMs < 0 || payload.activeMs > elapsedMs + 5000)) {
+      || payload.activeMs < min || payload.activeMs > wallMs + 5000)) {
     throw new ApiError(400, 'active_time', 'El reloj de la partida no es válido.');
   }
   if (payload.ending !== undefined && payload.ending !== null && !['A', 'B', 'C'].includes(payload.ending)) {
@@ -60,5 +62,9 @@ export function finishValidation(run, payload, now) {
   if (payload.deaths !== undefined && (!Number.isSafeInteger(payload.deaths) || payload.deaths < 0 || payload.deaths > 100000)) {
     throw new ApiError(400, 'deaths', 'Contador de intentos no válido.');
   }
-  return { elapsedMs, activeMs: payload.activeMs ?? null, ending: payload.ending ?? null, deaths: payload.deaths ?? 0 };
+  // Legacy clients already send activeMs. The fallback permits old offline
+  // submissions, while new clients always send their pause-aware clock.
+  const elapsedMs = payload.activeMs ?? wallMs;
+  return { elapsedMs, activeMs: elapsedMs, assisted: !!(payload.assisted || run.assisted),
+    ending: payload.ending ?? null, deaths: payload.deaths ?? 0 };
 }

@@ -1,4 +1,4 @@
-import { ApiError, board, nickname, credential, uuid, finishValidation, RULESET,
+import { ApiError, board, nickname, credential, uuid, finishValidation, RULESET, TIMING, scoreRuleset,
   LEVEL_COUNT, LEVEL_TTL_MS, CAMPAIGN_TTL_MS } from './validation.js';
 
 const PREFIX = '/api/ranking';
@@ -66,19 +66,20 @@ async function limit(db, key, max, windowMs, now) {
 async function player(request, db, optional = false) {
   const token = request.headers.get('X-Player-Token');
   if (!token && optional) return null;
-  if (!credential(token)) throw new ApiError(401, 'identity', 'Identidad del jugador no válida.');
+  if (!credential(token)) { if (optional) return null; throw new ApiError(401, 'identity', 'Identidad del jugador no válida.'); }
   const result = await db.prepare('SELECT id, nickname FROM players WHERE token_hash = ?').bind(await hash(token)).first();
-  if (!result) throw new ApiError(401, 'identity', 'Identidad del jugador no encontrada.');
+  if (!result && !optional) throw new ApiError(401, 'identity', 'Identidad del jugador no encontrada.');
   return result;
 }
 
 function publicScore(row, rank) {
   return { rank: Number(rank), playerId: row.player_id, nickname: row.nickname,
-    elapsedMs: row.elapsed_ms, achievedAt: row.achieved_at, ending: row.ending, deaths: row.deaths };
+    elapsedMs: row.elapsed_ms, achievedAt: row.achieved_at, ending: row.ending, deaths: row.deaths,
+    assisted: row.ruleset === scoreRuleset(true) };
 }
 
 async function leaderboard(db, selection, self, now) {
-  const args = [RULESET, selection.difficulty, selection.kind, selection.level];
+  const args = [scoreRuleset(selection.assisted), selection.difficulty, selection.kind, selection.level];
   const rows = await db.prepare(`SELECT s.*, p.nickname FROM scores s JOIN players p ON p.id = s.player_id
     WHERE s.ruleset = ? AND s.difficulty = ? AND s.kind = ? AND s.level = ?
     ORDER BY s.elapsed_ms, s.achieved_at, s.player_id LIMIT 50`).bind(...args).all();
@@ -94,7 +95,7 @@ async function leaderboard(db, selection, self, now) {
       own = publicScore(row, count.n + 1);
     }
   }
-  return { ok: true, ...selection, ruleset: RULESET, updatedAt: now,
+  return { ok: true, ...selection, assisted: !!selection.assisted, ruleset: RULESET, timing: TIMING, updatedAt: now,
     entries: rows.results.map((row, i) => publicScore(row, i + 1)), player: own };
 }
 
@@ -109,7 +110,7 @@ async function route(request, env, ctx, now) {
 
   if (path === '/health' && request.method === 'GET') {
     await db.prepare('SELECT id FROM players LIMIT 1').first();
-    return { ok: true, ruleset: RULESET, serverTime: now };
+    return { ok: true, ruleset: RULESET, timing: TIMING, features: { assistedBoards: true }, serverTime: now };
   }
 
   if (path === '/players' && request.method === 'POST') {
@@ -129,7 +130,7 @@ async function route(request, env, ctx, now) {
   }
 
   if (path === '/leaderboard' && request.method === 'GET') {
-    const selection = board({ difficulty: url.searchParams.get('difficulty'), kind: url.searchParams.get('kind'), level: url.searchParams.get('level') });
+    const selection = board({ difficulty: url.searchParams.get('difficulty'), kind: url.searchParams.get('kind'), level: url.searchParams.get('level'), assisted: url.searchParams.get('assisted') });
     const self = await player(request, db, true);
     return leaderboard(db, selection, self, now);
   }
@@ -139,7 +140,6 @@ async function route(request, env, ctx, now) {
     const input = await body(request);
     const selection = board(input);
     if (input.ruleset && input.ruleset !== RULESET) throw new ApiError(409, 'ruleset', 'Actualiza el juego para participar en el ranking.');
-    if (input.assisted === true) throw new ApiError(409, 'assisted', 'Las partidas con ayuda quedan como récords locales.');
     await limit(db, `start:${self.id}`, 150, 3600000, now);
     const campaignId = input.campaignId || null;
     if (campaignId) {
@@ -150,24 +150,27 @@ async function route(request, env, ctx, now) {
         throw new ApiError(409, 'campaign', 'La campaña en línea ya no está activa.');
       }
       if (selection.level > 0) {
-        const previous = await db.prepare('SELECT id FROM runs WHERE campaign_id = ? AND level = ? AND completed_at IS NOT NULL LIMIT 1')
+        // A previous level may have finished offline and still be queued. Its
+        // issued ticket is enough to start the next stage; the campaign finish
+        // still requires all five successful completions below.
+        const previous = await db.prepare('SELECT id FROM runs WHERE campaign_id = ? AND level = ? LIMIT 1')
           .bind(campaignId, selection.level - 1).first();
-        if (!previous) throw new ApiError(409, 'level_order', 'Completa el nivel anterior antes de continuar la campaña.');
+        if (!previous) throw new ApiError(409, 'level_order', 'Inicia los niveles de la campaña en orden.');
       }
     }
     const id = crypto.randomUUID();
     const token = randomToken();
     const expiresAt = now + (selection.kind === 'campaign' ? CAMPAIGN_TTL_MS : LEVEL_TTL_MS);
-    await db.prepare(`INSERT INTO runs (id, token_hash, player_id, difficulty, kind, level, ruleset, campaign_id, started_at, expires_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, await hash(token), self.id, selection.difficulty,
-        selection.kind, selection.level, RULESET, campaignId, now, expiresAt).run();
+    await db.prepare(`INSERT INTO runs (id, token_hash, player_id, difficulty, kind, level, ruleset, campaign_id, started_at, expires_at, assisted)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).bind(id, await hash(token), self.id, selection.difficulty,
+        selection.kind, selection.level, RULESET, campaignId, now, expiresAt, selection.assisted ? 1 : 0).run();
     if (ctx?.waitUntil && Math.random() < 0.03) ctx.waitUntil(db.batch([
       db.prepare('DELETE FROM rate_limits WHERE expires_at < ?').bind(now),
       // Keep linked levels as long as the parent campaign is alive.
       db.prepare('DELETE FROM runs WHERE campaign_id IS NOT NULL AND expires_at < ? AND campaign_id IN (SELECT id FROM runs WHERE expires_at < ?)').bind(now, now),
       db.prepare('DELETE FROM runs WHERE campaign_id IS NULL AND expires_at < ? AND id NOT IN (SELECT campaign_id FROM runs WHERE campaign_id IS NOT NULL)').bind(now),
     ]).catch(() => {}));
-    return { ok: true, ticket: { id, token, ...selection, campaignId, ruleset: RULESET, startedAt: now, expiresAt } };
+    return { ok: true, ticket: { id, token, ...selection, campaignId, ruleset: RULESET, timing: TIMING, startedAt: now, expiresAt } };
   }
 
   const finishPath = path.match(/^\/runs\/([a-f0-9-]{36})\/finish$/);
@@ -181,29 +184,39 @@ async function route(request, env, ctx, now) {
     if (!run) throw new ApiError(404, 'ticket', 'Ticket de partida no encontrado.');
     if (run.completed_at !== null) {
       return { ok: true, status: 'submitted', duplicate: true, runId: run.id, elapsedMs: run.elapsed_ms,
-        completedAt: run.completed_at, board: { difficulty: run.difficulty, kind: run.kind, level: run.level } };
+        assisted: !!run.assisted, timing: TIMING, completedAt: run.completed_at,
+        board: { difficulty: run.difficulty, kind: run.kind, level: run.level, assisted: !!run.assisted } };
     }
     const validated = finishValidation(run, input, now);
     if (run.kind === 'campaign') {
-      const cleared = await db.prepare('SELECT COUNT(DISTINCT level) AS n FROM runs WHERE campaign_id = ? AND completed_at IS NOT NULL')
+      const cleared = await db.prepare('SELECT COUNT(DISTINCT level) AS n, MAX(assisted) AS assisted FROM runs WHERE campaign_id = ? AND completed_at IS NOT NULL')
         .bind(run.id).first();
       if (cleared.n !== LEVEL_COUNT) throw new ApiError(409, 'campaign_incomplete', 'Faltan niveles de esta campaña en línea.');
+      validated.assisted ||= !!cleared.assisted;
+      const levelTimes = await db.prepare(`SELECT SUM(time_ms) AS total FROM (
+        SELECT MIN(active_ms) AS time_ms FROM runs WHERE campaign_id = ? AND completed_at IS NOT NULL GROUP BY level
+      )`).bind(run.id).first();
+      if (validated.activeMs + 1000 < levelTimes.total) {
+        throw new ApiError(400, 'active_time', 'El tiempo total no puede ser menor que la suma de sus niveles.');
+      }
     }
     const nonce = crypto.randomUUID();
     // One atomic batch owns the finish once. The nonce prevents a simultaneous
     // replay from changing the score, and retrying after a lost response is safe.
     await db.batch([
-      db.prepare(`UPDATE runs SET completed_at = ?, elapsed_ms = ?, active_ms = ?, ending = ?, deaths = ?, completion_nonce = ?
-        WHERE id = ? AND completed_at IS NULL`).bind(now, validated.elapsedMs, validated.activeMs, validated.ending, validated.deaths, nonce, run.id),
+      db.prepare(`UPDATE runs SET completed_at = ?, elapsed_ms = ?, active_ms = ?, ending = ?, deaths = ?, completion_nonce = ?, assisted = ?
+        WHERE id = ? AND completed_at IS NULL`).bind(now, validated.elapsedMs, validated.activeMs, validated.ending, validated.deaths, nonce, validated.assisted ? 1 : 0, run.id),
       db.prepare(`INSERT INTO scores (player_id, difficulty, kind, level, ruleset, elapsed_ms, achieved_at, run_id, ending, deaths)
-        SELECT player_id, difficulty, kind, level, ruleset, elapsed_ms, completed_at, id, ending, deaths FROM runs WHERE id = ? AND completion_nonce = ?
+        SELECT player_id, difficulty, kind, level, CASE WHEN assisted = 1 THEN ruleset || ':assisted' ELSE ruleset END,
+          elapsed_ms, completed_at, id, ending, deaths FROM runs WHERE id = ? AND completion_nonce = ?
         ON CONFLICT(player_id, difficulty, kind, level, ruleset) DO UPDATE SET
           elapsed_ms = excluded.elapsed_ms, achieved_at = excluded.achieved_at, run_id = excluded.run_id,
           ending = excluded.ending, deaths = excluded.deaths WHERE excluded.elapsed_ms < scores.elapsed_ms`).bind(run.id, nonce),
     ]);
-    const finished = await db.prepare('SELECT elapsed_ms, completed_at FROM runs WHERE id = ?').bind(run.id).first();
+    const finished = await db.prepare('SELECT elapsed_ms, completed_at, assisted FROM runs WHERE id = ?').bind(run.id).first();
     return { ok: true, status: 'submitted', runId: run.id, elapsedMs: finished.elapsed_ms,
-      completedAt: finished.completed_at, board: { difficulty: run.difficulty, kind: run.kind, level: run.level } };
+      assisted: !!finished.assisted, timing: TIMING, completedAt: finished.completed_at,
+      board: { difficulty: run.difficulty, kind: run.kind, level: run.level, assisted: !!finished.assisted } };
   }
   throw new ApiError(404, 'not_found', 'Ruta no encontrada.');
 }
