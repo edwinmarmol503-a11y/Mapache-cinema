@@ -16,7 +16,7 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión local 6.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 6.0.1:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -289,7 +289,7 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
-La versión 6.0.0 incorpora Monocraft local, menú a la derecha con glitch ocasional,
+La versión 6.0.1 incorpora Monocraft local, menú a la derecha con glitch ocasional,
 tres escenas finales, recuerdos para curarse, cuatro emotes, barra del jefe abajo
 y clasificación por tiempo activo con categoría de ayuda. Conserva los botones
 de mando editables, la lista musical en orden y las barreras obligatorias de los
