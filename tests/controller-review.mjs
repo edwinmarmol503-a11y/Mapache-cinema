@@ -96,7 +96,7 @@ try {
   check('Mapache-cinema enables only the controller; no mode selector or locked pad polling');
   await navigateTo('.developer-configure'); await tap(0);
   await page.waitForFunction(() => !document.getElementById('screen-options').classList.contains('hidden'));
-  assert.equal(await page.locator('#controller-settings button[data-pad-bind]').count(), 13);
+  assert.equal(await page.locator('#controller-settings button[data-pad-bind]').count(), 14);
   assert.equal(await page.locator('#controller-settings').isVisible(), true);
   assert.equal(await page.locator('#control-list').isVisible(), false);
   assert.equal(await page.locator('#opt-reset-controls').isVisible(), false);
@@ -118,8 +118,8 @@ try {
   await shot('full-hd-controller-remap');
   check('mando navigation opens settings; held confirm is ignored; buttons swap and save without carry');
   // All actions must be reachable on a television, including the final rows.
-  for (const action of ['attack', 'dodge', 'parry', 'interact', 'throw', 'cycleL', 'cycleR', 'pause', 'left', 'right', 'up', 'down']) await navigateTo('[data-pad-bind="' + action + '"]');
-  check('all thirteen mapping rows are reachable using only D-pad navigation');
+  for (const action of ['attack', 'dodge', 'parry', 'interact', 'throw', 'cycleL', 'cycleR', 'pause', 'emote', 'left', 'right', 'up', 'down']) await navigateTo('[data-pad-bind="' + action + '"]');
+  check('all fourteen mapping rows are reachable using only D-pad navigation');
   await navigateTo('[data-pad-bind="jump"]'); await tap(0);
   await page.waitForFunction(() => document.querySelector('[data-pad-bind="jump"]').textContent.includes('Pulsa'));
   await held(9, true);

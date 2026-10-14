@@ -80,7 +80,7 @@ test('an enemy death creates one soul and respawning clears the previous apparit
   } finally { f.close(); }
 });
 
-test('boss death retries keep the fixed boss song and boss defeat waits for credits to change it', () => {
+test('boss death retries keep the boss song; choosing an ending starts its fixed scene song', () => {
   const f = fixture(4);
   try {
     f.game.startBoss();
@@ -93,6 +93,9 @@ test('boss death retries keep the fixed boss song and boss defeat waits for cred
     f.game.onBossDefeated();
     assert.equal(f.music.length, count);
     f.game._playEnding('A');
-    assert.equal(f.music.length, count, 'story text does not start or reset Lo Que Soy before credits');
+    assert.equal(f.music.length, count + 1);
+    assert.deepEqual(f.music.at(-1), ['ending', { restart: true }]);
+    f.game._playEnding('B');
+    assert.deepEqual(f.music.at(-1), ['ending-bad', { restart: true }]);
   } finally { f.close(); }
 });

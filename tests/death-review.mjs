@@ -7,7 +7,7 @@ const modulePath = process.env.PLAYWRIGHT_MODULE || 'playwright';
 const { chromium } = await import(path.isAbsolute(modulePath) ? pathToFileURL(modulePath).href : modulePath);
 const baseURL = process.env.PREVIEW_URL || 'http://127.0.0.1:4173';
 const origin = new URL(baseURL).origin;
-const output = path.resolve('test-results/death-v5');
+const output = path.resolve('test-results/death-v6');
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const errors = [];
@@ -89,7 +89,7 @@ async function death(page, reason = 'fall', held = false, imagePrefix = '') {
   assert.equal(soul.music.theme, null, 'background song stops when actual death happens');
   if (held) await page.keyboard.down('j');
   if (imagePrefix) await screenshot(page, imagePrefix + '-soul');
-  await page.waitForFunction(() => MC.game.state === 'death-black' && MC.Audio.getCueStatus().mode === 'playing');
+  await page.waitForFunction(() => MC.game.state === 'death-black');
   const black = await state(page);
   const blackPresentation = await page.evaluate(() => {
     const app = document.getElementById('app'), c = document.getElementById('game');
@@ -113,9 +113,9 @@ async function death(page, reason = 'fall', held = false, imagePrefix = '') {
   assert.equal(blackPresentation.controlsHidden, true);
   assert.deepEqual(blackPresentation.centerPixel.slice(0, 3), [0, 0, 0]);
   if (imagePrefix) await screenshot(page, imagePrefix + '-black');
-  await page.waitForFunction(() => MC.game.state === 'death-phrase', null, { timeout: 12000 });
+  await page.waitForFunction(() => MC.game.state === 'death-phrase', null, { timeout: 2500 });
   const phrase = await state(page);
-  assert.equal(phrase.cue.mode, 'stopped', 'the quote waits in silence after the complete burla');
+  assert.ok(['loading', 'playing'].includes(phrase.cue.mode), 'the quote appears while its burla still plays');
   assert.equal(phrase.music.theme, null);
   if (held) {
     await page.waitForTimeout(250);
@@ -154,7 +154,7 @@ async function respawn(page, mobile = false, imagePrefix = '') {
 try {
   const desktop = await makePage();
   const page = desktop.page;
-  assert.equal(await page.evaluate(() => MC.Audio.getMusicStatus().configuredTracks), 41);
+  assert.equal(await page.evaluate(() => MC.Audio.getMusicStatus().configuredTracks), 42);
   await page.locator('#screen-menu').click({ position: { x: 8, y: 8 } });
   const menu = await waitMusic(page, 'pista-37', 'menu');
   await page.locator('#menu-nav [data-act="options"]').click();
@@ -167,7 +167,10 @@ try {
   report.checks.push('ARCADE persists through options and informational credits');
   report.tracks = await page.evaluate(async () => {
     const result = [];
+    // Canonical song bytes are SHA-verified separately. Decode all four short
+    // cues, including the newly replaced 2.508-second BURLA 1.
     for (const entry of MC.Audio._tracks.values()) {
+      if (entry.role !== 'cue' || entry.playback === 'stream') continue;
       const response = await fetch(entry.src);
       if (!response.ok) throw new Error(entry.id + ': fetch ' + response.status);
       const bytes = await response.arrayBuffer(), byteLength = bytes.byteLength;
@@ -176,9 +179,10 @@ try {
     }
     return result;
   });
-  assert.equal(report.tracks.length, 41);
+  assert.equal(report.tracks.length, 4);
   assert.ok(report.tracks.every(track => track.bytes > 0 && track.duration > 2 && track.channels > 0));
-  report.checks.push('All 41 published-form MP3 files decode successfully');
+  assert.ok(Math.abs(report.tracks.find(track => track.id === 'burla-01').duration - 2.50775) < .001);
+  report.checks.push('Four short PCM cues decode; the replacement Burla1 measures 2.508 seconds');
   report.desktop.initial = await start(page);
   report.desktop.enemyDeath = await death(page, 'enemy', true, 'desktop-enemy');
   assert.equal(report.desktop.enemyDeath.black.cue.id, 'burla-01');
@@ -188,7 +192,7 @@ try {
   await page.keyboard.down('a');
   await page.waitForFunction(old => MC.game.player.x < old - 3 && MC.Audio.getCueStatus().name === 'respawn', x);
   await page.keyboard.up('a');
-  report.checks.push('Actual enemy contact shows soul, complete Burla1, black screen and silent quote; held key cannot retry');
+  report.checks.push('Actual enemy contact shows soul, 0.5-second black screen and quote while new Burla1 plays; held key cannot retry');
   report.checks.push('Fresh action immediately restores playable Riko while full REAPARICION plays');
 
   // Pause uses the actual application menu while REAPARICION is active.
@@ -282,9 +286,11 @@ try {
   report.checks.push('Natural ending loops the same level file without advancing the ordered cursor');
 
   await page.evaluate(() => { MC.Audio.playMusic('boss'); MC.game._playEnding('C'); });
-  assert.equal((await state(page)).music.id, 'pista-03');
+  await waitMusic(page, 'pista-34', 'ending');
+  const choicePosition = (await state(page)).music.position;
   await page.evaluate(() => { for (let i = 0; i < 30 && MC.game.dialogue.active; i++) MC.game.dialogue.advance(); });
   await waitMusic(page, 'pista-34', 'ending');
+  assert.ok((await state(page)).music.position >= choicePosition, 'choosing an ending starts its song and credits keep the same playhead');
   await page.evaluate(() => {
     window.victoryEnded = [];
     MC.Audio._media.addEventListener('ended', event => window.victoryEnded.push(event.isTrusted), { once: true });

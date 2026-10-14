@@ -62,7 +62,7 @@ function fixture(ids = ['a', 'b', 'c', 'd'], playlists, alternateSrcs = {}, extr
     _tone(...args) { tones.push(args); },
   };
   const manifest = { tracks: ids.map((id) => ({ id, title: id, src: `https://game.example/audio/${id}.mp3`,
-    gain: 0.5, alternateSrcs: alternateSrcs[id] || [] })),
+    gain: 0.5, alternateSrcs: alternateSrcs[id] || [], ...extra.entries?.[id] })),
     playlists: playlists || { roofs: ids, forest: [...ids].reverse(), sewers: ids, district: ids, tower: ids, boss: ids }, cues: extra.cues };
   audio.configureTracks(manifest);
   return { audio, instances, tones, manifest, close() { audio.stopMusic(); globalThis.window = previousWindow; globalThis.fetch = previousFetch; } };
@@ -466,18 +466,19 @@ test('a missing fixed theme remains silent instead of borrowing a random level s
   } finally { f.close(); }
 });
 
-test('the supplied manifest loads 37 songs and 4 cues with a deterministic 34-song level sequence', async () => {
+test('the supplied manifest loads 38 songs and 4 cues with a deterministic 34-song level sequence', async () => {
   const manifest = JSON.parse(await readFile(new URL('../assets/audio/tracks.json', import.meta.url), 'utf8'));
   const ids = manifest.tracks.map(track => track.id);
-  assert.equal(ids.length, 41);
-  assert.equal(new Set(ids).size, 41);
+  assert.equal(ids.length, 42);
+  assert.equal(new Set(ids).size, 42);
   assert.deepEqual(manifest.playlists.menu, ['pista-37']);
   assert.deepEqual(manifest.playlists.ending, ['pista-34']);
+  assert.deepEqual(manifest.playlists['ending-bad'], ['final-malo']);
   assert.deepEqual(manifest.playlists.boss, ['pista-03']);
   assert.match(manifest.tracks.find(track => track.id === 'pista-37').title, /Arcade/i);
   assert.match(manifest.tracks.find(track => track.id === 'pista-34').title, /^Lo Que Soy$/i);
   assert.match(manifest.tracks.find(track => track.id === 'pista-03').title, /CHUTY VS ACZINO/i);
-  const reserved = new Set(['pista-37', 'pista-34', 'pista-03']);
+  const reserved = new Set(['pista-37', 'pista-34', 'pista-03', 'final-malo']);
   const random = manifest.playlists.roofs;
   assert.equal(random.length, 34);
   for (const theme of ['roofs', 'forest', 'sewers', 'district', 'tower']) {
@@ -488,8 +489,8 @@ test('the supplied manifest loads 37 songs and 4 cues with a deterministic 34-so
   // its resolved URLs here exercises the limit without file:// test paths.
   const f = fixture(ids, manifest.playlists, {}, { cues: manifest.cues });
   try {
-    assert.equal(f.audio._tracks.size, 41, 'tracks after number 20 cannot be silently discarded');
-    for (const [theme, id] of [['menu', 'pista-37'], ['boss', 'pista-03'], ['ending', 'pista-34']]) {
+    assert.equal(f.audio._tracks.size, 42, 'tracks after number 20 cannot be silently discarded');
+    for (const [theme, id] of [['menu', 'pista-37'], ['boss', 'pista-03'], ['ending', 'pista-34'], ['ending-bad', 'final-malo']]) {
       f.audio.playMusic(theme);
       assert.equal(f.audio._externalTrack.id, id);
     }
@@ -547,6 +548,102 @@ function cueFixture() {
   return fixture(['a', 'b', 'c', 'burla-01', 'burla-02', 'burla-03', 'reaparicion'],
     { roofs: ['a', 'b', 'c'] }, {}, { cues: { death: ['burla-01', 'burla-02', 'burla-03'], respawn: ['reaparicion'] } });
 }
+
+test('the bad-ending song stays fixed, preserves its playhead between narrative and credits, and ends once', () => {
+  const f = fixture(['a', 'b', 'bad'], { roofs: ['a', 'b'], 'ending-bad': ['bad'] });
+  try {
+    const events = [];
+    f.audio.subscribeTrackEnd(event => events.push(event));
+    f.audio.playMusic('roofs');
+    const cursor = [...f.audio._playlistCursors];
+    f.audio.playMusic('ending-bad');
+    const media = f.audio._media;
+    media.currentTime = 18;
+    f.audio.playMusic('ending-bad');
+    assert.equal(media.currentTime, 18);
+    assert.equal(media.loop, false);
+    assert.deepEqual([...f.audio._playlistCursors], cursor);
+    media.finish(); media.finish();
+    assert.deepEqual(events, [{ theme: 'ending-bad', id: 'bad', title: 'bad' }]);
+  } finally { f.close(); }
+});
+
+test('long replacement cues are streamed lazily, continue past 45 seconds and cancel immediately for respawn', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const f = fixture(['a', 'b', 'long', 'respawn'], { roofs: ['a', 'b'] }, {}, {
+    cues: { death: ['long'], respawn: ['respawn'] }, entries: { long: { durationSeconds: 167.328, playback: 'stream' } },
+  });
+  try {
+    assert.equal(f.audio._cuePlayers.get('long').mode, 'stream');
+    assert.equal(f.audio._cuePlayers.get('long').buffer, null);
+    assert.equal(f.instances.length, 0, 'manifest load does not preload a long media element');
+    await Promise.all([...f.audio._cuePlayers.values()].map(player => player.promise));
+    f.audio.playMusic('roofs');
+    const cursor = [...f.audio._playlistCursors];
+    f.audio.stopMusic();
+    let settled = false;
+    const long = f.audio.playTransitionCue('death').then(result => { settled = true; return result; });
+    const state = f.audio._cueState, media = state.media;
+    assert.equal(state.source, null, 'no decoded buffer source is allocated for long audio');
+    assert.equal(media.preload, 'metadata');
+    assert.equal(media.loop, false);
+    media.onplaying();
+    t.mock.timers.tick(65000); media.currentTime = 65;
+    await Promise.resolve();
+    assert.equal(settled, false, 'there is no old 45-second cap');
+    assert.equal(f.audio.getCueStatus().position, 65);
+    const oldEnded = media.onended;
+    const respawn = f.audio.playTransitionCue('respawn');
+    assert.equal((await long).status, 'cancelled');
+    assert.equal(media.paused, true);
+    assert.equal(media.src, '', 'cancelling releases network and decoder resources');
+    oldEnded();
+    assert.equal(f.audio.getCueStatus().id, 'respawn');
+    f.audio._cueState.source.finish();
+    assert.equal((await respawn).status, 'ended');
+    assert.deepEqual([...f.audio._playlistCursors], cursor, 'neither recording advances the level pool');
+  } finally { f.close(); }
+});
+
+test('streaming cue pause preserves playback, ignores stale play rejection and resumes to natural end', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'] });
+  const f = fixture(['long'], {}, {}, { cues: { death: ['long'] }, entries: { long: { durationSeconds: 167.328 } } });
+  try {
+    const playing = f.audio.playTransitionCue('death');
+    const media = f.audio._cueState.media;
+    media.onplaying(); media.currentTime = 8;
+    let rejectOld;
+    media.nextPlay = () => new Promise((_, reject) => { rejectOld = reject; });
+    f.audio._playCueMedia(f.audio._cueState);
+    f.audio.pauseMusic();
+    const playCalls = media.playCalls;
+    f.audio.resume();
+    assert.equal(media.playCalls, playCalls, 'gesture cannot unpause a paused cue');
+    t.mock.timers.tick(200000);
+    assert.equal(f.audio.getCueStatus().mode, 'paused');
+    assert.equal(f.audio.getCueStatus().position, 8);
+    media.nextPlay = null;
+    f.audio.resumeMusic(); media.onplaying();
+    rejectOld({ name: 'NotSupportedError' }); await Promise.resolve();
+    assert.equal(f.audio.getCueStatus().mode, 'playing');
+    assert.equal(media.currentTime, 8);
+    media.finish();
+    assert.equal((await playing).status, 'ended');
+  } finally { f.close(); }
+});
+
+test('a failed streaming cue resolves without substituting a song or generic music', async () => {
+  const f = fixture(['long', 'a'], { roofs: ['a'] }, {}, { cues: { death: ['long'] }, entries: { long: { durationSeconds: 167 } } });
+  try {
+    const playing = f.audio.playTransitionCue('death');
+    const media = f.audio._cueState.media;
+    media.error = { code: 4 }; media.onerror();
+    assert.equal((await playing).status, 'unavailable');
+    assert.equal(f.audio.currentTrack, null);
+    assert.equal(f.tones.length, 0);
+    assert.equal(f.audio.getCueStatus().mode, 'stopped');
+  } finally { f.close(); }
+});
 
 test('complete death recordings rotate in order, then stay silent until a full respawn recording finishes', async () => {
   const f = cueFixture();
@@ -700,10 +797,10 @@ test('another death or level invalidates stale respawn reservations while preser
   } finally { f.close(); }
 });
 
-test('all canonical music and 4 cue MP3s exactly match the received originals', async () => {
+test('all 42 active audio files match recorded fingerprints and any retained source originals', async () => {
   const inventory = await readFile(new URL('../assets/audio/INVENTARIO.md', import.meta.url), 'utf8');
-  const rows = inventory.split('\n').filter(line => /^\| (pista-|burla-|reaparicion)/.test(line));
-  assert.equal(rows.length, 41);
+  const rows = inventory.split('\n').filter(line => /^\| (pista-|burla-|reaparicion|final-malo)/.test(line));
+  assert.equal(rows.length, 42);
   const sha = bytes => createHash('sha256').update(bytes).digest('hex');
   for (const row of rows) {
     const [, id, , original, size, digest] = row.split('|').map(cell => cell.trim());
@@ -711,7 +808,11 @@ test('all canonical music and 4 cue MP3s exactly match the received originals', 
     const copy = await readFile(new URL(`../assets/audio/${id}.mp3`, import.meta.url));
     assert.equal(copy.length, Number(size), id + ': complete canonical file');
     assert.equal(sha(copy), expected, id + ': verified byte fingerprint');
-    const received = await readFile(new URL('../AUDIOS/' + encodeURIComponent(original), import.meta.url));
+    // Received source files may be removed after publication. Their recorded
+    // fingerprint still verifies every byte of the distributed copy above.
+    let received;
+    try { received = await readFile(new URL('../AUDIOS/' + encodeURIComponent(original), import.meta.url)); }
+    catch (error) { if (error.code === 'ENOENT') continue; throw error; }
     assert.equal(sha(received), expected, id + ': same bytes as original WhatsApp file');
   }
 });

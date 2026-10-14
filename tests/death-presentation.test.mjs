@@ -29,7 +29,7 @@ const settle = async () => { await Promise.resolve(); await Promise.resolve(); a
 function black(f) { f.game.killPlayer('fall'); f.game.update(1.51); assert.equal(f.game.state, 'death-black'); }
 async function phrase(f) { black(f); f.cues.at(-1)?.resolve({ status: 'ended' }); await settle(); f.game.update(0.51); assert.equal(f.game.state, 'death-phrase'); }
 
-test('soul precedes black; black waits for the complete cue and for at least half a second', async () => {
+test('soul precedes black; the phrase appears after half a second while the cue continues', async () => {
   const f = fixture();
   try {
     f.game.killPlayer('enemy');
@@ -37,9 +37,10 @@ test('soul precedes black; black waits for the complete cue and for at least hal
     f.game.update(1); assert.equal(f.game.state, 'dying');
     f.game.update(.51); assert.equal(f.game.state, 'death-black');
     assert.equal(f.cues.at(-1).name, 'death');
-    f.game.update(.2); f.cues.at(-1).resolve({ status: 'ended' }); await settle();
+    f.game.update(.2);
     f.game.update(.2); assert.equal(f.game.state, 'death-black');
     f.game.update(.11); assert.equal(f.game.state, 'death-phrase');
+    assert.equal(f.game._deathCueDone, false, 'audio may still be playing while the phrase is visible');
     assert.ok(f.game._deathPhrase.length); assert.equal(f.game._rankDeaths, 1);
   } finally { f.close(); }
 });
@@ -50,7 +51,7 @@ test('a held black-screen press never retries until a fresh press; respawn reser
     black(f);
     const deadPlayer = f.game.player, before = f.music.length;
     Input.setVirtualActions('held', ['attack']); f.game.update(1); Input.clearFrame();
-    assert.equal(f.game.state, 'death-black', 'full audio still pending');
+    assert.equal(f.game.state, 'death-phrase', 'waiting for a long recording must never block retry');
     f.cues.at(-1).resolve({ status: 'ended' }); await settle(); f.game.update(.01);
     assert.equal(f.game.state, 'death-phrase'); f.game.update(.1);
     assert.equal(f.game.player, deadPlayer, 'held button cannot acknowledge the phrase');

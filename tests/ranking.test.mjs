@@ -42,7 +42,8 @@ test('validation rejects invalid boards, unsafe aliases and impossible active cl
   assert.throws(() => finishValidation(run, { activeMs: 500000 }, 10000));
   assert.throws(() => finishValidation(run, {}, 500));
   assert.throws(() => finishValidation(run, {}, 20001));
-  assert.throws(() => finishValidation(run, { assisted: true }, 10000));
+  assert.equal(finishValidation(run, { assisted: true, activeMs: 7000 }, 10000).assisted, true);
+  assert.throws(() => finishValidation(run, { activeMs: 1 }, 10000));
 });
 
 test('unprovisioned API reports unavailable and preflight permits downloaded copies without cookies', async () => {
@@ -55,7 +56,7 @@ test('unprovisioned API reports unavailable and preflight permits downloaded cop
   assert.equal(preflight.headers.get('Access-Control-Allow-Credentials'), null);
 });
 
-test('server clock, ticket ownership and idempotence govern persisted scores', async () => {
+test('active time excludes pauses while server bounds, ticket ownership and idempotence protect scores', async () => {
   const f = fixture();
   try {
     const first = await f.call('/players', { nickname: 'RIKO', token: tokenA });
@@ -69,15 +70,15 @@ test('server clock, ticket ownership and idempotence govern persisted scores', a
     f.advance(12000);
     assert.equal((await f.call(`/runs/${ticket.id}/finish`, { token: ticket.token, activeMs: 9000 }, tokenB)).status, 404);
     const finish = await f.call(`/runs/${ticket.id}/finish`, { token: ticket.token, activeMs: 9000, time: 1, elapsedMs: 1 });
-    assert.equal(finish.data.elapsedMs, 12000);
+    assert.equal(finish.data.elapsedMs, 9000);
     f.advance(9000);
     const replay = await f.call(`/runs/${ticket.id}/finish`, { token: ticket.token, activeMs: 0 });
-    assert.equal(replay.data.elapsedMs, 12000);
+    assert.equal(replay.data.elapsedMs, 9000);
     assert.equal(replay.data.duplicate, true);
     const table = await f.call('/leaderboard?difficulty=easy&kind=level&level=0');
     assert.equal(table.data.entries.length, 1);
     assert.equal(table.data.player.rank, 1);
-    assert.equal(table.data.player.elapsedMs, 12000);
+    assert.equal(table.data.player.elapsedMs, 9000);
     assert.equal('token' in table.data.entries[0], false);
     assert.equal((await f.call('/leaderboard?difficulty=normal&kind=level&level=0')).data.entries.length, 0);
     assert.equal((await f.call('/leaderboard?difficulty=easy&kind=level&level=1')).data.entries.length, 0);
@@ -146,7 +147,7 @@ test('full campaign requires five linked level completions in order and an endin
     }
     assert.equal((await f.call(`/runs/${campaign.id}/finish`, { token: campaign.token })).data.code, 'ending');
     const finish = await f.call(`/runs/${campaign.id}/finish`, { token: campaign.token, ending: 'C', activeMs: 25000 });
-    assert.equal(finish.data.elapsedMs, 60000);
+    assert.equal(finish.data.elapsedMs, 25000);
     const table = (await f.call('/leaderboard?difficulty=normal&kind=campaign&level=-1')).data;
     assert.equal(table.entries.length, 1);
     assert.equal(table.player.ending, 'C');
@@ -159,7 +160,6 @@ test('rate limits and body bounds protect persistent ranking endpoints', async (
     await f.call('/players', { nickname: 'RIKO', token: tokenA });
     const oversized = await f.call('/runs', { difficulty: 'easy', kind: 'level', level: 0, extra: 'x'.repeat(5000) });
     assert.equal(oversized.status, 413);
-    assert.equal((await f.call('/runs', { difficulty: 'nightmare', kind: 'level', level: 0, assisted: true })).data.code, 'assisted');
     let limited;
     for (let i = 0; i < 151; i++) limited = await f.call('/runs', { difficulty: 'easy', kind: 'level', level: 0 });
     assert.equal(limited.status, 429);
@@ -198,8 +198,8 @@ test('an online ticket can retry a queued finish, survives reload, and caches on
     disconnected = true;
     assert.equal((await client.finishRun(ticket, { activeMs: 9000 })).status, 'queued');
     assert.equal(client.getStatus().pending, 1);
-    assert.match(client.getStatus().lastNotice, /incluye la demora/);
-    f.advance(5000);
+    assert.match(client.getStatus().lastNotice, /sin sumar la espera/);
+    f.advance(40 * 60000);
     client = new RankingClient({ apiBase: ORIGIN, storage, now: f.now, fetch, autoEvents: false });
     assert.equal(client.getStatus().pending, 1);
     disconnected = false;
@@ -207,13 +207,13 @@ test('an online ticket can retry a queued finish, survives reload, and caches on
     assert.equal(client.getStatus().pending, 0);
     assert.equal(client.getStatus().playerId, originalPlayer);
     let table = await client.getLeaderboard({ difficulty: 'easy', kind: 'level', level: 0 });
-    assert.equal(table.entries[0].elapsedMs, 15000);
+    assert.equal(table.entries[0].elapsedMs, 9000);
     assert.equal(table.entries[0].nickname, 'Chalchuapa');
     disconnected = true;
     table = await client.getLeaderboard({ difficulty: 'easy', kind: 'level', level: 0 });
     assert.equal(table.cached, true);
     assert.equal(table.status, 'offline');
-    assert.equal(table.entries[0].elapsedMs, 15000);
+    assert.equal(table.entries[0].elapsedMs, 9000);
   } finally { f.close(); }
 });
 
@@ -233,10 +233,178 @@ test('expired queue entries and rejected results remain local, not pending forev
     disconnected = true;
     await client.finishRun(ticket, {});
     assert.equal(client.getStatus().pending, 1);
-    f.advance(16 * 60000);
+    f.advance(7 * 60 * 60000);
     await client.sync();
     assert.equal(client.getStatus().pending, 0);
     assert.match(client.getStatus().lastNotice, /expiró/);
     assert.equal(f.db.sqlite.prepare('SELECT COUNT(*) AS n FROM scores').get().n, 0);
+  } finally { f.close(); }
+});
+
+test('nightmare records travel between independent devices with assistance kept on its own board', async () => {
+  const f = fixture();
+  const fetch = (url, options) => Worker.fetch(new Request(url, options), { DB: f.db }, {});
+  const deviceA = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now, fetch, autoEvents: false });
+  const deviceB = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now, fetch, autoEvents: false });
+  const selection = { difficulty: 'nightmare', kind: 'level', level: 4 };
+  try {
+    await deviceA.setNickname('Noobmaster69');
+    await deviceB.setNickname('Vecino');
+    const standard = await deviceA.beginRun(selection);
+    f.advance(20000);
+    assert.equal((await deviceA.finishRun(standard.ticket, { activeMs: 16000 })).ok, true);
+    const aided = await deviceA.beginRun({ ...selection, assisted: true });
+    assert.ok(aided.ticket);
+    f.advance(30000);
+    assert.equal((await deviceA.finishRun(aided.ticket, { activeMs: 11000, assisted: true })).ok, true);
+    const standardBoard = await deviceB.getLeaderboard(selection);
+    const aidedBoard = await deviceB.getLeaderboard({ ...selection, assisted: true });
+    assert.equal(standardBoard.entries.length, 1);
+    assert.equal(standardBoard.entries[0].elapsedMs, 16000);
+    assert.equal(standardBoard.entries[0].assisted, false);
+    assert.equal(aidedBoard.entries.length, 1);
+    assert.equal(aidedBoard.entries[0].elapsedMs, 11000);
+    assert.equal(aidedBoard.entries[0].assisted, true);
+    assert.equal(aidedBoard.entries[0].nickname, 'Noobmaster69');
+    assert.equal(standardBoard.entries[0].playerId, aidedBoard.entries[0].playerId);
+    assert.notEqual(deviceA.getStatus().playerId, deviceB.getStatus().playerId);
+  } finally { f.close(); }
+});
+
+test('mercy activated during a run cannot leak into the standard world leaderboard', async () => {
+  const f = fixture();
+  try {
+    await f.call('/players', { nickname: 'Riko', token: tokenA });
+    const { ticket } = (await f.call('/runs', { difficulty: 'nightmare', kind: 'level', level: 2 })).data;
+    f.advance(60000);
+    const result = await f.call(`/runs/${ticket.id}/finish`, { token: ticket.token, activeMs: 22000, assisted: true });
+    assert.equal(result.data.board.assisted, true);
+    assert.equal((await f.call('/leaderboard?difficulty=nightmare&kind=level&level=2')).data.entries.length, 0);
+    const aided = (await f.call('/leaderboard?difficulty=nightmare&kind=level&level=2&assisted=true')).data;
+    assert.equal(aided.entries[0].elapsedMs, 22000);
+    assert.equal(aided.entries[0].assisted, true);
+  } finally { f.close(); }
+});
+
+test('public ranking survives invalid or stale guest identities', async () => {
+  const f = fixture();
+  try {
+    for (const token of [null, 'old-invalid-token', 'c'.repeat(64)]) {
+      const result = await f.call('/leaderboard?difficulty=nightmare&kind=campaign&level=-1', undefined, token);
+      assert.equal(result.status, 200);
+      assert.equal(result.data.player, null);
+    }
+    assert.equal((await f.call('/runs', { difficulty: 'easy', kind: 'level', level: 0 }, 'bad')).status, 401);
+  } finally { f.close(); }
+});
+
+test('offline level completion may upload later without breaking the next linked level', async () => {
+  const f = fixture();
+  try {
+    await f.call('/players', { nickname: 'RIKO', token: tokenA });
+    const campaign = (await f.call('/runs', { difficulty: 'normal', kind: 'campaign', level: -1 })).data.ticket;
+    const levels = [];
+    for (let level = 0; level < 5; level++) {
+      const ticket = (await f.call('/runs', { difficulty: 'normal', kind: 'level', level, campaignId: campaign.id })).data.ticket;
+      assert.ok(ticket);
+      levels.push(ticket);
+      f.advance(10000);
+    }
+    const campaignPayload = { token: campaign.token, ending: 'A', activeMs: 35000 };
+    assert.equal((await f.call(`/runs/${campaign.id}/finish`, campaignPayload)).data.code, 'campaign_incomplete');
+    for (let i = 0; i < levels.length; i++) {
+      const ticket = levels[i];
+      assert.equal((await f.call(`/runs/${ticket.id}/finish`, { token: ticket.token, activeMs: 7000, assisted: i === 3 })).status, 200);
+    }
+    const result = await f.call(`/runs/${campaign.id}/finish`, campaignPayload);
+    assert.equal(result.status, 200);
+    assert.equal(result.data.elapsedMs, 35000);
+    assert.equal(result.data.assisted, true);
+    assert.equal((await f.call('/leaderboard?difficulty=normal&kind=campaign&level=-1')).data.entries.length, 0);
+    assert.equal((await f.call('/leaderboard?difficulty=normal&kind=campaign&level=-1&assisted=true')).data.entries[0].elapsedMs, 35000);
+  } finally { f.close(); }
+});
+
+test('campaign active duration cannot undercut its five verified levels', async () => {
+  const f = fixture();
+  try {
+    await f.call('/players', { nickname: 'RIKO', token: tokenA });
+    const campaign = (await f.call('/runs', { difficulty: 'hard', kind: 'campaign', level: -1 })).data.ticket;
+    for (let level = 0; level < 5; level++) {
+      const ticket = (await f.call('/runs', { difficulty: 'hard', kind: 'level', level, campaignId: campaign.id })).data.ticket;
+      f.advance(10000);
+      await f.call(`/runs/${ticket.id}/finish`, { token: ticket.token, activeMs: 9000 });
+    }
+    assert.equal((await f.call(`/runs/${campaign.id}/finish`, { token: campaign.token, ending: 'B', activeMs: 25000 })).data.code, 'active_time');
+    assert.equal((await f.call(`/runs/${campaign.id}/finish`, { token: campaign.token, ending: 'B', activeMs: 45000 })).status, 200);
+  } finally { f.close(); }
+});
+
+test('offline caches keep assisted and standard tables separate and never fake unsupported help boards', async () => {
+  const storage = memoryStorage();
+  let offline = false;
+  const selection = { difficulty: 'nightmare', kind: 'campaign', level: -1 };
+  const client = new RankingClient({ apiBase: ORIGIN, storage, autoEvents: false,
+    fetch: async url => {
+      if (offline) throw new Error('offline');
+      return Response.json({ ok: true, ...selection, assisted: new URL(url).searchParams.get('assisted') === 'true',
+        entries: [{ nickname: 'Jugador', elapsedMs: new URL(url).searchParams.get('assisted') === 'true' ? 50000 : 90000 }] });
+    } });
+  await client.getLeaderboard(selection);
+  await client.getLeaderboard({ ...selection, assisted: true });
+  offline = true;
+  assert.equal((await client.getLeaderboard(selection)).entries[0].elapsedMs, 90000);
+  assert.equal((await client.getLeaderboard({ ...selection, assisted: true })).entries[0].elapsedMs, 50000);
+  const oldBackend = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), autoEvents: false,
+    fetch: async () => Response.json({ ok: true, entries: [{ nickname: 'Estándar', elapsedMs: 12000 }] }) });
+  const oldBoard = await oldBackend.getLeaderboard({ ...selection, assisted: true });
+  assert.equal(oldBoard.ok, false);
+  assert.equal(oldBoard.entries.length, 0);
+});
+
+test('queued results retry automatically when connectivity returns without requiring a menu refresh', async () => {
+  const f = fixture();
+  const oldWindow = globalThis.window;
+  globalThis.window = { addEventListener() {} };
+  let disconnected = false;
+  let retry;
+  try {
+    const client = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now,
+      setRetryTimeout(callback) { retry = callback; return 1; },
+      fetch: async (url, options) => {
+        if (disconnected) throw new Error('offline');
+        return Worker.fetch(new Request(url, options), { DB: f.db }, {});
+      } });
+    await client.setNickname('Regreso');
+    const { ticket } = await client.beginRun({ difficulty: 'hard', kind: 'level', level: 1 });
+    f.advance(18000);
+    disconnected = true;
+    await client.finishRun(ticket, { activeMs: 12000 });
+    assert.equal(client.getStatus().pending, 1);
+    assert.equal(typeof retry, 'function');
+    disconnected = false;
+    f.advance(60000);
+    await retry();
+    assert.equal(client.getStatus().pending, 0);
+    const row = f.db.sqlite.prepare('SELECT elapsed_ms FROM scores').get();
+    assert.equal(row.elapsed_ms, 12000);
+  } finally { globalThis.window = oldWindow; f.close(); }
+});
+
+test('a fresh level can classify independently after an earlier offline stage broke campaign verification', async () => {
+  const f = fixture();
+  const client = new RankingClient({ apiBase: ORIGIN, storage: memoryStorage(), now: f.now, autoEvents: false,
+    fetch: (url, options) => Worker.fetch(new Request(url, options), { DB: f.db }, {}) });
+  try {
+    const campaign = await client.beginRun({ difficulty: 'nightmare', kind: 'campaign', level: -1 });
+    const nextLevel = await client.beginRun({ difficulty: 'nightmare', kind: 'level', level: 1, campaignId: campaign.ticket.id });
+    assert.equal(nextLevel.ok, true);
+    assert.equal(nextLevel.campaignLost, true);
+    assert.equal(nextLevel.ticket.campaignId, null);
+    f.advance(12000);
+    assert.equal((await client.finishRun(nextLevel.ticket, { activeMs: 10000 })).ok, true);
+    const table = await client.getLeaderboard({ difficulty: 'nightmare', kind: 'level', level: 1 });
+    assert.equal(table.entries.length, 1);
+    assert.equal((await client.finishRun(campaign.ticket, { activeMs: 30000, ending: 'B' })).ok, false);
   } finally { f.close(); }
 });

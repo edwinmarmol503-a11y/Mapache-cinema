@@ -21,9 +21,13 @@ function fixture({ delayedStarts = false, delayedFinishes = false } = {}) {
   const finishes = [];
   const ranking = {
     setNickname() {},
+    getStatus() { return { playerId: '12345678-1234-4123-8123-123456789012' }; },
     beginRun(selection) {
       const wait = deferred();
-      const item = { selection: { ...selection }, wait, ticket: { id: `ticket-${starts.length}`, token: 'secret' } };
+      const item = { selection: { ...selection }, wait, ticket: {
+        ...selection, id: `12345678-1234-4123-8123-${String(starts.length).padStart(12, '0')}`, token: 'a'.repeat(64),
+        ruleset: 'lumera-2026-10-v2', startedAt: Date.now(), expiresAt: Date.now() + 21600000,
+      } };
       starts.push(item);
       if (!delayedStarts) wait.resolve({ ok: true, ticket: item.ticket });
       return wait.promise;
@@ -65,12 +69,12 @@ test('late start tickets cannot reactivate a suspended session or replace a newe
     assert.equal(f.game._rankingStarting, true);
     f.starts[2].wait.resolve({ ok: true, ticket: f.starts[2].ticket });
     await settle();
-    assert.equal(f.game._levelTicket.id, 'ticket-2');
+    assert.equal(f.game._levelTicket.id, f.starts[2].ticket.id);
     assert.equal(f.game._rankingStarting, false);
   } finally { f.close(); }
 });
 
-test('continued checkpoint sessions stay local when moving to the next level or restarting', async () => {
+test('unverified old checkpoints stay local but fresh levels and restarts can classify globally', async () => {
   const f = fixture();
   try {
     f.save.newGame('easy', 0, 'RIKO');
@@ -82,10 +86,12 @@ test('continued checkpoint sessions stay local when moving to the next level or 
     f.game.transition.cb();
     await settle();
     assert.equal(f.game.levelIndex, 1);
-    assert.equal(f.starts.length, 0);
+    assert.equal(f.starts.length, 1);
+    assert.equal(f.starts[0].selection.level, 1);
+    assert.equal(f.starts[0].selection.campaignId, undefined);
     f.game.restartLevel();
     await settle();
-    assert.equal(f.starts.length, 0);
+    assert.equal(f.starts.length, 2);
   } finally { f.close(); }
 });
 
@@ -162,5 +168,66 @@ test('mercy difficulty is marked as assisted immediately when the respawn loads'
     f.game.loadLevel(2, true);
     assert.equal(f.game.diff.enemySpeed, 1.4);
     assert.equal(f.game._rankAssisted, true);
+  } finally { f.close(); }
+});
+
+test('saved online checkpoints retain their campaign and level tickets after leaving to the menu', async () => {
+  const f = fixture();
+  try {
+    f.game.startAt('normal', 0, 'RIKO');
+    await settle();
+    const campaignId = f.game._campaignTicket.id;
+    const levelId = f.game._levelTicket.id;
+    f.save.update({ playtime: 17.5, checkpoint: { x: 100, y: 90 } });
+    f.game._rankDeaths = 4;
+    f.game.suspendRun();
+    assert.equal(f.save.data.rankingSession.levelElapsedMs, 17500);
+    assert.equal(f.save.data.rankingSession.campaignTicket.id, campaignId);
+    f.game.continueGame();
+    await settle();
+    assert.equal(f.starts.length, 2);
+    assert.equal(f.game._campaignFresh, true);
+    assert.equal(f.game._campaignTicket.id, campaignId);
+    assert.equal(f.game._levelTicket.id, levelId);
+    assert.equal(f.game._rankDeaths, 4);
+    assert.equal(f.game.getLevelElapsedMs(), 17500);
+    f.save.data.playtime += 3;
+    assert.equal(f.game.getLevelElapsedMs(), 20500);
+    await f.game._finishLevelRanking();
+    assert.equal(f.finishes[0].ticket.id, levelId);
+    assert.equal(f.finishes[0].detail.activeMs, 20500);
+  } finally { f.close(); }
+});
+
+test('an expired saved session cannot turn old checkpoint progress into a fresh online score', async () => {
+  const f = fixture();
+  try {
+    f.game.startAt('hard', 1, 'RIKO');
+    await settle();
+    f.save.data.playtime = 10;
+    f.game.suspendRun();
+    f.save.data.rankingSession.levelTicket.expiresAt = Date.now() - 1;
+    f.save.persist();
+    f.game.continueGame();
+    await settle();
+    assert.equal(f.game._levelTicket, null);
+    assert.equal(f.game._campaignFresh, false);
+    assert.equal(f.starts.length, 1);
+  } finally { f.close(); }
+});
+
+test('assisted nightmare starts and finishes still receive real online tickets', async () => {
+  const f = fixture();
+  try {
+    const meta = f.save.loadMeta(); meta.nightmareDeaths = NIGHTMARE_MERCY_DEATHS; f.save.saveMeta(meta);
+    f.game.startAt('nightmare', 0, 'RIKO');
+    await settle();
+    assert.equal(f.starts.length, 2);
+    assert.ok(f.starts.every(entry => entry.selection.assisted === true));
+    assert.ok(f.game._levelTicket);
+    f.save.data.playtime = 12;
+    await f.game._finishLevelRanking();
+    assert.equal(f.finishes[0].detail.assisted, true);
+    assert.equal(f.finishes[0].detail.activeMs, 12000);
   } finally { f.close(); }
 });
