@@ -85,10 +85,12 @@ export class Menu {
     footer.className = 'menu-footer';
     content.querySelectorAll('.hint, .version').forEach((el) => footer.append(el));
     content.append(footer);
-    this._menuGlitchLayer = document.createElement('div');
+    this._menuGlitchLayer = document.createElement('canvas');
     this._menuGlitchLayer.className = 'menu-glitch-layer';
     this._menuGlitchLayer.setAttribute('aria-hidden', 'true');
     this.elMenu.prepend(this._menuGlitchLayer);
+    this._glitchMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+    this._glitchMotion?.addEventListener?.('change', () => this._clearMenuGlitch());
     this._syncMenuBounds = () => {
       const canvas = document.getElementById('gs').getBoundingClientRect();
       const screen = this.elMenu.getBoundingClientRect();
@@ -112,28 +114,70 @@ export class Menu {
 
   _clearMenuGlitch() {
     clearTimeout(this._menuGlitchEnd);
+    clearTimeout(this._menuGlitchFrame);
     this.elMenu.classList.remove('menu-glitch');
     document.getElementById('app').classList.remove('menu-interference');
   }
 
-  _scheduleMenuGlitch() {
+  _canMenuGlitch() {
+    return !this.elMenu.classList.contains('hidden') && !document.hidden
+      && !document.documentElement.classList.contains('reduced-effects')
+      && !this._glitchMotion?.matches;
+  }
+
+  _drawMenuGlitch() {
+    // Copy a handful of displaced scan bands from the real scene. The live
+    // canvas and interactive DOM never move, so controls keep their hitboxes.
+    const source = document.getElementById('gs');
+    const bounds = source.getBoundingClientRect();
+    const screen = this.elMenu.getBoundingClientRect();
+    const layer = this._menuGlitchLayer;
+    layer.width = source.width; layer.height = source.height;
+    Object.assign(layer.style, {
+      left: (bounds.left - screen.left) + 'px', top: (bounds.top - screen.top) + 'px',
+      width: bounds.width + 'px', height: bounds.height + 'px',
+    });
+    const ctx = layer.getContext('2d');
+    if (!ctx || !bounds.width) return;
+    const w = layer.width, h = layer.height;
+    ctx.imageSmoothingEnabled = false;
+    const bands = 4 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < bands; i++) {
+      const y = Math.round((.07 + Math.random() * .85) * h);
+      const height = Math.max(2, Math.round((.008 + Math.random() * .035) * h));
+      const shift = Math.round((.008 + Math.random() * .018) * w) * (Math.random() < .5 ? -1 : 1);
+      ctx.drawImage(source, 0, y, w, height, shift, y, w, height);
+      ctx.fillStyle = i % 2 ? '#e05da635' : '#55d9f044';
+      ctx.fillRect(0, y, w, Math.max(1, Math.round(h / 540)));
+      // Broken pixels live inside the tears, never a full-screen flash.
+      for (let j = 0; j < 4; j++) {
+        ctx.fillStyle = j % 2 ? '#6cd9ef35' : '#0b122966';
+        ctx.fillRect(Math.random() * w, y, (4 + Math.random() * 28) * w / 480, Math.max(1, height * .3));
+      }
+    }
+  }
+
+  _beginMenuGlitch() {
+    this._clearMenuGlitch();
+    if (!this._canMenuGlitch()) return;
+    this._drawMenuGlitch();
+    this.elMenu.classList.add('menu-glitch');
+    document.getElementById('app').classList.add('menu-interference');
+    // Two irregular frames per burst rather than continuous flicker.
+    this._menuGlitchFrame = setTimeout(() => {
+      if (this._canMenuGlitch()) this._drawMenuGlitch();
+      else this._clearMenuGlitch();
+    }, 100 + Math.random() * 60);
+    this._menuGlitchEnd = setTimeout(() => this._clearMenuGlitch(), 280 + Math.random() * 150);
+  }
+
+  _scheduleMenuGlitch(first = false) {
     clearTimeout(this._menuGlitchTimer);
-    // One faint interference burst, with a fresh random delay and location.
-    // It never flashes the full screen or affects navigation/click targets.
     this._menuGlitchTimer = setTimeout(() => {
       if (this.elMenu.classList.contains('hidden')) return;
-      const reduced = document.documentElement.classList.contains('reduced-effects')
-        || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
-      if (!reduced && !document.hidden) {
-        this.elMenu.style.setProperty('--glitch-y', (12 + Math.random() * 70).toFixed(1) + '%');
-        this.elMenu.style.setProperty('--glitch-h', (2 + Math.random() * 4).toFixed(1) + '%');
-        this.elMenu.style.setProperty('--glitch-shift', (Math.random() < .5 ? -1 : 1) + 'px');
-        this.elMenu.classList.add('menu-glitch');
-        document.getElementById('app').classList.add('menu-interference');
-        this._menuGlitchEnd = setTimeout(() => this._clearMenuGlitch(), 110 + Math.random() * 110);
-      }
+      this._beginMenuGlitch();
       this._scheduleMenuGlitch();
-    }, 5500 + Math.random() * 14000);
+    }, first ? 1400 + Math.random() * 1600 : 4000 + Math.random() * 6000);
   }
 
   _menuAction(act) {
@@ -165,7 +209,7 @@ export class Menu {
     cont.disabled = !Save.hasSave();
     this._refreshMenuSel();
     this._syncMenuBounds();
-    this._scheduleMenuGlitch();
+    this._scheduleMenuGlitch(true);
   }
 
   hideAll() {
