@@ -1,5 +1,5 @@
 /* ============================================================
-   touch.js - multitouch joystick + optional D-pad. Mobile input
+   touch.js - handheld layout with independent stick, D-pad and buttons.
    uses semantic actions, independently of keyboard bindings.
    ============================================================ */
 import { Input } from './input.js';
@@ -23,11 +23,10 @@ export function joystickActions(x, y, previous = []) {
   if (!Number.isFinite(x) || !Number.isFinite(y) || Math.hypot(x, y) < 0.22) return [];
   const actions = [];
   const held = new Set(previous);
-  // Lower release thresholds keep a thumb at the edge from retriggering
-  // movement or the double jump because of tiny finger movements.
+  // Lower release thresholds prevent direction chatter near an axis edge.
   if (x <= -(held.has('left') ? 0.22 : 0.30)) actions.push('left');
   if (x >= (held.has('right') ? 0.22 : 0.30)) actions.push('right');
-  if (y <= -(held.has('up') ? 0.22 : 0.30)) actions.push('up', 'jump');
+  if (y <= -(held.has('up') ? 0.22 : 0.30)) actions.push('up');
   if (y >= (held.has('down') ? 0.22 : 0.30)) actions.push('down');
   return actions;
 }
@@ -47,20 +46,26 @@ function releaseAll() {
 }
 export { releaseAll as releaseTouchInputs };
 
-function releaseGroup(container) {
-  for (const [id, release] of [...activePointers]) {
-    if (container.contains(release.element)) { release(); activePointers.delete(id); }
-  }
-}
-
 /** Native buttons are labelled for assistive technology; pointer capture keeps
  * jump + movement + attacks independent when fingers slide off a button. */
-function makeButton(label, action, cls, description = label) {
+function makeButton(label, action, cls, description = label, caption = '') {
   const button = document.createElement('button');
   button.type = 'button';
   button.tabIndex = -1;
   button.className = 'tc-btn ' + (cls || '');
-  button.textContent = label;
+  button.dataset.action = action;
+  const symbol = document.createElement('span');
+  symbol.className = 'tc-symbol';
+  symbol.textContent = label;
+  symbol.setAttribute('aria-hidden', 'true');
+  button.append(symbol);
+  if (caption) {
+    const text = document.createElement('span');
+    text.className = 'tc-caption';
+    text.textContent = caption;
+    text.setAttribute('aria-hidden', 'true');
+    button.append(text);
+  }
   button.setAttribute('aria-label', description);
   button.title = description;
   const held = new Set();
@@ -71,7 +76,7 @@ function makeButton(label, action, cls, description = label) {
     const source = 'touch:button:' + action + ':' + id;
     held.add(id);
     button.classList.add('active');
-    Input.setVirtualActions(source, action === 'up' ? ['up', 'jump'] : [action]);
+    Input.setVirtualActions(source, [action]);
     const release = () => {
       held.delete(id);
       Input.releaseVirtual(source);
@@ -90,8 +95,8 @@ function makeJoystick() {
   const base = document.createElement('div');
   base.className = 'tc-joystick';
   base.setAttribute('role', 'group');
-  base.setAttribute('aria-label', 'Joystick: izquierda y derecha para moverte; arriba para saltar y apuntar; abajo para bajar plataformas. Vuelve al centro y sube otra vez para el doble salto.');
-  base.innerHTML = '<span class="tc-stick-guide tc-stick-up" aria-hidden="true">▲ SALTA</span><span class="tc-stick-guide tc-stick-down" aria-hidden="true">▼</span><span class="tc-stick-guide tc-stick-left" aria-hidden="true">◀</span><span class="tc-stick-guide tc-stick-right" aria-hidden="true">▶</span><div class="tc-stick-thumb" aria-hidden="true"><span>✥</span></div>';
+  base.setAttribute('aria-label', 'Joystick: moverte y apuntar en cuatro direcciones. Abajo permite bajar plataformas. Usa el botón equis para saltar.');
+  base.innerHTML = '<span class="tc-stick-guide tc-stick-up" aria-hidden="true">▲</span><span class="tc-stick-guide tc-stick-down" aria-hidden="true">▼</span><span class="tc-stick-guide tc-stick-left" aria-hidden="true">◀</span><span class="tc-stick-guide tc-stick-right" aria-hidden="true">▶</span><div class="tc-stick-thumb" aria-hidden="true"></div>';
   const thumb = base.querySelector('.tc-stick-thumb');
   let pointer = null;
   let center = null;
@@ -156,7 +161,7 @@ function mountOptions() {
   if (!panel || document.getElementById('opt-touch-mode')) return;
   const section = document.createElement('div');
   section.className = 'tc-options';
-  section.innerHTML = '<h3>CONTROLES MÓVILES</h3><div class="opt-row"><label for="opt-touch-mode">Movimiento</label><select id="opt-touch-mode"><option value="joystick">Joystick</option><option value="dpad">Cruceta clásica</option></select></div><div class="opt-row"><label for="opt-touch-layout">Mano de acciones</label><select id="opt-touch-layout"><option value="right">Derecha</option><option value="left">Izquierda</option></select></div><p>Arriba: saltar. Vuelve al centro y sube otra vez para el doble salto. Abajo: bajar plataformas. MÁS abre bloqueo, lanzamiento y cambio de objeto. Cualquier acción continúa el diálogo.</p>';
+  section.innerHTML = '<h3>CONTROLES MÓVILES</h3><div class="opt-row"><label for="opt-touch-mode">Control inferior</label><select id="opt-touch-mode"><option value="joystick">Joystick</option><option value="dpad">Cruceta</option></select></div><div class="opt-row"><label for="opt-touch-layout">Mano de acciones</label><select id="opt-touch-layout"><option value="right">Derecha</option><option value="left">Izquierda</option></select></div><p>Cruceta y joystick: moverte y apuntar, sin salto automático. ×: saltar (dos pulsaciones para doble salto). □: atacar. ○: esquivar. △: usar. L: parada. R: lanzar. SELECT: siguiente objeto. START: pausa. GESTO: emote. Las acciones también continúan los diálogos.</p>';
   const controlsHeading = panel.querySelector('#control-list')?.parentElement;
   if (controlsHeading && controlsHeading.parentElement === panel) panel.insertBefore(section, controlsHeading);
   else panel.insertBefore(section, panel.querySelector('.back'));
@@ -201,55 +206,43 @@ export function initTouch({ force = false } = {}) {
   movement.className = 'tc-movement';
   const dpad = document.createElement('div');
   dpad.className = 'tc-dpad';
+  dpad.setAttribute('role', 'group');
+  dpad.setAttribute('aria-label', 'Cruceta de movimiento y dirección');
   dpad.append(
-    makeButton('▲', 'up', 'tc-d-up', 'Saltar y apuntar arriba; pulsa de nuevo para el doble salto'),
-    makeButton('▼', 'down', 'tc-d-down', 'Apuntar abajo y bajar plataformas'),
-    makeButton('◀', 'left', 'tc-d-left', 'Mover a la izquierda'),
-    makeButton('▶', 'right', 'tc-d-right', 'Mover a la derecha'),
+    makeButton('△', 'up', 'tc-d-up', 'Apuntar arriba; no salta'),
+    makeButton('▽', 'down', 'tc-d-down', 'Apuntar abajo y bajar plataformas'),
+    makeButton('◁', 'left', 'tc-d-left', 'Mover a la izquierda'),
+    makeButton('▷', 'right', 'tc-d-right', 'Mover a la derecha'),
   );
   movement.append(makeJoystick(), dpad);
 
   const actions = document.createElement('div');
   actions.className = 'tc-actions';
+  actions.setAttribute('role', 'group');
+  actions.setAttribute('aria-label', 'Botones de acción');
   actions.append(
-    makeButton('ATQ', 'attack', 'tc-a-atk', 'Atacar'),
-    makeButton('ESQ', 'dodge', 'tc-a-dodge', 'Esquivar'),
-    makeButton('USAR', 'interact', 'tc-a-interact', 'Interactuar y continuar diálogos'),
+    makeButton('△', 'interact', 'tc-a-interact', 'Triángulo: usar objeto, interactuar y continuar diálogos', 'USAR'),
+    makeButton('○', 'dodge', 'tc-a-dodge', 'Círculo: esquivar', 'ESQUIVA'),
+    makeButton('×', 'jump', 'tc-a-jump', 'Equis: saltar; pulsa de nuevo para el doble salto', 'SALTA'),
+    makeButton('□', 'attack', 'tc-a-atk', 'Cuadrado: atacar', 'ATACA'),
   );
 
-  const secondary = document.createElement('div');
-  secondary.id = 'touch-secondary';
-  secondary.className = 'tc-secondary';
-  secondary.hidden = true;
-  secondary.append(
-    makeButton('BLOQ', 'parry', 'tc-s-parry', 'Bloquear; apunta con el joystick para un bloqueo direccional'),
-    makeButton('LANZA', 'throw', 'tc-s-throw', 'Lanzar el objeto seleccionado'),
-    makeButton('◀', 'cycleL', 'tc-s-cycle', 'Seleccionar objeto anterior'),
-    makeButton('▶', 'cycleR', 'tc-s-cycle', 'Seleccionar objeto siguiente'),
+  const system = document.createElement('div');
+  system.className = 'tc-system';
+  system.append(
     makeButton('GESTO', 'emote', 'tc-s-emote', 'Emote: acostarse, voltereta, saludar o bailar'),
+    makeButton('SELECT', 'cycleR', 'tc-select', 'SELECT: seleccionar el siguiente objeto', 'OBJETO'),
+    makeButton('START', 'pause', 'tc-pause', 'START: pausar juego', 'PAUSA'),
   );
-  const more = document.createElement('button');
-  more.type = 'button';
-  more.className = 'tc-btn tc-a-more';
-  more.textContent = 'MÁS';
-  more.tabIndex = -1;
-  more.setAttribute('aria-label', 'Mostrar acciones adicionales');
-  more.setAttribute('aria-expanded', 'false');
-  more.setAttribute('aria-controls', secondary.id);
-  more.addEventListener('click', () => {
-    secondary.hidden = !secondary.hidden;
-    more.classList.toggle('expanded', !secondary.hidden);
-    more.setAttribute('aria-expanded', String(!secondary.hidden));
-    more.textContent = secondary.hidden ? 'MÁS' : 'MENOS';
-    if (secondary.hidden) releaseGroup(secondary);
-  });
-  actions.append(more, secondary);
-  layer.append(movement, actions, makeButton('Ⅱ', 'pause', 'tc-pause', 'Pausar juego'));
+  layer.append(movement, actions, system,
+    makeButton('L', 'parry', 'tc-shoulder tc-s-parry', 'L: parada; apunta con cruceta o joystick para bloquear en una dirección', 'PARADA'),
+    makeButton('R', 'throw', 'tc-shoulder tc-s-throw', 'R: lanzar el objeto seleccionado', 'LANZA'),
+  );
   app.append(layer);
 
   const rotate = document.createElement('div');
   rotate.id = 'rotate-overlay';
-  rotate.innerHTML = '<div class="ro-icon" aria-hidden="true">⟳</div><p>Gira tu teléfono<br><span>Mapache Cinema se juega en horizontal</span></p>';
+  rotate.textContent = 'Gira tu teléfono para ver más espacio de juego';
   app.append(rotate);
   controls = { layer, rotate, release: releaseAll };
   mountOptions();
@@ -275,12 +268,6 @@ export function setTouchEnabled(enabled) {
   if (app) app.classList.toggle('touch-mode', !!enabled);
   if (controls) {
     controls.rotate.style.display = enabled ? '' : 'none';
-    if (!enabled) {
-      const more = controls.layer.querySelector('.tc-a-more');
-      const secondary = controls.layer.querySelector('#touch-secondary');
-      if (secondary) secondary.hidden = true;
-      if (more) { more.classList.remove('expanded'); more.textContent = 'MÁS'; more.setAttribute('aria-expanded', 'false'); }
-    }
   }
   return controls;
 }

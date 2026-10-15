@@ -5,7 +5,7 @@ import { PadBindings } from './controller-bindings.js';
 // This is a local exhibition switch, not server-side account authentication.
 const ACCESS_SALT = '2546f8c4ba93b76fc054983293201057';
 const ACCESS_DIGEST = '53e3ad5d6870ecc6b96b9d01f33398271da8752ce5ef16d6aeadac1749bce948';
-const TOUCH_HINTS = { jump: 'Joystick ▲', attack: 'ATQ', dodge: 'ESQ', parry: 'BLOQ', interact: 'USAR', throw: 'LANZA', pause: 'Ⅱ', confirm: 'USAR', cancel: 'VOLVER', cycleL: '◀', cycleR: '▶', emote: 'GESTO' };
+const TOUCH_HINTS = { jump: '×', attack: '□', dodge: '○', parry: 'L', interact: '△', throw: 'R', pause: 'START', confirm: '△', cancel: 'VOLVER', cycleL: 'SELECT', cycleR: 'SELECT', emote: 'GESTO' };
 
 export function createControls({ salt = ACCESS_SALT, digest = ACCESS_DIGEST, cryptoProvider = globalThis.crypto, padBindings = PadBindings } = {}) {
   let mode = 'keyboard';

@@ -46,7 +46,9 @@ export class Farolero {
     this.stateT = 1.4;
     this.swoopCd = 3.0;
     this.orbCd = 2.0;
-    this.addCd = 3.0;
+    // The first hover lasts 2.4 s: summon before its first low pass, even
+    // while the tower's unvisited enemies are still alive below the arena.
+    this.addCd = 1.2;
     this.telegraph = 0;
     this.sweepDir = 1;
     this.lataCd = 10;   // Pesadilla only: a rare lata so you're never out of ammo vs the boss
@@ -150,10 +152,9 @@ export class Farolero {
         if (this.orbCd <= 0) { this._orbs(world, p); this.orbCd = [2.5, 1.9, 1.4][this.phase - 1] / this.spdMul; }
 
         this.addCd -= dt;
-        const alive = world.enemies.filter((e) => !e.dead).length;
-        if (this.addCd <= 0 && alive < this.phase + 1) {
-          this._spawnAdd(world);
-          this.addCd = [6, 4.5, 3.4][this.phase - 1];
+        if (this.addCd <= 0) {
+          // A full/obstructed arena retries slowly, not on every frame.
+          this.addCd = this._spawnAdd(world) ? [6, 4.5, 3.4][this.phase - 1] : 0.75;
         }
 
         // Pesadilla: J does no damage to regular enemies, so throwing latas at
@@ -249,31 +250,63 @@ export class Farolero {
     world.audio.sfx('light');
   }
 
+  _livingAdds(world) {
+    // Placed enemies below the tower floor must not consume these slots.
+    // Our own summons still count if a flying one briefly leaves the arena,
+    // so wandering enemies cannot cause an unbounded stream of replacements.
+    const a = this.arena;
+    return world.enemies.filter((e) => !e.dead && (e._bossAdd ||
+      rectsOverlap(e.x, e.y, e.w, e.h, a.x, a.y, a.w, a.h)));
+  }
+
+  _safeAddPosition(e, world) {
+    const p = world.player, map = world.map, ts = map.ts;
+    // A horizontal gap remains safe even if Riko jumps during the summon.
+    const gap = Math.max(e.x - (p.x + p.w), p.x - (e.x + e.w));
+    if (gap < 60) return false;
+    const padded = { x: e.x - 4, y: e.y - 2, w: e.w + 8, h: e.h + 2 };
+    const overlaps = (r) => rectsOverlap(padded.x, padded.y, padded.w, padded.h, r.x, r.y, r.w, r.h);
+    if (world.enemies.some((other) => !other.dead && overlaps(other))) return false;
+    if ((world.solids || []).some(overlaps)) return false;
+    for (let ty = Math.floor(padded.y / ts); ty <= Math.floor((e.y + e.h - 0.01) / ts); ty++) {
+      for (let tx = Math.floor(padded.x / ts); tx <= Math.floor((padded.x + padded.w - 0.01) / ts); tx++) {
+        if (map.isSolidTile(tx, ty) || map.isHazardTile(tx, ty)) return false;
+      }
+    }
+    if (!e.flying) {
+      const floorTy = Math.floor((e.y + e.h + 0.02) / ts);
+      for (const x of [e.x + 1, e.x + e.w / 2, e.x + e.w - 1]) {
+        const tx = Math.floor(x / ts);
+        if (map.isHazardTile(tx, floorTy) || (!map.isSolidTile(tx, floorTy) && !map.isOneWayTile(tx, floorTy))) return false;
+      }
+    }
+    return true;
+  }
+
   _spawnAdd(world) {
+    if (world.player.dead || this._livingAdds(world).length >= this.phase + 1) return false;
     const k = choice(['sombra', 'cuervo', 'devorador', 'guardian']);
-    // keep reinforcements away from Riko -- never drop one on top of / right
-    // in front of the player. Retry a few random spots, then fall back to
-    // whichever arena edge is currently farthest from him.
-    const minX = this.arena.x + 20;
-    const maxX = this.arena.x + this.arena.w - 20;
-    const p = world.player;
-    const minDist = 60;
-    let fx = minX + Math.random() * (maxX - minX);
-    for (let tries = 0; tries < 8 && Math.abs(fx - p.cx) < minDist; tries++) {
-      fx = minX + Math.random() * (maxX - minX);
+    const C = { sombra: Sombra, cuervo: Cuervo, devorador: Devorador, guardian: Guardian }[k];
+    const e = new C({ type: k, x: 0, y: 0 });
+    e.y = e.flying ? this.arena.y + 22 : this.arena.y + this.arena.h - e.h - 0.01;
+    // Search the whole floor from a random starting slot. If every slot is
+    // unsafe, wait and retry instead of forcing an enemy into Riko/a wall.
+    const minX = this.arena.x + 20, maxX = this.arena.x + this.arena.w - 20 - e.w;
+    if (maxX < minX) return false;
+    const slots = Math.floor((maxX - minX) / 8) + 1;
+    const start = Math.floor(Math.random() * slots);
+    for (let i = 0; i < slots; i++) {
+      e.x = minX + ((start + i) % slots) * 8;
+      if (!this._safeAddPosition(e, world)) continue;
+      e.homeX = e.x; e.homeY = e.y;
+      if (e.flying) e.baseY = e.y;
+      e.aggro = true;
+      e._bossAdd = true;
+      world.enemies.push(e);
+      world.particles.burst(e.x + e.w / 2, e.y + e.h / 2, 12, { color: '#6b4a8a', speed: 60, life: 0.5, glow: true });
+      return true;
     }
-    if (Math.abs(fx - p.cx) < minDist) {
-      fx = (p.cx - minX < maxX - p.cx) ? maxX : minX;
-    }
-    const floorY = this.arena.y + this.arena.h;
-    let e;
-    if (k === 'sombra') e = new Sombra({ type: 'sombra', x: fx, y: floorY - 30, hp: 2 });
-    else if (k === 'cuervo') e = new Cuervo({ type: 'cuervo', x: fx, y: this.arena.y + 22, hp: 2 });
-    else if (k === 'devorador') e = new Devorador({ type: 'devorador', x: fx, y: floorY - 30, hp: 3 });
-    else e = new Guardian({ type: 'guardian', x: fx, y: floorY - 34, hp: 3 });
-    e.aggro = true;
-    world.enemies.push(e);
-    world.particles.burst(fx + 6, floorY - 20, 12, { color: '#6b4a8a', speed: 60, life: 0.5, glow: true });
+    return false;
   }
 
   render(ctx, cam) {

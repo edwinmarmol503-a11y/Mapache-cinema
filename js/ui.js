@@ -11,10 +11,43 @@ import { Controls } from './control-mode.js';
 export const canvasFont = (size = 11, weight = 400) => `${weight >= 600 ? 700 : 400} ${size}px "Monocraft", monospace`;
 
 /* ---------------- HUD ---------------- */
+const hudPositions = new WeakMap();
+const defaultHUD = { left: 0, right: 0, objectivesY: 20 };
+
+// Convert the actual on-screen shoulder buttons to the game's 480px space.
+// In portrait they sit above the canvas and must not move its HUD at all.
+export function touchHUDLayout(canvas, left, right, width = 480, height = 270) {
+  if (!canvas?.width || !canvas?.height) return defaultHUD;
+  const scaleX = canvas.width / width, scaleY = canvas.height / height;
+  const coversTop = (r) => r?.width > 0 && r.height > 0 &&
+    r.bottom > canvas.top && r.top < canvas.top + 55 * scaleY &&
+    r.right > canvas.left && r.left < canvas.right;
+  const leftInset = coversTop(left) ? Math.min(96, Math.max(0, Math.ceil((left.right - canvas.left + 6) / scaleX))) : 0;
+  const rightInset = coversTop(right) ? Math.min(96, Math.max(0, Math.ceil((canvas.right - right.left + 6) / scaleX))) : 0;
+  return { left: leftInset, right: rightInset, objectivesY: rightInset ? 35 : 20 };
+}
+
+function hudPlacement(world) {
+  const canvas = world.canvas;
+  if (Controls.getMode() !== 'touch' || typeof document === 'undefined' || !canvas?.getBoundingClientRect) return defaultHUD;
+  const now = performance.now();
+  const key = `${globalThis.innerWidth}:${globalThis.innerHeight}:${canvas.clientWidth}:${canvas.clientHeight}`;
+  const cached = hudPositions.get(canvas);
+  if (cached?.key === key && now - cached.time < 250) return cached.layout;
+  const layout = touchHUDLayout(canvas.getBoundingClientRect(),
+    document.querySelector?.('#touch-layer .tc-s-parry')?.getBoundingClientRect(),
+    document.querySelector?.('#touch-layer .tc-s-throw')?.getBoundingClientRect(), world.W, world.H);
+  hudPositions.set(canvas, { key, time: now, layout });
+  return layout;
+}
+
 export function drawHUD(ctx, world) {
   const p = world.player;
+  const placement = hudPlacement(world);
   ctx.save();
   ctx.imageSmoothingEnabled = false;
+  ctx.save();
+  ctx.translate(placement.left, 0);
 
   // The control labels need the same contrast in daylight and on a bright TV.
   ctx.fillStyle = 'rgba(5,10,20,0.84)';
@@ -53,7 +86,8 @@ export function drawHUD(ctx, world) {
     outText(ctx, '--', bx + 4, by + 10, '#9fb2cc');
   }
   ctx.font = canvasFont(10);
-  outText(ctx, Controls.getHint('cycleL') + '/' + Controls.getHint('cycleR'), bx + 20, by + 12, '#c3d0e4');
+  const cycleHints = [...new Set([Controls.getHint('cycleL'), Controls.getHint('cycleR')])].join('/');
+  outText(ctx, cycleHints, bx + 20, by + 12, '#c3d0e4');
 
   // parry charges (perfect counter)
   const pc = p.parryCharges == null ? 0 : p.parryCharges;
@@ -77,14 +111,15 @@ export function drawHUD(ctx, world) {
   }
   ctx.font = canvasFont(10);
   outText(ctx, Controls.getHint('parry'), bx + 29, by + 26, '#c3d0e4');
+  ctx.restore();
 
   // memory counter
   const mem = (world.save.data && world.save.data.memories) || 0;
   ctx.font = canvasFont(10);
   ctx.fillStyle = 'rgba(5,10,20,0.84)';
-  ctx.fillRect(world.W - 41, 4, 37, 15);
-  drawItemIcon(ctx, 'memory', world.W - 36, 6);
-  outText(ctx, 'x' + mem, world.W - 23, 15, '#ffd66a');
+  ctx.fillRect(world.W - 41 - placement.right, 4, 37, 15);
+  drawItemIcon(ctx, 'memory', world.W - 36 - placement.right, 6);
+  outText(ctx, 'x' + mem, world.W - 23 - placement.right, 15, '#ffd66a');
 
   // The same active clock is saved locally and submitted to D1.
   const elapsedMs = world.getLevelElapsedMs();
@@ -107,7 +142,7 @@ export function drawHUD(ctx, world) {
 
   // "clear the zone" objectives (only on levels with an exit)
   if (world.exitRect && (world.enemiesTotal > 0 || world.lanternsTotal > 0)) {
-    const rw = 102, rx = world.W - rw - 6, ry = 20;
+    const rw = 102, rx = world.W - rw - 6 - placement.right, ry = placement.objectivesY;
     const done = world.cleared;
     ctx.fillStyle = 'rgba(4,8,18,0.92)';
     ctx.fillRect(rx, ry, rw, 30);

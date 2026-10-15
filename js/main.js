@@ -138,7 +138,7 @@ Controls.subscribe(({ mode }) => {
   const hint = document.getElementById('game-control-hint');
   if (hint) hint.textContent = mode === 'gamepad'
     ? 'Stick / cruceta: mover · ' + Controls.getHint('jump') + ': saltar · ' + Controls.getHint('attack') + ': atacar · ' + Controls.getHint('dodge') + ': esquivar · ' + Controls.getHint('interact') + ': usar · ' + Controls.getHint('pause') + ': pausa'
-    : mode === 'touch' ? 'Joystick: mover · Arriba: saltar · botones de acción a la derecha'
+    : mode === 'touch' ? 'Cruceta o stick: mover · ×: saltar · □: atacar · △: usar · START: pausa'
       : 'A/D o flechas: mover · W/↑: saltar · J: atacar · E: usar · G: emotes · Esc: pausa';
   const victoryHint = document.getElementById('victory-pad-hint');
   if (victoryHint) {
@@ -295,6 +295,7 @@ function syncDeathPresentation() {
 
 function draw() {
   document.getElementById('app').classList.toggle('choosing', appState === 'game' && game.dialogue.isChoice);
+  document.getElementById('app').classList.toggle('dialoguing', appState === 'game' && game.dialogue.active);
   ctx.setTransform(renderScale, 0, 0, renderScale, 0, 0);
   ctx.imageSmoothingEnabled = false;
   ctx.textBaseline = 'middle';
