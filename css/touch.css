@@ -91,194 +91,156 @@
 .touch-mode .panel .menu-nav button { padding: 8px 0; font-size: 14px; }
 .touch-mode .back { margin-top: 12px; padding: 8px 0; }
 
+/* PSP-inspired controls live at the edges; only their hit areas receive input. */
+#touch-layer {
+  --tc-edge-left: max(16px, calc(env(safe-area-inset-left) + 8px));
+  --tc-edge-right: max(16px, calc(env(safe-area-inset-right) + 8px));
+  --tc-bottom: max(14px, calc(env(safe-area-inset-bottom) + 8px));
+  --tc-face: 54px;
+  --tc-step: 51px;
+  --tc-diamond: calc(var(--tc-step) * 2 + var(--tc-face));
+  --tc-outline: rgba(224, 232, 240, .62);
+}
 .tc-btn {
   position: absolute;
   display: flex;
+  flex-direction: column;
+  gap: 2px;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  background: linear-gradient(145deg, rgba(23, 39, 65, .82), rgba(5, 12, 25, .70));
-  border: 2px solid rgba(131, 177, 220, 0.55);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 2px 0 rgba(0,0,0,.2);
-  color: var(--c-ink, #e8f4ff);
-  font-family: "Courier New", monospace;
-  font-weight: 700;
-  letter-spacing: .5px;
+  background: rgba(8, 12, 20, .23);
+  border: 2px solid var(--tc-outline);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .35), 0 1px 3px rgba(0, 0, 0, .25);
+  color: #edf2f7;
+  text-shadow: 0 1px 2px #000;
+  font-family: Arial, sans-serif;
+  font-weight: 600;
   padding: 0;
   line-height: 1;
   touch-action: none;
   pointer-events: auto;
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.06s, border-color 0.1s, background 0.1s;
+  transition: background .08s, border-color .08s;
 }
-.tc-btn.active {
-  border-color: var(--c-gold, #f4c542);
-  background: rgba(244, 197, 66, 0.22);
-  transform: scale(0.92);
-}
+.tc-symbol { font-family: Arial, sans-serif; font-size: 28px; line-height: .9; pointer-events: none; }
+.tc-caption { font-family: Arial, sans-serif; font-size: 8px; letter-spacing: .2px; line-height: 1; pointer-events: none; }
+.tc-btn.active { border-color: #fff; background: rgba(188, 218, 240, .28); }
+.tc-btn:focus-visible { outline: 2px solid #efc56f; outline-offset: 3px; }
 
-/* ---- thumb joystick, bottom-left ---- */
+/* The movement group's box describes the lower control. Dialogue measures it;
+   the upper D-pad deliberately sits outside that box, along the screen edge. */
 .tc-movement {
   position: absolute;
-  left: max(18px, calc(env(safe-area-inset-left) + 12px));
-  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
+  left: var(--tc-edge-left);
+  bottom: var(--tc-bottom);
   width: 132px;
-  height: 132px;
+  height: 104px;
   pointer-events: none;
 }
 .tc-joystick {
-  width: 132px;
-  height: 132px;
-  border: 2px solid rgba(121, 165, 211, .45);
+  position: absolute;
+  bottom: 0;
+  left: 14px;
+  width: 104px;
+  height: 104px;
+  border: 2px solid var(--tc-outline);
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(14, 26, 45, .72) 0 34%, rgba(27, 47, 72, .30) 35% 69%, rgba(8, 15, 29, .45) 70%);
-  box-shadow: inset 0 0 0 8px rgba(140, 181, 219, .06);
+  background: rgba(8, 12, 20, .18);
+  box-shadow: inset 0 0 0 8px rgba(214, 223, 233, .06);
   pointer-events: auto;
   touch-action: none;
 }
-.tc-joystick.active { border-color: rgba(244,197,66,.70); }
+.tc-joystick.active { border-color: #fff; }
 .tc-stick-thumb {
   --stick-x: 0px;
   --stick-y: 0px;
   position: absolute;
-  width: 54px;
-  height: 54px;
-  left: 39px;
-  top: 39px;
-  display: grid;
-  place-items: center;
+  width: 50px;
+  height: 50px;
+  left: 25px;
+  top: 25px;
   border-radius: 50%;
-  border: 2px solid rgba(156,195,233,.72);
-  color: rgba(215,235,254,.8);
-  font-size: 24px;
-  background: radial-gradient(circle at 34% 25%, rgba(74,109,151,.88), rgba(20,37,62,.90) 80%);
-  box-shadow: 0 3px 0 rgba(0,0,0,.25);
+  border: 2px solid rgba(235, 241, 248, .68);
+  background: radial-gradient(circle, rgba(220, 230, 238, .22) 1px, transparent 1.5px) 0 0 / 4px 4px, rgba(10, 15, 23, .35);
+  box-shadow: 0 1px 3px #0006;
   transform: translate(var(--stick-x), var(--stick-y));
   pointer-events: none;
 }
-.tc-joystick.active .tc-stick-thumb { border-color: var(--c-gold, #f4c542); }
-.tc-stick-guide { position: absolute; color: rgba(183,210,237,.55); font-size: 10px; pointer-events: none; }
-.tc-stick-up { top: 8px; left: 35px; width: 62px; text-align: center; font-size: 9px; letter-spacing: .5px; }
-.tc-stick-down { bottom: 8px; left: 59px; }
-.tc-stick-left { left: 10px; top: 57px; }
-.tc-stick-right { right: 10px; top: 57px; }
+.tc-joystick.active .tc-stick-thumb { border-color: white; }
+.tc-stick-guide { position: absolute; color: rgba(220, 231, 241, .65); font: 9px Arial, sans-serif; pointer-events: none; }
+.tc-stick-up { top: 4px; left: 45px; }
+.tc-stick-down { bottom: 4px; left: 45px; }
+.tc-stick-left { left: 5px; top: 44px; }
+.tc-stick-right { right: 5px; top: 44px; }
 
-/* ---- optional classic D-pad ---- */
-.tc-dpad { position: absolute; inset: 0; display: none; pointer-events: none; }
-#touch-layer[data-mode="dpad"] .tc-joystick { display: none; }
-#touch-layer[data-mode="dpad"] .tc-dpad { display: block; }
-.tc-dpad .tc-btn { width: 44px; height: 44px; font-size: 18px; }
-.tc-d-up    { left: 44px; top: 0; }
-.tc-d-down  { left: 44px; top: 88px; }
-.tc-d-left  { left: 0; top: 44px; }
-.tc-d-right { left: 88px; top: 44px; }
+.tc-dpad { position: absolute; left: 0; bottom: calc(100% + 10px); width: 132px; height: 132px; pointer-events: none; }
+.tc-dpad::after { content: ''; position: absolute; left: 49px; top: 49px; width: 34px; height: 34px; border: 1px solid rgba(220, 231, 241, .12); transform: rotate(45deg); }
+.tc-dpad .tc-btn { width: 44px; height: 44px; border-radius: 5px; background: rgba(8, 12, 20, .18); }
+.tc-dpad .tc-btn.active { border-color: white; background: rgba(188, 218, 240, .28); }
+.tc-dpad .tc-symbol { font-size: 25px; }
+.tc-d-up { left: 44px; top: 0; border-bottom-color: rgba(224, 232, 240, .22); }
+.tc-d-down { left: 44px; top: 88px; border-top-color: rgba(224, 232, 240, .22); }
+.tc-d-left { left: 0; top: 44px; border-right-color: rgba(224, 232, 240, .22); }
+.tc-d-right { left: 88px; top: 44px; border-left-color: rgba(224, 232, 240, .22); }
+#touch-layer[data-mode="dpad"] .tc-movement { height: 132px; }
+#touch-layer[data-mode="dpad"] .tc-dpad { bottom: 0; }
+#touch-layer[data-mode="dpad"] .tc-joystick { bottom: calc(100% + 10px); }
 
-/* Three frequent actions sit in a short thumb arc. Jump lives on Up in
-   the movement control, leaving room for larger, comfortable action targets. */
-.tc-actions {
-  position: absolute;
-  right: max(16px, calc(env(safe-area-inset-right) + 10px));
-  bottom: max(16px, calc(env(safe-area-inset-bottom) + 10px));
-  width: 168px;
-  height: 142px;
-  pointer-events: none;
-}
-.tc-actions .tc-btn { font-size: 11px; }
-.tc-a-atk { left: 94px; top: 70px; width: 70px; height: 70px; border-color: rgba(241,126,101,.80); }
-.tc-a-dodge { left: 20px; top: 80px; width: 60px; height: 60px; }
-.tc-a-interact { left: 28px; top: 10px; width: 58px; height: 58px; border-color: rgba(77,202,186,.72); }
-.tc-a-more { left: 108px; top: 12px; width: 44px; height: 44px; font-size: 10px; color: var(--c-dim, #9fb2cc); border-style: dashed; }
-.tc-a-more.expanded { color: var(--c-gold, #f4c542); border-color: var(--c-gold, #f4c542); }
-.tc-secondary {
-  position: absolute;
-  left: -20px;
-  bottom: 148px;
-  width: 188px;
-  display: flex;
-  gap: 4px;
-  padding: 4px 0;
-  pointer-events: none;
-}
-.tc-secondary[hidden] { display: none; }
-.tc-secondary { flex-wrap: wrap; }
-.tc-secondary .tc-btn { position: static; flex: 0 0 44px; width: 44px; height: 44px; font-size: 10px; }
-.tc-s-parry { border-color: rgba(244,197,66,.78); }
-.tc-pause {
-  top: max(8px, calc(env(safe-area-inset-top) + 4px));
-  left: var(--touch-pause-left, 64%);
-  width: 44px;
-  height: 44px;
-  font-size: 18px;
-  border-color: rgba(159,178,204,.55);
-}
+.tc-actions { position: absolute; right: var(--tc-edge-right); bottom: var(--tc-bottom); width: var(--tc-diamond); height: var(--tc-diamond); pointer-events: none; }
+.tc-actions .tc-btn { width: var(--tc-face); height: var(--tc-face); }
+.tc-a-interact { left: var(--tc-step); top: 0; }
+.tc-a-dodge { left: calc(var(--tc-step) * 2); top: var(--tc-step); }
+.tc-a-jump { left: var(--tc-step); top: calc(var(--tc-step) * 2); }
+.tc-a-atk { left: 0; top: var(--tc-step); }
+.tc-a-jump .tc-symbol { font-size: 34px; }
 
-/* Choices hide the HUD. Keep pause beside the centred choice panel, so a
-   long prompt can use the upper part of a small phone without covering it. */
-.touch-mode.choosing .tc-pause {
-  left: auto;
-  right: var(--touch-pause-right, 8px);
-}
+.tc-shoulder { top: max(8px, env(safe-area-inset-top)); width: 104px; height: 44px; flex-direction: row; gap: 10px; border-radius: 20px 5px 5px 5px; }
+.tc-shoulder .tc-symbol { font-size: 21px; }
+.tc-shoulder .tc-caption { font-size: 9px; }
+.tc-s-parry { left: var(--tc-edge-left); }
+.tc-s-throw { right: var(--tc-edge-right); border-radius: 5px 20px 5px 5px; }
+.tc-system { position: absolute; left: 50%; bottom: var(--tc-bottom); display: flex; gap: 8px; transform: translateX(-50%); pointer-events: none; }
+.tc-system .tc-btn { position: relative; width: 68px; height: 44px; border-radius: 5px; }
+.tc-system .tc-symbol { font-size: 11px; letter-spacing: .5px; }
+.tc-system .tc-caption { font-size: 8px; }
+.tc-system .tc-s-emote { width: 52px; border-color: rgba(224, 232, 240, .42); }
+.tc-system .tc-s-emote .tc-symbol { font-size: 9px; }
 
+/* Existing left-hand and movement preferences remain valid. */
+#touch-layer[data-layout="left"] .tc-movement { left: auto; right: var(--tc-edge-right); }
+#touch-layer[data-layout="left"] .tc-actions { right: auto; left: var(--tc-edge-left); }
+/* Dialogue needs the upper part of the screen. The lower directional control
+   and face buttons remain available for reading and choosing an ending. */
+.touch-mode.dialoguing #touch-layer[data-mode="joystick"] .tc-dpad,
+.touch-mode.dialoguing #touch-layer[data-mode="dpad"] .tc-joystick,
+.touch-mode.dialoguing .tc-shoulder { visibility: hidden; }
 .touch-mode #toast-layer { top: 50%; bottom: auto; max-width: calc(100% - 24px); }
-
-/* Mirror the control groups without mirroring text or moving the pause button. */
-#touch-layer[data-layout="left"] .tc-movement { left: auto; right: max(18px, calc(env(safe-area-inset-right) + 12px)); }
-#touch-layer[data-layout="left"] .tc-actions { right: auto; left: max(16px, calc(env(safe-area-inset-left) + 10px)); }
-#touch-layer[data-layout="left"] .tc-a-atk { left: 4px; }
-#touch-layer[data-layout="left"] .tc-a-dodge { left: 88px; }
-#touch-layer[data-layout="left"] .tc-a-interact { left: 82px; }
-#touch-layer[data-layout="left"] .tc-a-more { left: 16px; }
-#touch-layer[data-layout="left"] .tc-secondary { left: 0; flex-direction: row-reverse; }
 .tc-options { border-top: 1px solid #1c2a48; margin-top: 12px; padding-top: 12px; }
 .tc-options h3 { color: var(--c-gold, #f4c542); font-size: 12px; letter-spacing: 2px; }
 .tc-options .opt-row { grid-template-columns: 1fr minmax(130px, 1fr); }
 .tc-options select { min-height: 40px; min-width: 0; }
 .tc-options p { color: var(--c-dim, #9fb2cc); font-size: 11px; line-height: 1.5; margin: 8px 0; }
 
-@media (max-height: 360px) and (orientation: landscape) {
-  /* Keep hit areas at 44px or larger instead of scaling buttons below that
-     size on the phones where precision is already hardest. */
-  .tc-movement,
-  .tc-actions { bottom: max(10px, calc(env(safe-area-inset-bottom) + 6px)); }
-  .tc-secondary { bottom: 142px; }
+@media (max-width: 620px) {
+  #touch-layer { --tc-edge-left: max(8px, env(safe-area-inset-left)); --tc-edge-right: max(8px, env(safe-area-inset-right)); --tc-face: 48px; --tc-step: 46px; }
+  .tc-system { gap: 6px; }
+  .tc-system .tc-btn { width: 58px; }
+  .tc-system .tc-s-emote { width: 44px; }
 }
 
-/* ---- landscape-only nudge ---- */
-#rotate-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 90;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 14px;
-  background: #05070f;
-  color: var(--c-ink, #e8f4ff);
-  text-align: center;
-  font-family: "Courier New", monospace;
-}
-#rotate-overlay .ro-icon {
-  font-size: 44px;
-  color: var(--c-gold, #f4c542);
-  animation: ro-spin 1.8s ease-in-out infinite;
-}
-#rotate-overlay span { color: var(--c-dim, #9fb2cc); font-size: 12px; }
-@keyframes ro-spin {
-  0%, 100% { transform: rotate(0deg); }
-  50% { transform: rotate(-90deg); }
-}
+/* Portrait remains playable. Put utility keys on a separate bottom row so
+   their 44px touch areas never collide with the stick or action diamond. */
+#rotate-overlay { display: none; pointer-events: none; }
 @media (orientation: portrait) {
+  #touch-layer { --tc-bottom: max(72px, calc(env(safe-area-inset-bottom) + 66px)); }
+  .tc-system { bottom: max(12px, calc(env(safe-area-inset-bottom) + 6px)); }
   .touch-mode .title { display: block; font-size: clamp(36px, 10vw, 52px); line-height: .98; letter-spacing: 3px; }
   .touch-mode .title br { display: initial; }
   .touch-mode #screen-menu .menu-nav { margin-top: 18px; gap: 3px; }
   .touch-mode #screen-menu .menu-nav button { min-height: 44px; padding: 8px 12px; font-size: 16px; }
-  .touch-mode.playing #rotate-overlay { display: flex; }
-  .touch-mode.playing:not(.paused) #touch-layer { display: none; }
 }
 
-/* touch devices: give the canvas room, drop the keyboard hint text */
+/* Touch devices use their own controls and hide the keyboard-only hint. */
 .touch-mode #boot-hint { display: none; }
-@media (pointer: coarse), (hover: none) {
-  .touch-mode .hint { display: none; }
-}
+@media (pointer: coarse), (hover: none) { .touch-mode .hint { display: none; } }
