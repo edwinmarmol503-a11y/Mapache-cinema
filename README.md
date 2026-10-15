@@ -16,7 +16,7 @@ hasta **El Farolero**, que lo estaba guardando todo.
 
 Juego publicado: https://edwinmarmol503-a11y.github.io/Mapache-cinema/
 
-**Versión local 6.0.2:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
+**Versión local 8.0.0:** abre `INICIAR-JUEGO.cmd` y entra en `http://127.0.0.1:4174`.
 La copia descargada consulta la misma clasificación mundial. Necesita Node.js;
 el lanzador también reconoce el Node incluido
 en este equipo con Codex. No necesita WampServer, PHP ni MySQL.
@@ -89,7 +89,7 @@ Selecciona **Recuerdos** con Q/R y pulsa E: cada **3 recuerdos recuperan un
 corazón**. Se acumulan entre niveles y se guardan; con vida completa no se gastan.
 Los cuatro emotes son acostarse, voltereta, saludo a cámara y baile. Son visuales:
 no dan invulnerabilidad y se interrumpen al moverse, atacar o recibir daño.
-En mando se usa L3 (editable); en celular, MÁS → GESTO.
+En mando se usa L3 (editable); en celular, GESTO.
 
 **Parada (L):** justo antes de recibir un golpe (Sombra, Cuervo, Devorador,
 Guardián, proyectil o el jefe), pulsa `L`. Si aciertas: no recibes daño, el mundo
@@ -166,8 +166,8 @@ baja antes, lanza patrones más densos y mantiene más enemigos a la vez.
 |------|---------|
 | **Fácil** | Mitad de enemigos, +vida y +daño para ti (4 corazones), muchos más objetos. |
 | **Normal** | La experiencia por defecto. |
-| **Difícil** | Más enemigos, +1 vida y ~×1.35 velocidad, jefe más resistente. |
-| **Pesadilla** | Como Difícil + `J` y pisar **no hacen daño**: solo la PARADA (aquí **ilimitada**, ∞ en el HUD) y la esquiva. 2 corazones. |
+| **Difícil** | Más enemigos, +1 vida y ~×1.51 velocidad, jefe más resistente. |
+| **Pesadilla** | Como Difícil + `J` y pisar **no hacen daño**: solo la PARADA (aquí **ilimitada**, ∞ en el HUD) y la esquiva. 5 corazones; el contacto enemigo los quita todos. |
 
 **NIVELES** abre un selector: pestañas de dificultad + 5 tarjetas. En cada dificultad,
 el nivel *N* se desbloquea al superar el *N-1* de esa misma dificultad (el progreso
@@ -196,7 +196,7 @@ MC.Save.clear()
 
 ## Arte, música y reaparición
 
-Todo el arte es procedural (formas dibujadas en canvas). La versión 6.0.2 mejora
+Todo el arte es procedural (formas dibujadas en canvas). La versión 8.0.0 mejora
 la definición de Riko, las caras y armaduras de los enemigos y el aleteo del cuervo.
 Los cinco fondos incorporan más detalle: fachadas, pinos, tuberías, neones anclados
 y vitrales, conservando Noche original, Noche clara y Día. Para sustituirlo por
@@ -274,12 +274,14 @@ partida. `migrations/0001_ranking.sql` es la versión del emulador de desarrollo
 
 ## Controles móviles y ambientes
 
-Joystick con zona muerta, histéresis y movimientos diagonales. Empujar hacia
-arriba salta; volver al centro y subir de nuevo hace el doble salto. No hay
-botón SALTO adicional. ATQ, ESQ y USAR forman un arco cómodo a la derecha;
-MÁS abre BLOQ, LANZA, GESTO y cambio de objeto. Hacia abajo permite bajar plataformas;
-la dirección también orienta la parada. Opciones permite cruceta clásica o
-acciones a la izquierda para zurdos. Los botones de acción avanzan los textos
+Controles translúcidos inspirados en un mando portátil: cruceta y stick a la
+izquierda, cuatro botones en rombo a la derecha y L/R en las esquinas superiores.
+El stick tiene zona muerta, histéresis y movimientos diagonales; no activa el salto.
+× salta (soltar y volver a pulsar permite el doble salto), □ ataca, ○ esquiva y
+△ usa el objeto. L hace una parada, R lanza, SELECT cambia el objeto y START pausa.
+Hacia abajo permite bajar plataformas; la dirección también orienta la parada.
+Opciones permite intercambiar cruceta/stick y colocar las acciones a la izquierda
+para zurdos. Los botones de acción avanzan los textos
 con una pulsación nueva; mantener un botón no descarta toda la conversación.
 Pausar, cancelar un toque o cambiar de pestaña libera los controles.
 
@@ -295,7 +297,7 @@ recargar. El cronómetro superior indica si la partida es ONLINE o LOCAL.
 
 ## Verificación
 
-La versión 6.0.2 incorpora Monocraft local, menú a la derecha con ráfagas breves de glitch cada 1,4–3,2 segundos,
+La versión 8.0.0 incorpora Monocraft local, menú a la derecha con ráfagas breves de glitch cada 1,4–3,2 segundos,
 tres escenas finales, recuerdos para curarse, cuatro emotes, barra del jefe abajo
 y clasificación por tiempo activo con categoría de ayuda. Conserva los botones
 de mando editables, la lista musical en orden y las barreras obligatorias de los
@@ -368,6 +370,14 @@ Referencias: [Gamepad API](https://developer.mozilla.org/en-US/docs/Web/API/Game
 y [mandos en aplicaciones Samsung Tizen](https://developer.samsung.com/smarttv/develop/guides/user-interaction/gamepad.html).
 Estas referencias no confirman la compatibilidad del modelo de televisor del evento.
 
-El arco de controles táctiles sigue la disposición del ejemplo oficial de
-[plataformas 2D de Microsoft](https://learn.microsoft.com/en-us/gaming/gdk/docs/features/common/game-streaming/building-touch-layouts/samples/game-streaming-touch-tak-sample-platformer?view=gdk-2604),
-adaptado al salto con joystick solicitado para este juego.
+La disposición táctil 8.0.0 sigue la referencia de mando portátil aportada para
+el proyecto. El salto tiene su propio botón y no se dispara al apuntar hacia arriba.
+
+## Actualización 8.0.0
+
+La app Android vuelve al juego JavaScript con Capacitor y conserva la identidad
+y firma de la APK original 6.0.2. La versión Python/Kivy sigue disponible por separado.
+La velocidad de enemigos aumenta aproximadamente un 12 % en todas las zonas
+(17 % en Pesadilla), manteniendo los corazones, objetos y ayudas de cada dificultad.
+El Farolero invoca refuerzos desde la fase 1 y cuenta solo enemigos de la arena
+o invocados por él. Las invocaciones respetan el espacio de Riko, suelo y paredes.

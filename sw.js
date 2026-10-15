@@ -3,8 +3,8 @@
    works offline and qualifies as an installable PWA. Bump
    CACHE_NAME whenever shipped files change to force a refresh.
    ============================================================ */
-const RELEASE_VERSION = '6.0.2';
-const CACHE_NAME = 'mapache-cinema-v6.0.2-nightmare-final';
+const RELEASE_VERSION = '8.0.0';
+const CACHE_NAME = 'mapache-cinema-v8.0.0-console-controls';
 // GitHub web uploads may retain the three soundtrack batch directories.
 // Both layouts stay inside this game's scope and use the same lazy cache.
 const AUDIO_DIRECTORIES = [
