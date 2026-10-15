@@ -36,41 +36,75 @@ test('joystick dead zone, cardinal directions, diagonals and invalid positions',
   assert.deepEqual(joystickActions(0.15, -0.08), []);
   assert.deepEqual(joystickActions(-1, 0), ['left']);
   assert.deepEqual(joystickActions(1, 0), ['right']);
-  assert.deepEqual(joystickActions(0, -1), ['up', 'jump']);
+  assert.deepEqual(joystickActions(0, -1), ['up']);
   assert.deepEqual(joystickActions(0, 1), ['down']);
-  assert.deepEqual(joystickActions(0.7, -0.7), ['right', 'up', 'jump']);
+  assert.deepEqual(joystickActions(0.7, -0.7), ['right', 'up']);
   assert.deepEqual(joystickActions(-0.7, 0.7), ['left', 'down']);
   assert.deepEqual(joystickActions(NaN, 1), []);
   assert.deepEqual(joystickActions(1, Infinity), []);
   assert.equal(isTouchDevice, false, 'desktop keeps its keyboard layout');
 });
 
-test('one thumb moves and jumps diagonally while the other attacks independently', () => {
+test('direction, jump and attack have independent touch owners', () => {
   Input.setVirtualActions('stick', joystickActions(0.7, -0.7));
+  assert.equal(Input.down('jump'), false, 'moving the stick up never jumps');
+  Input.setVirtualActions('jump-finger', ['jump']);
   Input.setVirtualActions('attack-finger', ['attack']);
   assert.equal(Input.down('right'), true);
   assert.equal(Input.justPressed('jump'), true);
   assert.equal(Input.justPressed('attack'), true);
   Input.clearFrame();
   Input.setVirtualActions('stick', joystickActions(1, 0));
+  assert.equal(Input.down('jump'), true, 'changing direction cannot release the jump button');
+  Input.releaseVirtual('jump-finger');
   assert.equal(Input.down('jump'), false);
   assert.equal(Input.justReleased('jump'), true);
   assert.equal(Input.down('right'), true);
   assert.equal(Input.down('attack'), true);
 });
 
-test('thumb hysteresis prevents accidental repeated jumps and neutral allows a deliberate double jump', () => {
+test('thumb hysteresis preserves aim without generating a jump at any threshold', () => {
   let actions = joystickActions(0.5, -0.6);
-  Input.setVirtualActions('stick', actions); assert.equal(Input.justPressed('jump'), true);
+  Input.setVirtualActions('stick', actions); assert.equal(Input.justPressed('up'), true);
+  assert.equal(Input.justPressed('jump'), false);
   Input.clearFrame();
   actions = joystickActions(0.5, -0.25, actions);
   Input.setVirtualActions('stick', actions);
-  assert.equal(Input.down('jump'), true); assert.equal(Input.justPressed('jump'), false);
+  assert.equal(Input.down('up'), true); assert.equal(Input.justPressed('up'), false);
+  assert.equal(Input.down('jump'), false);
   actions = joystickActions(0.5, -0.19, actions);
-  Input.setVirtualActions('stick', actions); assert.equal(Input.justReleased('jump'), true);
+  Input.setVirtualActions('stick', actions); assert.equal(Input.justReleased('up'), true);
   Input.clearFrame();
   actions = joystickActions(0.5, -0.6, actions);
-  Input.setVirtualActions('stick', actions); assert.equal(Input.justPressed('jump'), true);
+  Input.setVirtualActions('stick', actions); assert.equal(Input.justPressed('up'), true);
+  assert.equal(Input.justPressed('jump'), false);
+});
+
+test('a second press of the cross button creates a deliberate double-jump edge', () => {
+  Input.setVirtualActions('stick', ['right', 'up']);
+  Input.setVirtualActions('cross', ['jump']);
+  assert.equal(Input.justPressed('jump'), true);
+  Input.clearFrame();
+  Input.setVirtualActions('cross', ['jump']);
+  assert.equal(Input.justPressed('jump'), false, 'holding cross cannot repeat jump');
+  Input.releaseVirtual('cross');
+  Input.clearFrame();
+  Input.setVirtualActions('cross', ['jump']);
+  assert.equal(Input.justPressed('jump'), true);
+  assert.equal(Input.down('right'), true);
+  assert.equal(Input.down('up'), true);
+});
+
+test('D-pad and stick can hold the same direction without releasing each other', () => {
+  Input.setVirtualActions('stick', joystickActions(-1, 0));
+  Input.setVirtualActions('dpad', ['left']);
+  Input.clearFrame();
+  Input.releaseVirtual('stick');
+  assert.equal(Input.down('left'), true);
+  assert.equal(Input.justReleased('left'), false);
+  Input.releaseVirtual('dpad');
+  assert.equal(Input.justReleased('left'), true);
+  assert.equal(Input.down('jump'), false);
 });
 
 test('W and ArrowUp jump by default; a one-time legacy migration preserves custom keys', () => {
@@ -89,7 +123,7 @@ test('W and ArrowUp jump by default; a one-time legacy migration preserves custo
 });
 
 test('fresh actions advance dialogue once while directions navigate choices without confirming', () => {
-  for (const action of ['attack', 'dodge', 'interact', 'parry', 'throw', 'cycleL', 'cycleR', 'confirm', 'cancel']) {
+  for (const action of ['jump', 'attack', 'dodge', 'interact', 'parry', 'throw', 'cycleL', 'cycleR', 'confirm', 'cancel']) {
     Input.setVirtualActions('button', [action]);
     assert.equal(Input.advanceDialoguePressed(), true, action);
     assert.equal(Input.advanceDialoguePressed(true), true, action + ' chooses');

@@ -11,7 +11,7 @@ const { chromium } = await import(path.isAbsolute(modulePath) ? pathToFileURL(mo
 const root = path.resolve('.');
 const output = path.join(root, 'test-results/cache-upgrade');
 const scopePath = '/Mapache-cinema/';
-const version = '6.0.2';
+const version = '8.0.0';
 const styles = ['style', 'menu', 'game', 'ui', 'touch', 'controller-settings', 'death', 'typography', 'endings'];
 const legacyCache = 'mapache-cinema-v3.1.0-stale-review';
 const staleMarker = 'QA_STALE_MENU_WITH_REMOVED_SCALE';
@@ -173,7 +173,7 @@ try {
   assert.equal(await workerVersion(fresh.page), version);
   await assertPersisted(fresh.page, 'fresh installation');
   assert.equal(fresh.scenario.navigations, 1, 'first installation claims without reloading the page');
-  check('Fresh browser installs, activates and claims v6.0.2 before starting the game, without reload.');
+  check('Fresh browser installs, activates and claims v8.0.0 before starting the game, without reload.');
   await fresh.context.close();
 
   servingLegacy = true;
@@ -273,7 +273,7 @@ try {
     assert.equal(served.status, 200, `${module} module loads offline`);
     assert.equal(served.source, await readFile(path.join(root, 'js', module + '.js'), 'utf8'), `${module} loads from the installed build`);
   }
-  check('Installed v6.0.2 starts offline, including versioned bootstrap, fonts, styles and controller modules under the repository subdirectory.');
+  check('Installed v8.0.0 starts offline, including versioned bootstrap, fonts, styles and controller modules under the repository subdirectory.');
   await upgrade.context.close();
 
   const unsupported = await makeContext('Service Worker unsupported fallback', { unsupported: true });

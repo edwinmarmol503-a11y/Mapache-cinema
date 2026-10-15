@@ -68,7 +68,7 @@ test('installation caches the small manifest and game files, never all music tra
   const f = fixture();
   await f.install();
   assert.ok(f.installed.includes('./assets/audio/tracks.json'));
-  assert.ok(f.opened.includes('mapache-cinema-v6.0.2-nightmare-final'));
+  assert.ok(f.opened.includes('mapache-cinema-v8.0.0-console-controls'));
   assert.ok(f.installRequests.every(request => request.cache === 'reload'), 'a new build cannot inherit HTTP-cached modules');
   for (const module of ['gamepad', 'control-mode', 'developer-controls', 'controller-bindings', 'controller-settings', 'display', 'endings', 'emotes', 'ranking-session']) {
     assert.ok(f.installed.includes('./js/' + module + '.js'), module + ' is available offline');
@@ -82,7 +82,7 @@ test('installation caches the small manifest and game files, never all music tra
 
 test('the bootstrap can identify the controlling build before importing game modules', () => {
   const f = fixture();
-  assert.equal(f.message({ type: 'GET_BUILD_VERSION' }).version, '6.0.2');
+  assert.equal(f.message({ type: 'GET_BUILD_VERSION' }).version, '8.0.0');
   assert.equal(f.message({ type: 'unknown' }), undefined);
 });
 
@@ -91,7 +91,7 @@ test('versioned bootstrap and styles reuse their canonical offline entries', asy
   for (const asset of ['js/bootstrap.js', 'css/style.css', 'css/menu.css']) {
     const canonical = new URL(asset, scope).href;
     f.stored.set(canonical, new Response('installed-current-build'));
-    assert.equal(await (await f.dispatch(canonical + '?v=6.0.2').response).text(), 'installed-current-build');
+    assert.equal(await (await f.dispatch(canonical + '?v=8.0.0').response).text(), 'installed-current-build');
   }
   assert.equal(f.requested.length, 0);
 });
